@@ -18,6 +18,8 @@ JNIEXPORT jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeControler_loadFra
 
 void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame);
 
+void throwException(JNIEnv *, char* class, char* value);
+
 #ifdef __cplusplus
 }
 #endif

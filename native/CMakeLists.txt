@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23.2)
+cmake_minimum_required(VERSION 3.22.2)
 project(wolnyjni)
 set(CMAKE_BUILD_TYPE Release)
 find_package(JNI REQUIRED)
@@ -18,4 +18,5 @@ target_link_libraries(wolnyjni PUBLIC
         PkgConfig::AVCODEC
         PkgConfig::AVFORMAT
         PkgConfig::SWSCALE
+        PkgConfig::AVUTIL
         )
