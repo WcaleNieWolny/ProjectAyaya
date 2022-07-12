@@ -189,6 +189,8 @@ JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
     // of AVPicture
     av_image_fill_arrays((*ren_pFrameRGB).data, (*ren_pFrameRGB).linesize, ren_rgb_buffer, AV_PIX_FMT_RGB24, pCodecParm->width, pCodecParm->height, 16);
 
+    ren_initialized = true;
+
     return 0;
 }
 
@@ -198,6 +200,9 @@ JNIEXPORT void JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_destroy
         throwException((JNIEnv *) env, "java/lang/IllegalStateException", "Cannot free non existing memory!");
         return;
     }
+
+    ren_initialized = false;
+
     // Free the RGB image
     av_free(ren_rgb_buffer);
     av_free(ren_pFrameRGB);
