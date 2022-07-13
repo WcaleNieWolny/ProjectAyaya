@@ -17,7 +17,7 @@ extern "C" {
 JNIEXPORT jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeControler_loadFrame
         (JNIEnv *, jobject);
 
-void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame, struct RgbColor* pColor);
+void SaveFrame(AVFrame *pFrame, int width, int height, signed char* buffer);
 
 void throwException(JNIEnv *, char* class, char* value);
 

@@ -9,8 +9,6 @@
 #include <libswscale/swscale.h>
 #include <stdbool.h>
 
-#include "colorlib.h"
-
 typedef signed char signedByte;
 
 //"ren" is global prefix for variables used in the global scope by this JNI library
@@ -34,6 +32,7 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
 (JNIEnv* env, jobject thisObject){
     printf("Hello from native!\n");
     printf("%d\n", col_size());
+    printf("%d, %d\n", ren_pCodecCtx->width, ren_pCodecCtx->height);
 
     if(!ren_initialized){
         throwException((JNIEnv *) env, "java/lang/IllegalStateException", "Native controller is not initialized!");
@@ -45,6 +44,9 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
     bool readFrame = true;
 
     struct RgbColor FirstColor;
+
+    int len = ren_pCodecCtx->width * ren_pCodecCtx->height;
+    signedByte byteArray[len];
 
     while (readFrame) {
         if ((ret = av_read_frame(ren_pFormatCtx, ren_packet)) < 0)
@@ -73,20 +75,16 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
                                 ren_pFrameRGB->data,
                                 ren_pFrameRGB->linesize
                         );
-                SaveFrame(ren_pFrameRGB, ren_pCodecCtx->width, ren_pCodecCtx->height, ret_image_index, &FirstColor);
+                SaveFrame(ren_pFrameRGB, ren_pCodecCtx->width, ren_pCodecCtx->height, byteArray);
                 ret_image_index++;
                 readFrame = false;
             }
         }
     }
 
-    int len = 3;
-    signedByte byteArray[len];
-    byteArray[0] = col_get_mc_index(FirstColor);
-
     jbyteArray jbyteArray = (*env)->NewByteArray(env, len);
 
-    (*env)->SetByteArrayRegion(env, jbyteArray, 0, 3, byteArray);
+    (*env)->SetByteArrayRegion(env, jbyteArray, 0, len, byteArray);
     return jbyteArray;
 }
 
@@ -225,39 +223,31 @@ JNIEXPORT void JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_destroy
     avformat_close_input(&ren_pFormatCtx);
 }
 
-void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame, struct RgbColor* pColor) {
+void SaveFrame(AVFrame *pFrame, int width, int height, signed char* buffer) {
     printf("save\n");
     fflush(stdout);
-    FILE *pFile;
-    char szFilename[32];
-    int  y;
 
-    // Open file
-    sprintf(szFilename, "out/frame%d.ppm", iFrame);
-    pFile=fopen(szFilename, "wb");
-    if(pFile==NULL)
-        return;
-
-    // Write header
-    fprintf(pFile, "P6\n%d %d\n255\n", width, height);
+    int y, i;
 
     // Write pixel data
     for(y=0; y<height; y++){
         unsigned char* pFrameData = pFrame->data[0]+y*pFrame->linesize[0];
 
-        printf("%d\n", pFrameData[0]);
-        printf("%d\n", pFrameData[1]);
-        printf("%d\n", pFrameData[2]);
+        //i = x
+        for(i = 0; i < width; i++){
+            buffer[(y*width)+i] = col_get_mc_index(col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3)] + 2));
+        }
+//        printf("%d\n", pFrameData[0]);
+//        printf("%d\n", pFrameData[1]);
+//        printf("%d\n", pFrameData[2]);
+//
+//        pColor->red = pFrameData[0];
+//        pColor->green = pFrameData[1];
+//        pColor->blue = pFrameData[2];
 
-        pColor->red = pFrameData[0];
-        pColor->green = pFrameData[1];
-        pColor->blue = pFrameData[2];
-
-        fwrite(pFrameData, 1, width*3, pFile);
+        //fwrite(pFrameData, 1, width*3, pFile);
     }
-
-    // Close file
-    fclose(pFile);
+    //return pixelOutputArray;
     //exit(1); //Note: Who put that there?
 }
 

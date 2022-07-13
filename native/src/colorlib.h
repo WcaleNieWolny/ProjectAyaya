@@ -11,7 +11,7 @@ struct RgbColor{
     unsigned char blue;
 };
 
-static const struct RgbColor col_getColor(unsigned char red, unsigned char green, unsigned char blue);
+const struct RgbColor col_getColor(unsigned char red, unsigned char green, unsigned char blue);
 
 static double col_distance(struct RgbColor c1, struct RgbColor c2);
 

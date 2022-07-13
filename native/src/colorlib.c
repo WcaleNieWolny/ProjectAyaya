@@ -9,7 +9,7 @@ const struct RgbColor COL_PRIV_MC_COLORS[] = {
 };
 
 //Note: "col" stands for color
-static const struct RgbColor col_getColor(unsigned char red, unsigned char green, unsigned char blue){
+const struct RgbColor col_getColor(unsigned char red, unsigned char green, unsigned char blue){
     struct RgbColor color;
 
     color.red = red;
