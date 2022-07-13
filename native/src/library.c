@@ -205,6 +205,8 @@ JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
     ren_width = pCodecParm->width;
     ren_height = pCodecParm->height;
 
+    col_generate_cache();
+
     return 0;
 }
 
@@ -253,10 +255,11 @@ void SaveFrame(AVFrame *pFrame, int width, int height, signed char* buffer) {
     for(y=0; y<height; y++){
         unsigned char* pFrameData = pFrame->data[0]+y*pFrame->linesize[0];
 
-        printf("Data size: %u", sizeof(pFrameData)/sizeof(*pFrameData));
         //i = x
         for(i = 0; i < width; i++){
-            buffer[(y*width)+i] = col_get_mc_index(col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3) + 2]));
+            struct RgbColor rgbColor = col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3) + 2]);
+            //buffer[(y*width)+i] = col_get_mc_index(col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3) + 2]));
+            buffer[(y*width)+i] = col_get_cached_index(&rgbColor);
         }
 //        printf("%d\n", pFrameData[0]);
 //        printf("%d\n", pFrameData[1]);
