@@ -8,6 +8,9 @@ fun main(args: Array<String>) {
 
     if (byteArray != null) {
         println(byteArray.size)
+        println(byteArray.contentToString())
+    }else{
+        println("!!! NULL")
     }
 
     println(":)")

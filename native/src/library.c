@@ -9,6 +9,8 @@
 #include <libswscale/swscale.h>
 #include <stdbool.h>
 
+#include "colorlib.h"
+
 typedef signed char signedByte;
 
 //"ren" is global prefix for variables used in the global scope by this JNI library
@@ -30,7 +32,8 @@ const char ren_test_finalFileName[] = "/home/wolny/Downloads/test.mp4";
 
 jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
 (JNIEnv* env, jobject thisObject){
-    printf("Hello from native!");
+    printf("Hello from native!\n");
+    printf("%d\n", col_size());
 
     if(!ren_initialized){
         throwException((JNIEnv *) env, "java/lang/IllegalStateException", "Native controller is not initialized!");
@@ -40,6 +43,8 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
     // Read frames and save first five frames to disk
     int ret;
     bool readFrame = true;
+
+    struct RgbColor FirstColor;
 
     while (readFrame) {
         if ((ret = av_read_frame(ren_pFormatCtx, ren_packet)) < 0)
@@ -68,7 +73,7 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
                                 ren_pFrameRGB->data,
                                 ren_pFrameRGB->linesize
                         );
-                SaveFrame(ren_pFrameRGB, ren_pCodecCtx->width, ren_pCodecCtx->height, ret_image_index);
+                SaveFrame(ren_pFrameRGB, ren_pCodecCtx->width, ren_pCodecCtx->height, ret_image_index, &FirstColor);
                 ret_image_index++;
                 readFrame = false;
             }
@@ -77,6 +82,8 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
 
     int len = 3;
     signedByte byteArray[len];
+    byteArray[0] = col_get_mc_index(FirstColor);
+
     jbyteArray jbyteArray = (*env)->NewByteArray(env, len);
 
     (*env)->SetByteArrayRegion(env, jbyteArray, 0, 3, byteArray);
@@ -85,13 +92,14 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
 
 JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
 (JNIEnv *env, jobject thisObject) {
+
     AVCodecParameters *pCodecParm = NULL;
     int numBytes;
     AVDictionary *optionsDict = NULL;
 
     ren_packet = av_packet_alloc();
     if (!ren_packet)
-        exit(1);
+        throwException(env, "java/lang/RuntimeException", "Couldn't allocate packet");
 
     // Open video file
     if (avformat_open_input(&ren_pFormatCtx, ren_test_finalFileName, NULL, NULL) != 0) {
@@ -165,7 +173,6 @@ JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
         return -1;
     }
 
-
     // Determine required ren_rgb_buffer size and allocate ren_rgb_buffer
     numBytes=av_image_get_buffer_size(AV_PIX_FMT_RGB24, pCodecParm->width,
                                       pCodecParm->height, 16);
@@ -218,7 +225,7 @@ JNIEXPORT void JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_destroy
     avformat_close_input(&ren_pFormatCtx);
 }
 
-void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
+void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame, struct RgbColor* pColor) {
     printf("save\n");
     fflush(stdout);
     FILE *pFile;
@@ -242,12 +249,16 @@ void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
         printf("%d\n", pFrameData[1]);
         printf("%d\n", pFrameData[2]);
 
+        pColor->red = pFrameData[0];
+        pColor->green = pFrameData[1];
+        pColor->blue = pFrameData[2];
+
         fwrite(pFrameData, 1, width*3, pFile);
     }
 
     // Close file
     fclose(pFile);
-    exit(1);
+    //exit(1); //Note: Who put that there?
 }
 
 void throwException(JNIEnv *env, char* class, char* value) {

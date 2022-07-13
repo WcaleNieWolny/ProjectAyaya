@@ -4,7 +4,7 @@ set(CMAKE_BUILD_TYPE Release)
 find_package(JNI REQUIRED)
 include_directories(${JNI_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-set(SOURCE_FILES src/library.c)
+set(SOURCE_FILES src/library.c src/colorlib.c src/colorlib.h)
 add_library(wolnyjni SHARED ${SOURCE_FILES})
 
 find_package(PkgConfig REQUIRED)
