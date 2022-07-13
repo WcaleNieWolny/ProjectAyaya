@@ -24,6 +24,9 @@ AVFrame *ren_pFrameRGB = NULL;
 int ret_image_index=0;
 uint8_t *ren_rgb_buffer = NULL;
 
+jint ren_width = 0;
+jint ren_height = 0;
+
 bool ren_initialized = false;
 
 const char ren_test_finalFileName[] = "/home/wolny/Downloads/test.mp4";
@@ -89,18 +92,20 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
 }
 
 JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
-(JNIEnv *env, jobject thisObject) {
+(JNIEnv *env, jobject thisObject, jstring str) {
 
     AVCodecParameters *pCodecParm = NULL;
     int numBytes;
     AVDictionary *optionsDict = NULL;
+
+    const char* fileName = (*env)->GetStringUTFChars(env, str, JNI_FALSE);
 
     ren_packet = av_packet_alloc();
     if (!ren_packet)
         throwException(env, "java/lang/RuntimeException", "Couldn't allocate packet");
 
     // Open video file
-    if (avformat_open_input(&ren_pFormatCtx, ren_test_finalFileName, NULL, NULL) != 0) {
+    if (avformat_open_input(&ren_pFormatCtx, fileName, NULL, NULL) != 0) {
         throwException(env, "java/lang/RuntimeException", "Couldn't open file");
         return -1; // Couldn't open file
     }
@@ -112,7 +117,7 @@ JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
     }
 
     // Dump information about file onto standard error
-    av_dump_format(ren_pFormatCtx, 0, ren_test_finalFileName, 0);
+    av_dump_format(ren_pFormatCtx, 0, fileName, 0);
 
     // Find the first video stream
     ren_videoStream = -1;
@@ -194,7 +199,11 @@ JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
     // of AVPicture
     av_image_fill_arrays((*ren_pFrameRGB).data, (*ren_pFrameRGB).linesize, ren_rgb_buffer, AV_PIX_FMT_RGB24, pCodecParm->width, pCodecParm->height, 16);
 
+    (*env)->ReleaseStringUTFChars(env, str, fileName);
+
     ren_initialized = true;
+    ren_width = pCodecParm->width;
+    ren_height = pCodecParm->height;
 
     return 0;
 }
@@ -223,6 +232,17 @@ JNIEXPORT void JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_destroy
     avformat_close_input(&ren_pFormatCtx);
 }
 
+JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_getWidth
+(JNIEnv *env, jobject thisObject){
+    return ren_width;
+}
+
+
+JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_getHeight
+(JNIEnv *env, jobject thisObject){
+    return ren_height;
+}
+
 void SaveFrame(AVFrame *pFrame, int width, int height, signed char* buffer) {
     printf("save\n");
     fflush(stdout);
@@ -233,9 +253,10 @@ void SaveFrame(AVFrame *pFrame, int width, int height, signed char* buffer) {
     for(y=0; y<height; y++){
         unsigned char* pFrameData = pFrame->data[0]+y*pFrame->linesize[0];
 
+        printf("Data size: %u", sizeof(pFrameData)/sizeof(*pFrameData));
         //i = x
         for(i = 0; i < width; i++){
-            buffer[(y*width)+i] = col_get_mc_index(col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3)] + 2));
+            buffer[(y*width)+i] = col_get_mc_index(col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3) + 2]));
         }
 //        printf("%d\n", pFrameData[0]);
 //        printf("%d\n", pFrameData[1]);

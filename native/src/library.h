@@ -17,6 +17,17 @@ extern "C" {
 JNIEXPORT jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeControler_loadFrame
         (JNIEnv *, jobject);
 
+JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
+        (JNIEnv *, jobject, jstring str);
+
+/*
+ * Class:     me_wcaleniewolny_ayaya_NativeRenderControler
+ * Method:    destroyMemory
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_destroyMemory
+        (JNIEnv *, jobject);
+
 void SaveFrame(AVFrame *pFrame, int width, int height, signed char* buffer);
 
 void throwException(JNIEnv *, char* class, char* value);

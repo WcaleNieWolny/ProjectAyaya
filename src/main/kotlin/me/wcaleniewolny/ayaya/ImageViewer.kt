@@ -8,8 +8,8 @@ import javax.swing.JPanel
 
 class AwtGui(): JFrame() {
 
-    public constructor(byteArray: ByteArray) : this() {
-        add(ImagePanel(byteArray))
+    public constructor(byteArray: ByteArray, width: Int, height: Int) : this() {
+        add(ImagePanel(byteArray, width, height))
         title = "test"
         this.defaultCloseOperation = EXIT_ON_CLOSE;
         isResizable = false;
@@ -19,7 +19,7 @@ class AwtGui(): JFrame() {
     }
 }
 
-class ImagePanel(private val byteArray: ByteArray): JPanel(){
+class ImagePanel(private val byteArray: ByteArray, private val imgWidth: Int, imgHeight: Int): JPanel(){
 
     private fun c(r: Int, g: Int, b: Int): Color {
         return Color(r, g, b)
@@ -279,7 +279,7 @@ class ImagePanel(private val byteArray: ByteArray): JPanel(){
     val indexMap = mutableMapOf<Int, Color>()
 
     init { //AWT Stuff
-        preferredSize = Dimension(1280, 720)
+        preferredSize = Dimension(imgWidth, imgHeight)
         isFocusable = true;
         repaint()
         generateMap()
@@ -295,9 +295,9 @@ class ImagePanel(private val byteArray: ByteArray): JPanel(){
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-        for (x in 0 until 1280){
-            for (y in 0 until 720){
-                val byte = byteArray[(y * 1280)+x]
+        for (x in 0 until imgWidth){ //1280
+            for (y in 0 until height){ //720
+                val byte = byteArray[(y * imgWidth)+x]
                 val finalColor = indexMap[byte.toInt()];
 
                 g.color = finalColor

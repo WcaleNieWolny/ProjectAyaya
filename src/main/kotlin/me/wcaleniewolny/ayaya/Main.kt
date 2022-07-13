@@ -3,7 +3,7 @@ package me.wcaleniewolny.ayaya
 
 fun main(args: Array<String>) {
     val nativeRenderControler = NativeRenderControler()
-    nativeRenderControler.init()
+    nativeRenderControler.init("/home/wolny/Downloads/vid_c.mp4")
 
     val start = System.currentTimeMillis();
     val byteArray = nativeRenderControler.loadFrame()
@@ -16,6 +16,6 @@ fun main(args: Array<String>) {
         println("!!! NULL")
     }
 
-    AwtGui(byteArray)
+    AwtGui(byteArray, nativeRenderControler.width, nativeRenderControler.height)
     println(":)")
 }
