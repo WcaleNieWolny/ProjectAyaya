@@ -26,7 +26,7 @@ signed char col_get_mc_index(struct RgbColor color){
     short index = 0;
     double best = -1.0; //max double value
 
-    for (short i = 4; i < col_size(); i++){
+    for (short i = 3; i < col_size(); ++i){
         struct RgbColor c = COL_PRIV_MC_COLORS[i];
         double d = col_distance(color, c);
 

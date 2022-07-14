@@ -1,5 +1,7 @@
 package me.wcaleniewolny.ayaya
 
+import me.wcaleniewolny.ayaya.frame.FrameSplitter
+
 
 fun main(args: Array<String>) {
     val nativeRenderControler = NativeRenderControler()
@@ -16,6 +18,15 @@ fun main(args: Array<String>) {
         println("!!! NULL")
     }
 
-    AwtGui(byteArray, nativeRenderControler.width, nativeRenderControler.height)
+    val width = nativeRenderControler.width
+    val height = nativeRenderControler.height
+
+
+    val start2 = System.currentTimeMillis();
+    val splittedFrames = FrameSplitter.splitFrames(width, height, byteArray)
+    println("Splitting took: ${System.currentTimeMillis() - start2}")
+
+    FrameAwtGui(splittedFrames, nativeRenderControler.width, nativeRenderControler.height)
+    FullAwtGui(byteArray, width, height)
     println(":)")
 }
