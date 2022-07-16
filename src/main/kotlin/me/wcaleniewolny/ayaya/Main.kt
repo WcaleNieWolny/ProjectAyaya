@@ -21,12 +21,13 @@ fun main(args: Array<String>) {
     val width = nativeRenderControler.width
     val height = nativeRenderControler.height
 
+    val frames = FrameSplitter.initializeFrames(width, height)
 
     val start2 = System.currentTimeMillis();
-    val splittedFrames = FrameSplitter.splitFrames(width, height, byteArray)
+    FrameSplitter.splitFrames(byteArray, frames)
     println("Splitting took: ${System.currentTimeMillis() - start2}")
 
-    FrameAwtGui(splittedFrames, nativeRenderControler.width, nativeRenderControler.height)
+    //FrameAwtGui(frames, nativeRenderControler.width, nativeRenderControler.height)
     FullAwtGui(byteArray, width, height)
     println(":)")
 }

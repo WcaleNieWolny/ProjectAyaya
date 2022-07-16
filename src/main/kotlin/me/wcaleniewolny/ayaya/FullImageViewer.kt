@@ -276,7 +276,7 @@ class FullImagePanel(private val byteArray: ByteArray, private val imgWidth: Int
         c(67, 88, 79)
     )
 
-    val indexMap = mutableMapOf<Int, Color>()
+    private val indexMap = mutableMapOf<Int, Color>()
 
     init { //AWT Stuff
         preferredSize = Dimension(imgWidth, imgHeight)
@@ -301,7 +301,7 @@ class FullImagePanel(private val byteArray: ByteArray, private val imgWidth: Int
                 val finalColor = indexMap[byte.toInt()];
 
                 g.color = finalColor
-                g.drawOval(x, y, 0, 0)
+                g.drawLine(x, y, x, y)
             }
         }
     }
