@@ -1,15 +1,17 @@
 package me.wcaleniewolny.ayaya
 
+import me.wcaleniewolny.ayaya.library.SplittedFrame
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Graphics
 import javax.swing.JFrame
 import javax.swing.JPanel
 
-class FullAwtGui(): JFrame() {
+//Note: This class is not being used at the time, but it is a reference for implementing this in minecraft later
+class FrameAwtGui(): JFrame() {
 
-    public constructor(byteArray: ByteArray, width: Int, height: Int) : this() {
-        add(FullImagePanel(byteArray, width, height))
+    public constructor(frames: List<SplittedFrame>, width: Int, height: Int) : this() {
+        add(FrameImagePanel(frames, width, height))
         title = "test"
         this.defaultCloseOperation = EXIT_ON_CLOSE;
         isResizable = false;
@@ -19,7 +21,7 @@ class FullAwtGui(): JFrame() {
     }
 }
 
-class FullImagePanel(private val byteArray: ByteArray, private val imgWidth: Int, imgHeight: Int): JPanel(){
+class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWidth: Int, imgHeight: Int): JPanel(){
 
     private fun c(r: Int, g: Int, b: Int): Color {
         return Color(r, g, b)
@@ -276,13 +278,14 @@ class FullImagePanel(private val byteArray: ByteArray, private val imgWidth: Int
         c(67, 88, 79)
     )
 
-    private val indexMap = mutableMapOf<Int, Color>()
+    val indexMap = mutableMapOf<Int, Color>()
 
     init { //AWT Stuff
-        preferredSize = Dimension(imgWidth, imgHeight)
+        preferredSize = Dimension(128, 128)
         isFocusable = true;
         repaint()
         generateMap()
+        background = Color.BLACK
     }
 
     private fun generateMap() {
@@ -295,13 +298,15 @@ class FullImagePanel(private val byteArray: ByteArray, private val imgWidth: Int
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-        for (x in 0 until imgWidth){ //1280
-            for (y in 0 until height){ //720
-                val byte = byteArray[(y * imgWidth)+x]
-                val finalColor = indexMap[byte.toInt()];
+        val frame = frames[3];
+
+        for (x in 0 until frame.width) {
+            for (y in 0 until frame.height) {
+                val byte = frame.data[(y * frame.width) + x]
+                val finalColor = indexMap[byte.toInt()]
 
                 g.color = finalColor
-                g.drawLine(x, y, x, y)
+                g.drawLine(frame.startX + x, frame.startY + y, frame.startX + x, frame.startY + y)
             }
         }
     }

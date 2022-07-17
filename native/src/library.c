@@ -31,11 +31,8 @@ bool ren_initialized = false;
 
 const char ren_test_finalFileName[] = "/home/wolny/Downloads/test.mp4";
 
-jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
+jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame
 (JNIEnv* env, jobject thisObject){
-    printf("Hello from native!\n");
-    printf("%d\n", col_size());
-    printf("%d, %d\n", ren_pCodecCtx->width, ren_pCodecCtx->height);
 
     if(!ren_initialized){
         throwException((JNIEnv *) env, "java/lang/IllegalStateException", "Native controller is not initialized!");
@@ -46,17 +43,22 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
     int ret;
     bool readFrame = true;
 
-    struct RgbColor FirstColor;
-
     int len = ren_pCodecCtx->width * ren_pCodecCtx->height;
-    signedByte byteArray[len];
+
+    signedByte* byteArray;
+    byteArray=(signedByte*)malloc(len * sizeof(signedByte));
 
     while (readFrame) {
-        if ((ret = av_read_frame(ren_pFormatCtx, ren_packet)) < 0)
+        if ((ret = av_read_frame(ren_pFormatCtx, ren_packet)) < 0){
+            throwException(env, "me/wcaleniewolny/ayaya/EndOfFileException", "AV cannot read frame");
             break;
+            //NOTE: If there is an another error it is up to the java application to detect this.
+            // It is marked as EndOfFileException as it will be likely the error that happened
+        }
         if (ren_packet->stream_index == ren_videoStream) {
             ret = avcodec_send_packet(ren_pCodecCtx, ren_packet);
             if (ret < 0) {
+                throwException((JNIEnv *) env, "java/lang/RuntimeException", "Error while sending a ren_packet to the decoder");
                 av_log(NULL, AV_LOG_ERROR, "Error while sending a ren_packet to the decoder\n");
                 break;
             }
@@ -64,8 +66,14 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
             while (ret >= 0) {
                 ret = avcodec_receive_frame(ren_pCodecCtx, ren_pFrame);
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                    if(ret != AVERROR(EAGAIN)){
+                        printf("TEST THROW: %s", av_err2str(ret));
+                        fflush(stdout);
+                        throwException(env, "me/wcaleniewolny/ayaya/EndOfFileException", "Video file has no data left");
+                    }
                     break;
                 } else if (ret < 0) {
+                    throwException((JNIEnv *) env, "java/lang/RuntimeException", "Error while receiving a frame from the decoder");
                     av_log(NULL, AV_LOG_ERROR, "Error while receiving a frame from the decoder\n");
                 }
                 sws_scale
@@ -88,10 +96,11 @@ jbyteArray JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_loadFrame
     jbyteArray jbyteArray = (*env)->NewByteArray(env, len);
 
     (*env)->SetByteArrayRegion(env, jbyteArray, 0, len, byteArray);
+    free(byteArray);
     return jbyteArray;
 }
 
-JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
+JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init
 (JNIEnv *env, jobject thisObject, jstring str) {
 
     AVCodecParameters *pCodecParm = NULL;
@@ -144,8 +153,7 @@ JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
     ren_pCodecCtx = avcodec_alloc_context3(ren_pCodec);
 
     if (ren_pCodec == NULL) {
-        fprintf(stderr, "Unsupported codec!\n");
-        fflush(stdout);
+        throwException(env, "java/lang/RuntimeException", "Unsupported codec!");
         return -1; // Codec not found
     }
 
@@ -210,7 +218,7 @@ JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_init
     return 0;
 }
 
-JNIEXPORT void JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_destroy
+JNIEXPORT void JNICALL Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy
 (JNIEnv *env, jobject thisObject){
     if(!ren_initialized){
         throwException((JNIEnv *) env, "java/lang/IllegalStateException", "Cannot free non existing memory!");
@@ -234,45 +242,33 @@ JNIEXPORT void JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_destroy
     avformat_close_input(&ren_pFormatCtx);
 }
 
-JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_getWidth
+JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getWidth
 (JNIEnv *env, jobject thisObject){
     return ren_width;
 }
 
 
-JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_NativeRenderControler_getHeight
+JNIEXPORT jint JNICALL Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getHeight
 (JNIEnv *env, jobject thisObject){
     return ren_height;
 }
 
 void SaveFrame(AVFrame *pFrame, int width, int height, signed char* buffer) {
-    printf("save\n");
-    fflush(stdout);
 
     int y, i;
 
     // Write pixel data
-    for(y=0; y<height; y++){
-        unsigned char* pFrameData = pFrame->data[0]+y*pFrame->linesize[0];
+    for (y = 0; y < height; y++) {
+        unsigned char *pFrameData = pFrame->data[0] + y * pFrame->linesize[0];
 
         //i = x
-        for(i = 0; i < width; i++){
-            struct RgbColor rgbColor = col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3) + 2]);
+        for (i = 0; i < width; i++) {
+            struct RgbColor rgbColor = col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1],
+                                                    pFrameData[(i * 3) + 2]);
             //buffer[(y*width)+i] = col_get_mc_index(col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3) + 2]));
-            buffer[(y*width)+i] = col_get_cached_index(&rgbColor);
+            buffer[(y * width) + i] = col_get_cached_index(&rgbColor);
         }
-//        printf("%d\n", pFrameData[0]);
-//        printf("%d\n", pFrameData[1]);
-//        printf("%d\n", pFrameData[2]);
-//
-//        pColor->red = pFrameData[0];
-//        pColor->green = pFrameData[1];
-//        pColor->blue = pFrameData[2];
-
-        //fwrite(pFrameData, 1, width*3, pFile);
     }
-    //return pixelOutputArray;
-    //exit(1); //Note: Who put that there?
 }
 
 void throwException(JNIEnv *env, char* class, char* value) {

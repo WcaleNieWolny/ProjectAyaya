@@ -1,4 +1,4 @@
-package me.wcaleniewolny.ayaya.frame
+package me.wcaleniewolny.ayaya.library
 
 data class SplittedFrame(
     val startX: Int,

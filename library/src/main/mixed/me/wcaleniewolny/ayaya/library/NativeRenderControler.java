@@ -1,4 +1,4 @@
-package me.wcaleniewolny.ayaya;
+package me.wcaleniewolny.ayaya.library;
 
 public class NativeRenderControler {
 

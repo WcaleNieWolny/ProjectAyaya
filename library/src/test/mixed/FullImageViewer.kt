@@ -1,16 +1,21 @@
 package me.wcaleniewolny.ayaya
 
-import me.wcaleniewolny.ayaya.frame.SplittedFrame
+import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Graphics
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
 import javax.swing.JFrame
 import javax.swing.JPanel
+import org.junit.jupiter.api.fail
+import java.util.concurrent.CompletableFuture
+import kotlin.system.exitProcess
 
-class FrameAwtGui(): JFrame() {
+class FullAwtGui(): JFrame() {
 
-    public constructor(frames: List<SplittedFrame>, width: Int, height: Int) : this() {
-        add(FrameImagePanel(frames, width, height))
+    public constructor(nativeRenderControler: me.wcaleniewolny.ayaya.library.NativeRenderControler, width: Int, height: Int, future: CompletableFuture<Boolean>) : this() {
+        add(FullImagePanel(nativeRenderControler, width, height, future))
         title = "test"
         this.defaultCloseOperation = EXIT_ON_CLOSE;
         isResizable = false;
@@ -20,7 +25,12 @@ class FrameAwtGui(): JFrame() {
     }
 }
 
-class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWidth: Int, imgHeight: Int): JPanel(){
+class FullImagePanel(
+    private val nativeRenderControler: NativeRenderControler,
+    private val imgWidth: Int,
+    imgHeight: Int,
+    val future: CompletableFuture<Boolean>
+): JPanel(){
 
     private fun c(r: Int, g: Int, b: Int): Color {
         return Color(r, g, b)
@@ -277,14 +287,22 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
         c(67, 88, 79)
     )
 
-    val indexMap = mutableMapOf<Int, Color>()
+    private val indexMap = mutableMapOf<Int, Color>()
+    private var byteArray = nativeRenderControler.loadFrame()
 
     init { //AWT Stuff
-        preferredSize = Dimension(128, 128)
-        isFocusable = true;
+        preferredSize = Dimension(imgWidth, imgHeight)
+        isFocusable = true
+
+        addKeyListener(NewFrameKeyAdapter(this))
+
         repaint()
         generateMap()
-        background = Color.BLACK
+
+    }
+
+    fun nextFrame(){
+        this.byteArray = nativeRenderControler.loadFrame()
     }
 
     private fun generateMap() {
@@ -297,16 +315,35 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-        val frame = frames[3];
-
-        for (x in 0 until frame.width) {
-            for (y in 0 until frame.height) {
-                val byte = frame.data[(y * frame.width) + x]
-                val finalColor = indexMap[byte.toInt()]
+        for (x in 0 until imgWidth){ //1280
+            for (y in 0 until height){ //720
+                val byte = byteArray[(y * imgWidth)+x]
+                val finalColor = indexMap[byte.toInt()];
 
                 g.color = finalColor
-                g.drawLine(frame.startX + x, frame.startY + y, frame.startX + x, frame.startY + y)
+                g.drawLine(x, y, x, y)
             }
+        }
+    }
+}
+
+class NewFrameKeyAdapter(private val fullImagePanel: FullImagePanel) : KeyAdapter() {
+    override fun keyPressed(event: KeyEvent) {
+        when (event.keyCode) {
+            KeyEvent.VK_N -> {
+                println("Skipping 60 frames")
+                for (i in 1..60){
+                    fullImagePanel.nextFrame()
+                }
+                fullImagePanel.repaint() //do not waste cpu cycles
+            }
+            KeyEvent.VK_MINUS -> { //fail
+                fullImagePanel.future.complete(false)
+            }
+            KeyEvent.VK_EQUALS -> { //success
+                fullImagePanel.future.complete(true)
+            }
+            else -> println(KeyEvent.getKeyText(event.keyCode))
         }
     }
 }

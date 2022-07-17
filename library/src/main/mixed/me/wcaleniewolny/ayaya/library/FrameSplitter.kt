@@ -1,4 +1,4 @@
-package me.wcaleniewolny.ayaya.frame
+package me.wcaleniewolny.ayaya.library
 
 import kotlin.math.ceil
 
