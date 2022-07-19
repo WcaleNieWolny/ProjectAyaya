@@ -15,12 +15,12 @@ public class NativeRenderControler {
     /**
      * Initialize C library. Required to call {@link #loadFrame()}
      */
-    public native void init(String fileName);
+    public native int init(String fileName);
 
     /**
      * Tell C library to free any native memory. After that calling {@link #loadFrame()} is an illegal operation.
      */
-    public native int destroy();
+    public native void destroy();
 
     public native int getWidth();
 

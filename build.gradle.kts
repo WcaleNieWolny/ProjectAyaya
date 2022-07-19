@@ -23,11 +23,6 @@ allprojects {
     }
 
     tasks.build.get().dependsOn(tasks.shadowJar)
-    tasks.register<com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation>("relocateShadowJar") {
-        target = tasks.shadowJar.get()
-        prefix = "me.wcaleniewolny.ayaya.dependency" // Default value is "shadow"
-    }
-    tasks.shadowJar.get().dependsOn(tasks.getByName("relocateShadowJar"))
 
     java {
         toolchain.languageVersion.set(JavaLanguageVersion.of(17))
