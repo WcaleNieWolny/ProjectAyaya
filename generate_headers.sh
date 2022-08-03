@@ -1,1 +1,0 @@
-javac src/main/kotlin/me/wcaleniewolny/ayaya/NativeRenderControler.java -h native/headers && rm src/main/kotlin/me/wcaleniewolny/ayaya/NativeRenderControler.class

@@ -123,9 +123,9 @@ gradle/
 gradlew
 gradlew.bat
 
-native/build
-native/.idea
-native/cmake-build-debug
+native_old/build
+native_old/.idea
+native_old/cmake-build-debug
 # Project exclude paths
 /.gradle/
 /build/

@@ -1,9 +1,7 @@
 package me.wcaleniewolny.ayaya
 
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.fail
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.assertTrue
 
 
@@ -13,7 +11,7 @@ internal class MainAppTest{
     fun guiTest(){
         val future = CompletableFuture<Boolean>()
 
-        val file = javaClass.classLoader.getResource("test.webm")?.path
+        val file = javaClass.classLoader.getResource("test.webm")!!.path
         val nativeRenderControler = me.wcaleniewolny.ayaya.library.NativeRenderControler()
         nativeRenderControler.init(file)
         FullAwtGui(nativeRenderControler, nativeRenderControler.width, nativeRenderControler.height, future)

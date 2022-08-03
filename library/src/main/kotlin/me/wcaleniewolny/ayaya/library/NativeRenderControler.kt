@@ -7,12 +7,12 @@ class NativeRenderControler {
     external fun loadFrame(): ByteArray
 
     /**
-     * Initialize C library. Required to call [.loadFrame]
+     * Initialize native library. Required to call [.loadFrame]
      */
-    external fun init(fileName: String?): Int
+    external fun init(fileName: String): Int
 
     /**
-     * Tell C library to free any native memory. After that calling [.loadFrame] is an illegal operation.
+     * Tell native library to free any native memory. After that calling [.loadFrame] is an illegal operation.
      */
     external fun destroy()
 
@@ -23,7 +23,7 @@ class NativeRenderControler {
 
     companion object {
         init {
-            System.loadLibrary("wolnyjni")
+            System.loadLibrary("ayaya_native")
         }
     }
 }
