@@ -13,8 +13,19 @@ internal class MainAppTest{
 
         val file = javaClass.classLoader.getResource("test.webm")!!.path
         val nativeRenderControler = me.wcaleniewolny.ayaya.library.NativeRenderControler()
-        nativeRenderControler.init(file)
-        FullAwtGui(nativeRenderControler, nativeRenderControler.width, nativeRenderControler.height, future)
+        val ptr = nativeRenderControler.init(file)
+
+        println("try w!")
+
+        val w = nativeRenderControler.width(ptr)
+
+        println("get w!")
+
+        val h = nativeRenderControler.height(ptr)
+
+        println("get h!")
+
+        FullAwtGui(nativeRenderControler, w, h, future, ptr)
 
         assertTrue(future.get(), "User decided that app is not working")
         //assertTrue(true, "User has confirmed, that application is working")

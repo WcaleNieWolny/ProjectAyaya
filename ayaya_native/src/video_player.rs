@@ -1,7 +1,6 @@
-use std::ops::DerefMut;
+use std::mem::ManuallyDrop;
 use ffmpeg::decoder::Video;
 use ffmpeg::Error::Eof;
-use ffmpeg::format::{input, Pixel};
 use ffmpeg::format::context::Input;
 use ffmpeg::software::scaling::{Context};
 
@@ -11,7 +10,9 @@ pub struct VideoPlayer {
     video_stream_index: i16,
     scaler: Context, //ffmpeg scaling
     input: Input,
-    decoder: Video
+    decoder: Video,
+    pub height: u32,
+    pub width: u32
 }
 
 impl VideoPlayer{
@@ -21,7 +22,9 @@ impl VideoPlayer{
         video_stream_index: i16,
         scaler: Context,
         input: Input,
-        decoder: Video
+        decoder: Video,
+        height: u32,
+        width: u32
     ) -> Self {
         Self {
             decode_function,
@@ -29,7 +32,9 @@ impl VideoPlayer{
             video_stream_index,
             scaler,
             input,
-            decoder
+            decoder,
+            width,
+            height
         }
     }
 
@@ -58,7 +63,7 @@ impl VideoPlayer{
         Err(Eof)
     }
 
-    pub fn wrap_to_java(&mut self) -> i64{
+    pub fn wrap_to_java(self) -> i64{
         let b = Box::new(self);
         let c = Box::into_raw(b);
 
@@ -67,10 +72,6 @@ impl VideoPlayer{
         println!("{}", d);
 
         d
-    }
-
-    pub fn itself(&mut self) -> &mut Self{
-        return self
     }
 
 }
@@ -82,12 +83,15 @@ impl PartialEq for VideoPlayer {
     }
 }
 
-pub unsafe fn decode_from_java(ptr: i64) -> Box<&'static mut VideoPlayer>{
-    let a = ptr as *mut &mut VideoPlayer;
-    let b = Box::from_raw(a); //Box<&mut VideoPlayer>
-    // return *b
-    return b
-    //*a
+pub fn decode_from_java(ptr: i64) -> ManuallyDrop<Box<VideoPlayer>> {
+    unsafe {
+        return ManuallyDrop::new(Box::from_raw(ptr as *mut VideoPlayer));
+
+        // let a = Box::from_raw(ptr as *mut VideoPlayer);
+        //
+        // return a;
+    }
+
 }
 
 

@@ -6,31 +6,37 @@ import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
+import java.util.concurrent.CompletableFuture
 import javax.swing.JFrame
 import javax.swing.JPanel
-import org.junit.jupiter.api.fail
-import java.util.concurrent.CompletableFuture
-import kotlin.system.exitProcess
 
-class FullAwtGui(): JFrame() {
+class FullAwtGui(
+    private val nativeRenderControler: NativeRenderControler,
+    private val vWidth: Int,
+    private val vHeight: Int,
+    private val future: CompletableFuture<Boolean>,
+    private val ptr: Long
+) : JFrame() {
 
-    public constructor(nativeRenderControler: me.wcaleniewolny.ayaya.library.NativeRenderControler, width: Int, height: Int, future: CompletableFuture<Boolean>) : this() {
-        add(FullImagePanel(nativeRenderControler, width, height, future))
+    init {
+        add(FullImagePanel(nativeRenderControler, vWidth, vHeight, ptr, future))
         title = "test"
-        this.defaultCloseOperation = EXIT_ON_CLOSE;
-        isResizable = false;
+        this.defaultCloseOperation = EXIT_ON_CLOSE
+        isResizable = false
         pack()
         isVisible = true
         setLocationRelativeTo(null)
     }
+
 }
 
 class FullImagePanel(
     private val nativeRenderControler: NativeRenderControler,
     private val imgWidth: Int,
     imgHeight: Int,
+    private val ptr: Long,
     val future: CompletableFuture<Boolean>
-): JPanel(){
+) : JPanel() {
 
     private fun c(r: Int, g: Int, b: Int): Color {
         return Color(r, g, b)
@@ -288,7 +294,7 @@ class FullImagePanel(
     )
 
     private val indexMap = mutableMapOf<Int, Color>()
-    private var byteArray = nativeRenderControler.loadFrame()
+    private var byteArray = nativeRenderControler.loadFrame(ptr)
 
     init { //AWT Stuff
         preferredSize = Dimension(imgWidth, imgHeight)
@@ -301,13 +307,12 @@ class FullImagePanel(
 
     }
 
-    fun nextFrame(){
-        this.byteArray = nativeRenderControler.loadFrame()
+    fun nextFrame() {
+        this.byteArray = nativeRenderControler.loadFrame(ptr)
     }
 
     private fun generateMap() {
-        for (i in 3 until colors.size)
-        {
+        for (i in 3 until colors.size) {
             val finalIndex = (if (i < 128) i else -129 + (i - 127))
             indexMap[finalIndex] = colors[i]
         }
@@ -315,10 +320,10 @@ class FullImagePanel(
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-        for (x in 0 until imgWidth){ //1280
-            for (y in 0 until height){ //720
-                val byte = byteArray[(y * imgWidth)+x]
-                val finalColor = indexMap[byte.toInt()];
+        for (x in 0 until imgWidth) { //1280
+            for (y in 0 until height) { //720
+                val byte = byteArray[(y * imgWidth) + x]
+                val finalColor = indexMap[byte.toInt()]
 
                 g.color = finalColor
                 g.drawLine(x, y, x, y)
@@ -332,7 +337,7 @@ class NewFrameKeyAdapter(private val fullImagePanel: FullImagePanel) : KeyAdapte
         when (event.keyCode) {
             KeyEvent.VK_N -> {
                 println("Skipping 60 frames")
-                for (i in 1..60){
+                for (i in 1..60) {
                     fullImagePanel.nextFrame()
                 }
                 fullImagePanel.repaint() //do not waste cpu cycles
