@@ -33,7 +33,7 @@ class FullAwtGui(
 class FullImagePanel(
     private val nativeRenderControler: NativeRenderControler,
     private val imgWidth: Int,
-    imgHeight: Int,
+    private val imgHeight: Int,
     private val ptr: Long,
     val future: CompletableFuture<Boolean>
 ) : JPanel() {
@@ -320,8 +320,9 @@ class FullImagePanel(
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
+        println("HASH: ${byteArray.contentHashCode()}")
         for (x in 0 until imgWidth) { //1280
-            for (y in 0 until height) { //720
+            for (y in 0 until imgHeight) { //720
                 val byte = byteArray[(y * imgWidth) + x]
                 val finalColor = indexMap[byte.toInt()]
 

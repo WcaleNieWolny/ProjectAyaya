@@ -1,6 +1,6 @@
-use std::{env, mem};
-use std::mem::MaybeUninit;
-use std::alloc::{self, Layout};
+use std::{env, slice};
+use std::fs::File;
+use std::io::Write;
 
 pub struct MinecraftColor {
     red: u8,
@@ -23,7 +23,7 @@ const fn c(r: u8, g: u8, b: u8) -> MinecraftColor {
     MinecraftColor::new(r, g, b)
 }
 
-const MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
+static MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
     c(0, 0, 0),
     c(0, 0, 0),
     c(0, 0, 0),
@@ -274,7 +274,7 @@ const MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
     c(67, 88, 79)
 ];
 
-const fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
+fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
     let ra = (c1.red  as f64 + c2.red  as f64) / 2.0;
 
     let rd = c1.red as f64 - c2.red as f64;
@@ -288,7 +288,7 @@ const fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
     weight_r * rd * rd + weight_g * gd * gd + weight_b * bd * bd
 }
 
-const fn get_mc_index(color: MinecraftColor) -> i8{
+fn get_mc_index(color: MinecraftColor) -> i8{
     let mut index: i16 = 0;
     let mut best: f64 = -1.0;
 
@@ -316,108 +316,27 @@ const fn get_mc_index(color: MinecraftColor) -> i8{
 
 }
 
+fn main() {
+    let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
+    let out_dir = format!("{}/cached_color.hex", out_dir);
 
-// const fn compute_conversion_table() -> [i8; 16777216]{
-//     let mut table: [i8; 16777216] = [8; 16777216];
-//
-//     let mut r = 0;
-//     let mut g = 0;
-//     let mut b = 0;
-//
-//     while r < 256 {
-//         while g < 256 {
-//             while b < 256 {
-//                 table[(r * 256 * 256) + (g * 256) + b] = get_mc_index(
-//                     MinecraftColor::new(
-//                         r as u8,
-//                         g as u8,
-//                         b as u8
-//                     ));
-//                 b = b + 1;
-//             }
-//             g = g + 1;
-//         }
-//         r = r + 1;
-//     }
-//
-//     return table
-// }
+    println!("cargo:rerun-if-changed=build.rs");
 
-//
+    let mut file = File::create(out_dir).unwrap();
 
-// static CONVERSION_TABLE_DIR: String = format!("{}/cached_color.hex", env::var("OUT_DIR").unwrap());
- static CONVERSION_TABLE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
-pub fn get_cached_index(color: MinecraftColor) -> i8 {
-    CONVERSION_TABLE[(color.red as usize * 256 * 256) + (color.green as usize * 256) + color.blue as usize] as i8
-    //0
-}
+    for r in 0..=255 {
+        for g in 0..=255 {
+            for b in 0..=255 {
+                let color = get_mc_index(
+                    MinecraftColor::new(r, g, b)
+                );
 
-//    int y, i;
-//
-//     // Write pixel data
-//     for (y = 0; y < height; y++) {
-//         unsigned char *pFrameData = pFrame->data[0] + y * pFrame->linesize[0];
-//
-//         //i = x
-//         for (i = 0; i < width; i++) {
-//             struct RgbColor rgbColor = col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1],
-//                                                     pFrameData[(i * 3) + 2]);
-//             //buffer[(y*width)+i] = col_get_mc_index(col_getColor(pFrameData[(i * 3)], pFrameData[(i * 3) + 1], pFrameData[(i * 3) + 2]));
-//             buffer[(y * width) + i] = col_get_cached_index(&rgbColor);
-//         }
-//     }
-pub fn transform_frame_to_mc(data: &[u8], width: u32, height: u32) -> Vec<i8>{
-    println!("yes ??");
-    //height as usize * width as usize
-    let mut buffer = Vec::<i8>::with_capacity((width * height) as usize);
+                let color: u8 = bytemuck::cast(color);
+                let b: &[u8] = slice::from_ref(&color);
 
-    println!("CACHED START");
-    //let cached = compute_conversion_table();
-    println!("CACHED GEN");
-
-    println!("yes 2!");
-
-    println!("{}, {}", width, height);
-
-    //len(data) = (width * 3) * height
-
-    println!("{}", data.len());
-    let mut i: usize = 0;
-
-    for y in 0..height  {
-        for x in 0..width  {
-
-            let r = data[i];
-            i = i + 1;
-            let g = data[i];
-            i = i + 1;
-            let b = data[i];
-            i = i + 1;
-
-            let a = MinecraftColor::new(
-                r,
-                g,
-                b
-            );
-
-            //let d = cached[(a.red as usize * 256 * 256) + (a.green as usize * 256) + a.blue as usize];
-            let d = get_cached_index(a);
-
-            //print!("{} > ", d);
-
-            buffer.push(d);
+                file.write(b).unwrap();
+            }
         }
     }
-
-    println!("yes 3!");
-
-    return buffer;
-    
-    //for y in height:
-    //for x in width:
-    // r = pFrameData[(y * width * 3) + (i * 3)]
-    // g = pFrameData[(y * width * 3) + (i * 3) + 1]
-    // b = pFrameData[(y * width * 3) + (i * 3) + 2]
-
 }

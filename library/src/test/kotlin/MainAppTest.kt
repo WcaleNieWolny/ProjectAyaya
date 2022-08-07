@@ -11,19 +11,19 @@ internal class MainAppTest{
     fun guiTest(){
         val future = CompletableFuture<Boolean>()
 
-        val file = javaClass.classLoader.getResource("test.webm")!!.path
+        //val file = javaClass.classLoader.getResource("test.webm")!!.path
         val nativeRenderControler = me.wcaleniewolny.ayaya.library.NativeRenderControler()
-        val ptr = nativeRenderControler.init(file)
+        val ptr = nativeRenderControler.init("/home/wolny/Downloads/test.mp4")
 
         println("try w!")
 
         val w = nativeRenderControler.width(ptr)
 
-        println("get w!")
+        println("get w! ($w)")
 
         val h = nativeRenderControler.height(ptr)
 
-        println("get h!")
+        println("get h ($h)!")
 
         FullAwtGui(nativeRenderControler, w, h, future, ptr)
 

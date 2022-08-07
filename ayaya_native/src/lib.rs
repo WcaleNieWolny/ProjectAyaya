@@ -1,12 +1,15 @@
 #![feature(const_fn_floating_point_arithmetic)]
+#![feature(const_eval_limit)]
+#![const_eval_limit = "300000000"]
 #[macro_use]
 extern crate lazy_static;
 extern crate ffmpeg_next as ffmpeg;
+extern crate core;
 
 mod video_player;
 mod colorlib;
 
-use ffmpeg::Error;
+use ffmpeg::{Error, Packet};
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::frame::Video;
 use ffmpeg::media::Type;
@@ -46,30 +49,51 @@ fn init(
             .video()
             .expect("Couldn't create decoder");
 
-        let width = decoder.width();
-        let height = decoder.height();
-
         let scaler = Context::get(
             decoder.format(),
             decoder.width(),
             decoder.height(),
             Pixel::RGB24,
-            width,
-            height,
+            decoder.width(),
+            decoder.height(),
             Flags::BILINEAR,
-        ).expect("Couldn't create scaler");
+        )?;
 
 
         let receive_and_process_decoded_frames =
-            |decoder: &mut ffmpeg::decoder::Video, scaler: &mut Context| -> Result<Video, ffmpeg::Error> {
+            |decoder: &mut ffmpeg::decoder::Video, scaler: &mut Context, packet: &Packet| -> Result<Video, ffmpeg::Error> {
+                println!("A: DECODE");
                 let mut decoded = Video::empty();
                 let mut rgb_frame = Video::empty();
-                while decoder.receive_frame(&mut decoded).is_ok() {
-                    scaler.run(&decoded, &mut rgb_frame)?;
+
+                let mut out = decoder.receive_frame(&mut decoded);
+
+                println!("ee: {}", Error::from(-11));
+                while !out.is_ok() {
+                    let err = out.unwrap_err();
+
+                    if err == Error::from(-11) {
+                        decoder.send_packet(packet).expect("Couldn't send packet to decoder");
+                        out = decoder.receive_frame(&mut decoded);
+                    }else {
+                        return Err(err)
+                    }
                 }
-                Ok(rgb_frame)
+
+                while out.is_ok() {
+                    scaler.run(&decoded, &mut rgb_frame)?;
+
+                    println!("OK, FRAME");
+                    return Ok(rgb_frame);
+
+                    //break
+                }
+
+                Err(out.unwrap_err())
             };
 
+        let h = decoder.height();
+        let w = decoder.width();
 
         let player = VideoPlayer::new(
                 receive_and_process_decoded_frames,
@@ -77,8 +101,8 @@ fn init(
                 scaler,
                 ictx,
                 decoder,
-                width,
-                height
+                h,
+                w
             );
 
         return Ok(player.wrap_to_java())
@@ -104,6 +128,11 @@ fn load_frame(
     println!("got player!");
 
     let frame = player.decode_frame().expect("Couldn't decode frame");
+
+    let d = frame.planes();
+
+    println!("planes: {}", d);
+
     let data = frame.data(0);
 
     println!("yes");
@@ -142,7 +171,12 @@ fn get_height(
     ptr: jlong
 ) -> Result<jint, String> {
     println!("R > HEI");
-    Ok(video_player::decode_from_java(ptr).height as jint)
+    let box_player = video_player::decode_from_java(ptr);
+    let h = box_player.height;
+
+    println!("HH: {}", h);
+
+    return Ok(h as jint)
     //Err(String::from("YAU!"))
 }
 

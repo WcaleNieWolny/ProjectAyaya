@@ -2,10 +2,11 @@ use std::mem::ManuallyDrop;
 use ffmpeg::decoder::Video;
 use ffmpeg::Error::Eof;
 use ffmpeg::format::context::Input;
+use ffmpeg::Packet;
 use ffmpeg::software::scaling::{Context};
 
 pub struct VideoPlayer {
-    decode_function: fn(&mut Video, &mut Context) -> Result<ffmpeg::frame::Video, ffmpeg::Error>,
+    decode_function: fn(&mut Video, &mut Context, packet: &Packet) -> Result<ffmpeg::frame::Video, ffmpeg::Error>,
     frame_index: i64, //long
     video_stream_index: i16,
     scaler: Context, //ffmpeg scaling
@@ -18,7 +19,7 @@ pub struct VideoPlayer {
 impl VideoPlayer{
 
     pub fn new(
-        decode_function: fn(&mut Video, &mut Context) -> Result<ffmpeg::frame::Video, ffmpeg::Error>,
+        decode_function: fn(&mut Video, &mut Context, packet: &Packet) -> Result<ffmpeg::frame::Video, ffmpeg::Error>,
         video_stream_index: i16,
         scaler: Context,
         input: Input,
@@ -56,9 +57,11 @@ impl VideoPlayer{
         while let Some((stream, packet)) = self.input.packets().next() {
             if stream.index() == self.video_stream_index as usize {
                 self.decoder.send_packet(&packet)?;
-                return Ok(decode_function(&mut self.decoder, &mut self.scaler)?);
+                return Ok(decode_function(&mut self.decoder, &mut self.scaler, &packet).unwrap());
             }
         }
+
+
 
         Err(Eof)
     }
