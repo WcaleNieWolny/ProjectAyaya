@@ -59,6 +59,9 @@ object FrameSplitter {
         allFramesX = ceil(framesX).toInt()
         allFramesY = ceil(framesY).toInt()
 
+        println("W: ${width}, $height")
+        println("A: ${allFramesX}, $allFramesY")
+
         for (x in 0 until allFramesX) {
             for (y in 0 until allFramesY) {
                 val xFrameMargin = if (x == 0) xMargin else 0

@@ -13,19 +13,20 @@ import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 
-class MapMinecraftClient: CommandExecutor, JavaPlugin() {
+class MapMinecraftClient : CommandExecutor, JavaPlugin() {
 
     private val nativeRenderControler = NativeRenderControler()
     private val frames = mutableListOf<SplittedFrame>()
+    private val ptr = nativeRenderControler.init("/home/wolny/Downloads/test.mp4")
 
     override fun onEnable() {
         getCommand("test")!!.setExecutor(this)
-        nativeRenderControler.init("/home/wolny/Downloads/test.mp4") //Will change later
-        frames.addAll(FrameSplitter.initializeFrames(nativeRenderControler.width, nativeRenderControler.height))
+        frames.addAll(FrameSplitter.initializeFrames(nativeRenderControler.width(ptr), nativeRenderControler.height(ptr)))
+        println(ptr)
     }
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        val frame = nativeRenderControler.loadFrame()
+        val frame = nativeRenderControler.loadFrame(ptr)
         FrameSplitter.splitFrames(frame, frames)
         val finalFrame = frames[0]
 
@@ -42,7 +43,8 @@ class MapMinecraftClient: CommandExecutor, JavaPlugin() {
             Int::class.javaPrimitiveType,
             Int::class.javaPrimitiveType,
             Int::class.javaPrimitiveType,
-            ByteArray::class.java)
+            ByteArray::class.java
+        )
 
         val mapPatchObject = mapPatchConstructor.newInstance(
             finalFrame.startX,

@@ -1,5 +1,4 @@
 plugins {
-    id("java")
     kotlin("jvm") version "1.7.10"
     id("kr.entree.spigradle") version "2.4.2"
     id("xyz.jpenilla.run-paper") version "1.0.6"
@@ -28,6 +27,7 @@ tasks.getByName<Test>("test") {
 }
 
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
+
 compileKotlin.kotlinOptions {
     jvmTarget = "17"
 }
@@ -35,7 +35,7 @@ compileKotlin.kotlinOptions {
 val runServer = tasks.runServer
 runServer {
     minecraftVersion("1.18.2")
-    jvmArgs = listOf("-Djava.library.path=${rootProject.rootDir.path}/native/build")
+    jvmArgs = listOf("-Xmx8192M", "-Djava.library.path=${rootProject.rootDir.path}/ayaya_native/target/debug")
 }
 
 val pluginName = "ProjectAyaya"
