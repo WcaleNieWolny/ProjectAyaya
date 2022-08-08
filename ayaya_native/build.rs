@@ -1,6 +1,6 @@
 use std::{env, slice};
 use std::fs::File;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 
 pub struct MinecraftColor {
     red: u8,
@@ -275,20 +275,12 @@ static MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
 ];
 
 fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
-    let ra = (c1.red  as f64 + c2.red  as f64) / 2.0;
+    let r = ((c2.red as f64 - c1.red as f64).powi(2) + (c2.blue as f64 - c1.blue as f64).powi(2) + (c2.green as f64 - c1.green as f64).powi(2)).sqrt();
 
-    let rd = c1.red as f64 - c2.red as f64;
-    let gd = c1.green as f64 - c2.green as f64;
-    let bd = c1.blue as f64 - c2.blue as f64;
-
-    let weight_r = 2.0 + ra / 256.0;
-    let weight_g = 4.0;
-    let weight_b = 2.0 + (255.0 - ra) / 256.0;
-
-    weight_r * rd * rd + weight_g * gd * gd + weight_b * bd * bd
+    r
 }
 
-fn get_mc_index(color: MinecraftColor) -> i8{
+fn get_mc_index(color: MinecraftColor) -> i8 {
     let mut index: i16 = 0;
     let mut best: f64 = -1.0;
 
@@ -312,8 +304,7 @@ fn get_mc_index(color: MinecraftColor) -> i8{
         index as i8
     } else {
         (-129 + (index - 127)) as i8
-    }
-
+    };
 }
 
 fn main() {
@@ -322,7 +313,7 @@ fn main() {
 
     println!("cargo:rerun-if-changed=build.rs");
 
-    let mut file = File::create(out_dir).unwrap();
+    let mut file = BufWriter::new(File::create(out_dir).unwrap());
 
 
     for r in 0..=255 {
@@ -332,11 +323,13 @@ fn main() {
                     MinecraftColor::new(r, g, b)
                 );
 
-                let color: u8 = bytemuck::cast(color);
+                let color: u8 = color as u8;
                 let b: &[u8] = slice::from_ref(&color);
 
                 file.write(b).unwrap();
             }
         }
     }
+
+    file.flush().unwrap();
 }

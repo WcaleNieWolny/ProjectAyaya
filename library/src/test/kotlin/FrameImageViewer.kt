@@ -8,7 +8,7 @@ import javax.swing.JFrame
 import javax.swing.JPanel
 
 //Note: This class is not being used at the time, but it is a reference for implementing this in minecraft later
-class FrameAwtGui(): JFrame() {
+class FrameAwtGui() : JFrame() {
 
     public constructor(frames: List<SplittedFrame>, width: Int, height: Int) : this() {
         add(FrameImagePanel(frames, width, height))
@@ -21,7 +21,7 @@ class FrameAwtGui(): JFrame() {
     }
 }
 
-class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWidth: Int, imgHeight: Int): JPanel(){
+class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWidth: Int, imgHeight: Int) : JPanel() {
 
     private fun c(r: Int, g: Int, b: Int): Color {
         return Color(r, g, b)
@@ -289,8 +289,7 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
     }
 
     private fun generateMap() {
-        for (i in 3 until colors.size)
-        {
+        for (i in 3 until colors.size) {
             val finalIndex = (if (i < 128) i else -129 + (i - 127))
             indexMap[finalIndex] = colors[i]
         }

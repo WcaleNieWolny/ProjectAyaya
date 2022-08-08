@@ -6,7 +6,6 @@ version = 3
 name = "ayaya_native"
 version = "0.1.0"
 dependencies = [
- "bytemuck",
  "ffmpeg-next",
  "jni",
  "lazy_static",
@@ -36,12 +35,6 @@ name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
-
-[[package]]
-name = "bytemuck"
-version = "1.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5377c8865e74a160d21f29c2d40669f53286db6eab59b88540cbb12ffc8b835"
 
 [[package]]
 name = "bytes"

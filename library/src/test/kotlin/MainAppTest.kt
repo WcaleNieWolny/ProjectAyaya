@@ -5,10 +5,10 @@ import java.util.concurrent.CompletableFuture
 import kotlin.test.assertTrue
 
 
-internal class MainAppTest{
+internal class MainAppTest {
 
     @Test
-    fun guiTest(){
+    fun guiTest() {
         val future = CompletableFuture<Boolean>()
 
         //val file = javaClass.classLoader.getResource("test.webm")!!.path

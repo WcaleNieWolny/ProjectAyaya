@@ -18,7 +18,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.1")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.1")
     compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
-    compileOnly(group="com.comphenix.protocol", name="ProtocolLib", version="4.7.0")
+    compileOnly(group = "com.comphenix.protocol", name = "ProtocolLib", version = "4.7.0")
     implementation(kotlin("stdlib"))
     implementation(project(":library"))
 }
@@ -33,7 +33,7 @@ compileKotlin.kotlinOptions {
 }
 
 val runServer = tasks.runServer
-runServer{
+runServer {
     minecraftVersion("1.18.2")
     jvmArgs = listOf("-Djava.library.path=${rootProject.rootDir.path}/native/build")
 }
@@ -54,8 +54,8 @@ spigot {
             defaults = "op"
         }
     }
-    commands{
-        create("test"){
+    commands {
+        create("test") {
             description = "Test command"
         }
     }
