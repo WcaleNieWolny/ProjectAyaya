@@ -61,12 +61,6 @@ impl VideoPlayer {
 
         let p = c as i64;
 
-        let b2 = decode_from_java(p);
-
-        println!("dec: {}, {}", b2.width, b2.height);
-
-        println!("{}", p);
-
         p
     }
 
@@ -84,15 +78,8 @@ impl PartialEq for VideoPlayer {
 }
 
 pub fn decode_from_java(ptr: i64) -> ManuallyDrop<Box<VideoPlayer>> {
-    println!("P: {}", ptr);
     unsafe {
-        let ptr: *mut VideoPlayer = ptr as *mut VideoPlayer;
-
-        return ManuallyDrop::new(Box::from_raw(ptr));
-
-        // let a = Box::from_raw(ptr as *mut VideoPlayer);
-        //
-        // return a;
+        return ManuallyDrop::new(Box::from_raw(ptr as *mut VideoPlayer));
     }
 }
 

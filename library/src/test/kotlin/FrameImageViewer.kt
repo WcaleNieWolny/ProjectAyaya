@@ -4,6 +4,7 @@ import me.wcaleniewolny.ayaya.library.SplittedFrame
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Graphics
+import java.awt.event.KeyAdapter
 import javax.swing.JFrame
 import javax.swing.JPanel
 
@@ -297,7 +298,7 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-        val frame = frames[3];
+        val frame = frames[59];
 
         for (x in 0 until frame.width) {
             for (y in 0 until frame.height) {
@@ -309,4 +310,6 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
             }
         }
     }
+
+
 }

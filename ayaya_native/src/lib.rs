@@ -59,7 +59,6 @@ fn init(
             Flags::BILINEAR,
         )?;
 
-
         let receive_and_process_decoded_frames =
             |decoder: &mut ffmpeg::decoder::Video, scaler: &mut Context, packet: &Packet| -> Result<Video, ffmpeg::Error> {
                 let mut decoded = Video::empty();

@@ -284,10 +284,8 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
     let mut index: i16 = 0;
     let mut best: f64 = -1.0;
 
-    let mut i: usize = 3;
-
     //Magic value: 248 = mc color size
-    while i < 248 {
+    for i in 3..=247 {
         let c = &MINECRAFT_COLOR_ARRAY[i];
         let d = color_distance(&color, c);
 
@@ -296,8 +294,6 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
             best = d;
             index = i as i16;
         }
-
-        i = i + 1;
     }
 
     return if index < 128 {
@@ -311,6 +307,9 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
     let out_dir = format!("{}/cached_color.hex", out_dir);
 
+    let black = (get_mc_index(MinecraftColor::new(0, 0, 0)) as u8);
+    let gray = (get_mc_index(MinecraftColor::new(71, 68, 66)) as u8);
+
     println!("cargo:rerun-if-changed=build.rs");
 
     let mut file = BufWriter::new(File::create(out_dir).unwrap());
@@ -323,7 +322,12 @@ fn main() {
                     MinecraftColor::new(r, g, b)
                 );
 
-                let color: u8 = color as u8;
+                let mut color: u8 = color as u8;
+
+                if color == black {
+                    color = gray;
+                }
+
                 let b: &[u8] = slice::from_ref(&color);
 
                 file.write(b).unwrap();

@@ -1,5 +1,7 @@
 package me.wcaleniewolny.ayaya
 
+import me.wcaleniewolny.ayaya.library.FrameSplitter
+import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CompletableFuture
 import kotlin.test.assertTrue
@@ -12,20 +14,22 @@ internal class MainAppTest {
         val future = CompletableFuture<Boolean>()
 
         //val file = javaClass.classLoader.getResource("test.webm")!!.path
-        val nativeRenderControler = me.wcaleniewolny.ayaya.library.NativeRenderControler()
-        val ptr = nativeRenderControler.init("/home/wolny/Downloads/test.mp4")
+        val ptr = NativeRenderControler.init("/home/wolny/Downloads/test.mp4")
 
         println("try w!")
 
-        val w = nativeRenderControler.width(ptr)
+        val w = NativeRenderControler.width(ptr)
 
         println("get w! ($w)")
 
-        val h = nativeRenderControler.height(ptr)
+        val h = NativeRenderControler.height(ptr)
 
         println("get h ($h)!")
 
-        FullAwtGui(nativeRenderControler, w, h, future, ptr)
+        val splitted = FrameSplitter.initializeFrames(w, h)
+        FrameSplitter.splitFrames(NativeRenderControler.loadFrame(ptr), splitted, w, h)
+        FrameAwtGui(splitted, w, h)
+        //FullAwtGui(w, h, future, ptr)
 
         assertTrue(future.get(), "User decided that app is not working")
         //assertTrue(true, "User has confirmed, that application is working")

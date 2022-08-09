@@ -1,6 +1,6 @@
 package me.wcaleniewolny.ayaya.library
 
-class NativeRenderControler {
+object NativeRenderControler {
     /**
      * @return Byte array of transformed frame (color index)
      * @param ptr Pointer acquired by calling init function
@@ -31,9 +31,7 @@ class NativeRenderControler {
      */
     external fun height(ptr: Long): Int
 
-    companion object {
-        init {
-            System.loadLibrary("ayaya_native")
-        }
+    init {
+        System.loadLibrary("ayaya_native")
     }
 }

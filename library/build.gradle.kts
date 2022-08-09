@@ -19,7 +19,7 @@ dependencies {
 
 tasks.getByName<Test>("test") {
     useJUnitPlatform()
-    jvmArgs = listOf("-Djava.library.path=${rootProject.rootDir.path}/ayaya_native/target/debug/")
+    jvmArgs = listOf("-Djava.library.path=${rootProject.rootDir.path}/ayaya_native/target/release/")
 }
 
 sourceSets {

@@ -11,30 +11,46 @@ object FrameSplitter {
     private var allFramesY = 0
 
     @Throws(IllegalArgumentException::class)
-    fun splitFrames(data: ByteArray, frames: List<SplittedFrame>) {
+    fun splitFrames(data: ByteArray, frames: List<SplittedFrame>, width: Int, height: Int) {
 
         if (allFramesX * allFramesY != frames.size) {
             throw IllegalArgumentException("Frame list size does not match required lenght (${allFramesX * allFramesY})")
         }
 
-        var i = 0
-        var bI = 0 //byte index
+        val twoD = Array(height) { ByteArray(width) }
 
-        for (x in 0 until allFramesX) {
-            for (y in 0 until allFramesY) {
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                twoD[y][x] = data[(y * width) + x]
+            }
+        }
+
+        var i = 0
+        var yI = 0 //Y index
+
+        for (y in 0 until allFramesY) {
+            var xI = 0 //X index
+            for (x in 0 until  allFramesX) {
                 val frame = frames[i]
 
                 val frameData = frames[i].data
 
-                System.arraycopy(data, bI, frameData, 0, frame.frameLength)
+                for (y1 in 0 until frame.height){
+                    for (x1 in 0 until frame.width){
+                        frameData[(y1 * frame.width) + x1] = data[((yI * width) + xI) + ((y1 * width) + x1)]
+                    }
+                    //System.arraycopy(data, (yI * width + xI) + (y1 * width), frameData, y1 * frame.width, frame.width)
+                }
 
                 if (!frames[i].initialized) {
                     frames[i].initialized = true
                 }
 
-                bI += frame.frameLength
+
+                xI += frame.width
                 i++
             }
+            yI += frames[y * allFramesX].height
         }
 
         println("FF size: ${frames.size}")
@@ -53,8 +69,8 @@ object FrameSplitter {
         val framesX = width / 128.0
         val framesY = height / 128.0
 
-        val xMargin = width - (framesX.toInt() * 128)
-        val yMargin = height - (framesY.toInt() * 128)
+        val xMargin = if(width % 128 == 0) 0 else 128 - (width - (framesX.toInt() * 128))
+        val yMargin = if(height % 128 == 0) 0 else 128 - (height - (framesY.toInt() * 128))
 
         allFramesX = ceil(framesX).toInt()
         allFramesY = ceil(framesY).toInt()
@@ -62,8 +78,8 @@ object FrameSplitter {
         println("W: ${width}, $height")
         println("A: ${allFramesX}, $allFramesY")
 
-        for (x in 0 until allFramesX) {
-            for (y in 0 until allFramesY) {
+        for (y in 0 until  allFramesY) {
+            for (x in 0 until  allFramesX) {
                 val xFrameMargin = if (x == 0) xMargin else 0
                 val yFrameMargin = if (y == 0) yMargin else 0
 

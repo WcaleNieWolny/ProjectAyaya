@@ -11,7 +11,6 @@ import javax.swing.JFrame
 import javax.swing.JPanel
 
 class FullAwtGui(
-    private val nativeRenderControler: NativeRenderControler,
     private val vWidth: Int,
     private val vHeight: Int,
     private val future: CompletableFuture<Boolean>,
@@ -19,7 +18,7 @@ class FullAwtGui(
 ) : JFrame() {
 
     init {
-        add(FullImagePanel(nativeRenderControler, vWidth, vHeight, ptr, future))
+        add(FullImagePanel(vWidth, vHeight, ptr, future))
         title = "test"
         this.defaultCloseOperation = EXIT_ON_CLOSE
         isResizable = false
@@ -31,7 +30,6 @@ class FullAwtGui(
 }
 
 class FullImagePanel(
-    private val nativeRenderControler: NativeRenderControler,
     private val imgWidth: Int,
     private val imgHeight: Int,
     private val ptr: Long,
@@ -294,7 +292,7 @@ class FullImagePanel(
     )
 
     private val indexMap = mutableMapOf<Int, Color>()
-    private var byteArray = nativeRenderControler.loadFrame(ptr)
+    private var byteArray = NativeRenderControler.loadFrame(ptr)
 
     init { //AWT Stuff
         preferredSize = Dimension(imgWidth, imgHeight)
@@ -308,7 +306,7 @@ class FullImagePanel(
     }
 
     fun nextFrame() {
-        this.byteArray = nativeRenderControler.loadFrame(ptr)
+        this.byteArray = NativeRenderControler.loadFrame(ptr)
     }
 
     private fun generateMap() {
