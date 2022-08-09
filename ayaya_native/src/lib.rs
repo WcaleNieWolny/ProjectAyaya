@@ -1,4 +1,8 @@
 #![feature(const_fn_floating_point_arithmetic)]
+#![feature(strict_provenance)]
+#![feature(ptr_to_from_bits)]
+#![feature(core_intrinsics)]
+
 extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
@@ -185,21 +189,69 @@ macro_rules! jvm_impl {
             }
         }
     };
+
+    (
+        $BOILERPLATE_NAME: ident,
+        $IMPLEMENTATION_NAME: ident,
+        $RETURN_TYPE: tt,
+        {
+            $($a:ident: $b:tt,)+
+        }
+    ) => {
+        #[allow(non_snake_case)]
+        #[no_mangle]
+        pub extern "system" fn $BOILERPLATE_NAME(environment: JNIEnv, _class: JClass, $($a: $b),+) -> $RETURN_TYPE {
+            let response = $IMPLEMENTATION_NAME(environment, $($a),+);
+
+            match response {
+                Ok(some) => some,
+                Err(error) => {
+                    environment.throw_new("java/lang/RuntimeException", format!("{:?}", error))
+                        .expect("Couldn't throw java error");
+
+                    return 0 as $RETURN_TYPE
+                }
+            }
+
+        }
+    };
+
+        (
+        $BOILERPLATE_NAME: ident,
+        $IMPLEMENTATION_NAME: ident,
+        $RETURN_TYPE: tt,
+    ) => {
+        #[allow(non_snake_case)]
+        #[no_mangle]
+        pub extern "system" fn $BOILERPLATE_NAME(environment: JNIEnv, _class: JClass) -> $RETURN_TYPE {
+            let response = $IMPLEMENTATION_NAME(environment);
+
+            match response {
+                Ok(some) => some,
+                Err(error) => {
+                    environment.throw_new("java/lang/RuntimeException", format!("{:?}", error))
+                        .expect("Couldn't throw java error");
+
+                    return 0 as $RETURN_TYPE
+                }
+            }
+        }
+    };
 }
 
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_height, get_height, {
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_height, get_height, jint, {
     ptr: jlong,
 });
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_width, get_width, {
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_width, get_width, jint, {
     ptr: jlong,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, destroy,
 {
     ptr: jlong,
 });
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, {
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, jlong, {
     filename: JString,
 });
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, {
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,
 });

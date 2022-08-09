@@ -12,3 +12,7 @@ lazy_static = "1.4.0"
 
 [lib]
 crate_type = ["cdylib"]
+
+[profile.release]
+strip = "symbols"
+opt-level = 3

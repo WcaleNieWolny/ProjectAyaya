@@ -21,6 +21,7 @@ class MapMinecraftClient : CommandExecutor, JavaPlugin() {
 
     override fun onEnable() {
         getCommand("test")!!.setExecutor(this)
+        println("PTR: $ptr")
         frames.addAll(FrameSplitter.initializeFrames(nativeRenderControler.width(ptr), nativeRenderControler.height(ptr)))
         println(ptr)
     }

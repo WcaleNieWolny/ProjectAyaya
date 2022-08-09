@@ -58,11 +58,16 @@ impl VideoPlayer {
         let b = Box::new(self);
         let c = Box::into_raw(b);
 
-        let d: i64 = c as i64;
 
-        println!("{}", d);
+        let p = c as i64;
 
-        d
+        let b2 = decode_from_java(p);
+
+        println!("dec: {}, {}", b2.width, b2.height);
+
+        println!("{}", p);
+
+        p
     }
 
     pub fn destroy(&mut self) {
@@ -79,8 +84,11 @@ impl PartialEq for VideoPlayer {
 }
 
 pub fn decode_from_java(ptr: i64) -> ManuallyDrop<Box<VideoPlayer>> {
+    println!("P: {}", ptr);
     unsafe {
-        return ManuallyDrop::new(Box::from_raw(ptr as *mut VideoPlayer));
+        let ptr: *mut VideoPlayer = ptr as *mut VideoPlayer;
+
+        return ManuallyDrop::new(Box::from_raw(ptr));
 
         // let a = Box::from_raw(ptr as *mut VideoPlayer);
         //
