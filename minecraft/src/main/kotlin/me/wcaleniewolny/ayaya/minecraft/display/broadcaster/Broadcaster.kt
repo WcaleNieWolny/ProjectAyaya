@@ -5,4 +5,6 @@ import org.bukkit.entity.Player
 
 interface Broadcaster {
     fun sendPackets(data: MutableList<SplittedFrame>, players: List<Player>)
+
+    fun blackoutFrames(data: MutableList<SplittedFrame>, players: List<Player>)
 }

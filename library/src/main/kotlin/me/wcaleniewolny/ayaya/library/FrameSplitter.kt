@@ -36,10 +36,10 @@ object FrameSplitter {
                 val frameData = frames[i].data
 
                 for (y1 in 0 until frame.height){
-                    for (x1 in 0 until frame.width){
-                        frameData[(y1 * frame.width) + x1] = data[((yI * width) + xI) + ((y1 * width) + x1)]
-                    }
-                    //System.arraycopy(data, (yI * width + xI) + (y1 * width), frameData, y1 * frame.width, frame.width)
+//                    for (x1 in 0 until frame.width){
+//                        frameData[(y1 * frame.width) + x1] = data[((yI * width) + xI) + ((y1 * width) + x1)]
+//                    }
+                    System.arraycopy(data, (yI * width + xI) + (y1 * width), frameData, y1 * frame.width, frame.width)
                 }
 
                 if (!frames[i].initialized) {
@@ -52,8 +52,6 @@ object FrameSplitter {
             }
             yI += frames[y * allFramesX].height
         }
-
-        println("FF size: ${frames.size}")
     }
 
     fun initializeFrames(width: Int, height: Int): List<SplittedFrame> {
@@ -80,14 +78,15 @@ object FrameSplitter {
 
         for (y in 0 until  allFramesY) {
             for (x in 0 until  allFramesX) {
-                val xFrameMargin = if (x == 0) xMargin else 0
-                val yFrameMargin = if (y == 0) yMargin else 0
+                val xFrameMargin = if (x == 0) (xMargin / 2) else 0
+                val yFrameMargin = if (y == 0) (yMargin / 2) else 0
 
                 //startX = xFrameMargin && startY = yFrameMargin
                 //This is due to the fact that we start at index 0 and not 1
 
-                val frameWidth = 128 - xFrameMargin
-                val frameHeight = 128 - yFrameMargin
+                val frameWidth = if (x != allFramesX - 1) 128 - xFrameMargin else 128 - (xMargin / 2)
+                val frameHeight = if (y != (allFramesY - 1)) 128 - yFrameMargin else 128 - (yMargin / 2)
+
                 val frameLength = frameHeight * frameWidth
 
                 frames.add(

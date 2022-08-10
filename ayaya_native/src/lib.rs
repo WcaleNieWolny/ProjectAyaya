@@ -7,11 +7,16 @@ extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
+use std::ops::Sub;
+use std::time::{SystemTime, UNIX_EPOCH};
 use ffmpeg::{Error, Packet};
+use ffmpeg::codec::Capabilities;
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::frame::Video;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
+use ffmpeg::threading::Config;
+use ffmpeg::threading::Type::{Frame, Slice};
 use jni::JNIEnv;
 use jni::objects::*;
 use jni::sys::{jbyteArray, jint, jlong, jsize};
@@ -44,8 +49,33 @@ fn init(
         let context_decoder = ffmpeg::codec::context::Context::from_parameters(input.parameters())
             .expect("Couldn't decode context decoder");
 
-        let decoder = context_decoder
-            .decoder()
+
+        let mut decoder = context_decoder.decoder();
+
+        let codec = decoder.codec().expect("Couldn't get codec");
+        let capabilities = codec.capabilities();
+
+
+        if capabilities.contains(Capabilities::FRAME_THREADS) {
+            let config = Config {
+                kind: Frame,
+                count: 2,
+                safe: false
+            };
+
+            decoder.set_threading(config);
+        }else if capabilities.contains(Capabilities::SLICE_THREADS) {
+            let config = Config {
+                kind: Slice,
+                count: 2,
+                safe: false
+            };
+
+            decoder.set_threading(config);
+        }
+
+
+        let decoder = decoder
             .video()
             .expect("Couldn't create decoder");
 
@@ -77,7 +107,7 @@ fn init(
                     }
                 }
 
-                scaler.run(&decoded, &mut rgb_frame)?;
+                scaler.run(&decoded, &mut rgb_frame).expect("Scaler run failed");
                 return Ok(rgb_frame);
             };
 
@@ -108,8 +138,14 @@ fn load_frame(
 ) -> Result<jbyteArray, String> {
     let mut player = video_player::decode_from_java(ptr);
 
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
     let frame = player.decode_frame().expect("Couldn't decode frame");
     let data = frame.data(0);
+
+    println!("DEBUG RUST: {}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().sub(since_the_epoch).as_micros());
 
     let transformed_frame = colorlib::transform_frame_to_mc(data, player.width, player.height);
 

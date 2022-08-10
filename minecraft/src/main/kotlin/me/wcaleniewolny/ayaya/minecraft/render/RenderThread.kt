@@ -3,6 +3,7 @@ package me.wcaleniewolny.ayaya.minecraft.render
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.display.DisplayService
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 //Note: We assume that ptr is a valid pointer and nativeRenderControler has been initialized
 class RenderThread(
@@ -11,6 +12,7 @@ class RenderThread(
     private val ptr: Long
     ): Thread() {
 
+    val renderFrames = AtomicBoolean(true)
     private var frame: ByteArray = ByteArray(0)
     private val timeWindow = oneFrameTimeWindow()
 
@@ -25,13 +27,20 @@ class RenderThread(
         displayService.displayFrame(frame)
         this.frame = NativeRenderControler.loadFrame(ptr)
 
-        val toWait = 0.toLong().coerceAtLeast(timeWindow - (System.nanoTime() - start))
+        val took = (System.nanoTime() - start)
+        val toWait = 0.toLong().coerceAtLeast(timeWindow - took)
         val toWaitMilis = TimeUnit.NANOSECONDS.toMillis(toWait)
         if(toWait > 0) {
             sleep(toWaitMilis)
         }
 
-        //renderLoop()
+        //println("DEBUG: toWait: $toWaitMilis, took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
+
+        while(!renderFrames.get()){
+            sleep(50)
+        }
+
+        renderLoop()
 
         }
 

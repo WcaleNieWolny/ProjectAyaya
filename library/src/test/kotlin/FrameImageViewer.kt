@@ -282,6 +282,8 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
     val indexMap = mutableMapOf<Int, Color>()
 
     init { //AWT Stuff
+
+        println("B: ${matchColor(Color(13, 13, 13))}")
         preferredSize = Dimension(128, 128)
         isFocusable = true;
         repaint()
@@ -289,8 +291,38 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
         background = Color.BLACK
     }
 
-    private fun generateMap() {
-        for (i in 3 until colors.size) {
+
+    private fun distance(c1: Color, c2: Color): Double {
+        val ra = (c1.red + c2.red) / 2.0
+        val rd = c1.red - c2.red
+        val gd = c1.green - c2.green
+        val bd = c1.blue - c2.blue
+        val weightR = 2 + ra / 256.0
+        val weightG = 4.0
+        val weightB = 2 + (255 - ra) / 256.0
+        return weightR * rd * rd + weightG * gd * gd + weightB * bd * bd
+    }
+
+    fun matchColor(color: Color): Byte {
+        if (color.alpha < 128) return 0
+
+        var index = 0
+        var best = -1.0
+        for (i in 4 until colors.size) {
+            val distance: Double = distance(color, colors[i])
+            if (distance < best || best == -1.0) {
+                best = distance
+                index = i
+            }
+        }
+
+        // Minecraft has 143 colors, some of which have negative byte representations
+        val finalByte = (if (index < 128) index else -129 + (index - 127)).toByte()
+        return finalByte
+    }
+
+        private fun generateMap() {
+        for (i in 4 until colors.size) {
             val finalIndex = (if (i < 128) i else -129 + (i - 127))
             indexMap[finalIndex] = colors[i]
         }
@@ -298,7 +330,7 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-        val frame = frames[59];
+        val frame = frames[13];
 
         for (x in 0 until frame.width) {
             for (y in 0 until frame.height) {
@@ -310,6 +342,7 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
             }
         }
     }
-
+    //14, 34, 119
+    //34 = white
 
 }

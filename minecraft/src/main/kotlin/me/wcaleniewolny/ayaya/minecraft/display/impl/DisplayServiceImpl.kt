@@ -4,6 +4,7 @@ import me.wcaleniewolny.ayaya.library.FrameSplitter
 import me.wcaleniewolny.ayaya.library.SplittedFrame
 import me.wcaleniewolny.ayaya.minecraft.display.DisplayService
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.Broadcaster
+import me.wcaleniewolny.ayaya.minecraft.map.MapCleanerService
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 
@@ -13,7 +14,9 @@ class DisplayServiceImpl(
     private val height: Int
 ): DisplayService {
 
-    var initialized = false
+
+
+    private var initialized = false
     private val frames = mutableListOf<SplittedFrame>()
 
     override fun displayFrame(data: ByteArray) {
@@ -23,12 +26,16 @@ class DisplayServiceImpl(
 
         FrameSplitter.splitFrames(data, frames, width, height);
 
-        broadcaster.sendPackets(frames, Bukkit.getServer().onlinePlayers.map { it as Player })
+        broadcaster.sendPackets(frames, allPlayers())
 
     }
 
+    private fun allPlayers() = Bukkit.getServer().onlinePlayers.map { it as Player }
+
     override fun init() {
         frames.addAll(FrameSplitter.initializeFrames(width, height)) //Initialize frames
+        broadcaster.blackoutFrames(frames, allPlayers())
+        MapCleanerService.cleanMaps(0, frames.size)
         initialized = true
     }
 }
