@@ -1,16 +1,13 @@
 #![feature(const_fn_floating_point_arithmetic)]
-#![feature(strict_provenance)]
-#![feature(ptr_to_from_bits)]
-#![feature(core_intrinsics)]
 
 extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
-use std::ops::Sub;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime};
 use ffmpeg::{Error, Packet};
 use ffmpeg::codec::Capabilities;
+use ffmpeg::decoder::Decoder;
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::frame::Video;
 use ffmpeg::media::Type;
@@ -19,18 +16,67 @@ use ffmpeg::threading::Config;
 use ffmpeg::threading::Type::{Frame, Slice};
 use jni::JNIEnv;
 use jni::objects::*;
-use jni::sys::{jbyteArray, jint, jlong, jsize};
+use jni::sys::{jboolean, jbyteArray, jint, jlong, jsize};
 
 use crate::video_player::VideoPlayer;
 
 mod video_player;
 mod colorlib;
+mod threading;
+
+fn ffmpeg_set_multithreading(
+    target_decoder: &mut Decoder,
+    file_name: String
+){
+    let copy_input = input(&file_name).unwrap();
+
+    let copy_input = copy_input
+        .streams()
+        .best(Type::Video)
+        .ok_or(ffmpeg::Error::StreamNotFound)
+        .expect("Couldn't find video stream");
+
+    let copy_context_decoder = ffmpeg::codec::context::Context::from_parameters(copy_input.parameters())
+        .unwrap();
+
+    let copy_decoder = copy_context_decoder.decoder();
+
+    let mut copy_video = copy_decoder.video().expect("Couldn't enable multithreading due to creating decoder error");
+
+    let copy_codec = copy_video.codec().unwrap();
+    let copy_capabilities = copy_codec.capabilities();
+
+    if copy_capabilities.contains(Capabilities::FRAME_THREADS) {
+        let config = Config {
+            kind: Frame,
+            count: 2,
+            safe: false
+        };
+
+        target_decoder.set_threading(config);
+    }else if copy_capabilities.contains(Capabilities::SLICE_THREADS) {
+        let config = Config {
+            kind: Slice,
+            count: 2,
+            safe: false
+        };
+
+        target_decoder.set_threading(config);
+    }
+
+    copy_video.send_eof().expect("Couldn't close cloned codec");
+
+}
 
 //Init function
 fn init(
     env: JNIEnv,
     file_name: JString,
+    multithreading: jboolean,
 ) -> Result<jlong, Error> {
+
+    let multithreading = multithreading == 0;
+
     let file_name: String = env
         .get_string(file_name)
         .expect("Couldn't get java string!")
@@ -51,29 +97,7 @@ fn init(
 
 
         let mut decoder = context_decoder.decoder();
-
-        let codec = decoder.codec().expect("Couldn't get codec");
-        let capabilities = codec.capabilities();
-
-
-        if capabilities.contains(Capabilities::FRAME_THREADS) {
-            let config = Config {
-                kind: Frame,
-                count: 2,
-                safe: false
-            };
-
-            decoder.set_threading(config);
-        }else if capabilities.contains(Capabilities::SLICE_THREADS) {
-            let config = Config {
-                kind: Slice,
-                count: 2,
-                safe: false
-            };
-
-            decoder.set_threading(config);
-        }
-
+        ffmpeg_set_multithreading(&mut decoder, file_name);
 
         let decoder = decoder
             .video()
@@ -114,15 +138,28 @@ fn init(
         let height = decoder.height();
         let width = decoder.width();
 
-        let player = VideoPlayer::new(
-            receive_and_process_decoded_frames,
-            video_stream_index as i16,
-            scaler,
-            ictx,
-            decoder,
-            height,
-            width,
-        );
+        let player = match multithreading {
+            false => VideoPlayer::new(
+                receive_and_process_decoded_frames,
+                video_stream_index as i16,
+                scaler,
+                ictx,
+                decoder,
+                None,
+                height,
+                width,
+            ),
+            true => VideoPlayer::new(
+                receive_and_process_decoded_frames,
+                video_stream_index as i16,
+                scaler,
+                ictx,
+                decoder,
+                None,
+                height,
+                width,
+            )
+        };
 
         return Ok(player.wrap_to_java());
     }
@@ -138,14 +175,14 @@ fn load_frame(
 ) -> Result<jbyteArray, String> {
     let mut player = video_player::decode_from_java(ptr);
 
-    let start = SystemTime::now();
-    let since_the_epoch = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
+    //let start = SystemTime::now();
+    // let since_the_epoch = start
+    //     .duration_since(UNIX_EPOCH)
+    //     .expect("Time went backwards");
     let frame = player.decode_frame().expect("Couldn't decode frame");
     let data = frame.data(0);
 
-    println!("DEBUG RUST: {}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().sub(since_the_epoch).as_micros());
+    //println!("DEBUG RUST: {}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().sub(since_the_epoch).as_micros());
 
     let transformed_frame = colorlib::transform_frame_to_mc(data, player.width, player.height);
 
@@ -286,6 +323,7 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, des
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, jlong, {
     filename: JString,
+    multithreading: jboolean,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,

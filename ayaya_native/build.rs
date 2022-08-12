@@ -307,9 +307,6 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
     let out_dir = format!("{}/cached_color.hex", out_dir);
 
-    let black = get_mc_index(MinecraftColor::new(0, 0, 0)) as u8;
-    let gray = get_mc_index(MinecraftColor::new(71, 68, 66)) as u8;
-
     println!("cargo:rerun-if-changed=build.rs");
 
     let mut file = BufWriter::new(File::create(out_dir).unwrap());

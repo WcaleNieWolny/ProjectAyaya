@@ -34,7 +34,7 @@ class RenderThread(
             sleep(toWaitMilis)
         }
 
-        //println("DEBUG: toWait: $toWaitMilis, took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
+        println("DEBUG: toWait: $toWaitMilis, took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
 
         while(!renderFrames.get()){
             sleep(50)

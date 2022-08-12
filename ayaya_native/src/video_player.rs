@@ -5,6 +5,7 @@ use ffmpeg::Error::Eof;
 use ffmpeg::format::context::Input;
 use ffmpeg::Packet;
 use ffmpeg::software::scaling::Context;
+use tokio::runtime::Runtime;
 
 pub struct VideoPlayer {
     decode_function: fn(&mut Video, &mut Context, packet: &Packet) -> Result<ffmpeg::frame::Video, ffmpeg::Error>,
@@ -15,6 +16,7 @@ pub struct VideoPlayer {
     //ffmpeg scaling
     input: Input,
     decoder: Video,
+    pool: Option<Runtime>,
     pub height: u32,
     pub width: u32,
 }
@@ -26,6 +28,7 @@ impl VideoPlayer {
         scaler: Context,
         input: Input,
         decoder: Video,
+        pool: Option<Runtime>,
         height: u32,
         width: u32,
     ) -> Self {
@@ -36,6 +39,7 @@ impl VideoPlayer {
             scaler,
             input,
             decoder,
+            pool,
             width,
             height,
         }

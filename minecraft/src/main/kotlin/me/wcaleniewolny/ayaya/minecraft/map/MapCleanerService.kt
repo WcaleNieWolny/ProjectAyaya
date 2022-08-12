@@ -1,6 +1,9 @@
 package me.wcaleniewolny.ayaya.minecraft.map
 
 import org.bukkit.Bukkit
+import org.bukkit.Material
+import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.meta.MapMeta
 import org.bukkit.map.MapView
 
 object MapCleanerService {
@@ -30,5 +33,13 @@ object MapCleanerService {
         }
 
         return map
+    }
+
+    fun generateMapItem(id: Int): ItemStack{
+        val item = ItemStack(Material.FILLED_MAP)
+        val meta = item.itemMeta as MapMeta
+        meta.mapView = getBukkitMapView(id)
+        item.itemMeta = meta
+        return item
     }
 }

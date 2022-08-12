@@ -1,10 +1,14 @@
 package me.wcaleniewolny.ayaya.minecraft
 
+import me.wcaleniewolny.ayaya.minecraft.map.MapScreen
 import me.wcaleniewolny.ayaya.minecraft.playback.PlaybackControllerFactory
+import org.bukkit.Bukkit
+import org.bukkit.block.BlockFace
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.util.Vector
 
 class MapMinecraftClient : CommandExecutor, JavaPlugin() {
 
@@ -23,6 +27,16 @@ class MapMinecraftClient : CommandExecutor, JavaPlugin() {
             1 -> {
                 sender.sendMessage("PAUSE!")
                 playbackController.pausePlayback()
+            }
+            2 -> {
+                val screen = MapScreen(
+                    Vector(-13, 74, 36),
+                    Vector(-13, 66, 50),
+                    BlockFace.WEST,
+                    Bukkit.getWorld("world")!!
+                )
+
+                screen.buildScreen()
             }
         }
 
