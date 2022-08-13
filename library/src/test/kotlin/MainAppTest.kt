@@ -14,7 +14,9 @@ internal class MainAppTest {
         val future = CompletableFuture<Boolean>()
 
         //val file = javaClass.classLoader.getResource("test.webm")!!.path
-        val ptr = NativeRenderControler.init("/home/wolny/Downloads/test.mp4")
+        val ptr = NativeRenderControler.init("/home/wolny/Downloads/test.mp4", true);
+
+        NativeRenderControler.startMultithreading(ptr)
 
         println("try w!")
 

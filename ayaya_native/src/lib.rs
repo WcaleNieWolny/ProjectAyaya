@@ -1,9 +1,15 @@
 #![feature(const_fn_floating_point_arithmetic)]
+#![feature(mem_copy_fn)]
+#![feature(strict_provenance)]
+#![feature(pointer_is_aligned)]
 
 extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
+use std::borrow::BorrowMut;
+use std::cell::UnsafeCell;
+use std::{mem, ptr};
 use std::time::{SystemTime};
 use ffmpeg::{Error, Packet};
 use ffmpeg::codec::Capabilities;
@@ -17,6 +23,7 @@ use ffmpeg::threading::Type::{Frame, Slice};
 use jni::JNIEnv;
 use jni::objects::*;
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jsize};
+use crate::threading::ThreadedVideoPlayer;
 
 use crate::video_player::VideoPlayer;
 
@@ -75,7 +82,9 @@ fn init(
     multithreading: jboolean,
 ) -> Result<jlong, Error> {
 
-    let multithreading = multithreading == 0;
+    let multithreading = multithreading == 1;
+
+    println!("Multi: {}", multithreading);
 
     let file_name: String = env
         .get_string(file_name)
@@ -145,26 +154,62 @@ fn init(
                 scaler,
                 ictx,
                 decoder,
-                None,
+                ptr::null_mut(),
                 height,
                 width,
             ),
-            true => VideoPlayer::new(
-                receive_and_process_decoded_frames,
-                video_stream_index as i16,
-                scaler,
-                ictx,
-                decoder,
-                None,
-                height,
-                width,
-            )
+            true => {
+                VideoPlayer::new(
+                    receive_and_process_decoded_frames,
+                    video_stream_index as i16,
+                    scaler,
+                    ictx,
+                    decoder,
+                    &mut ThreadedVideoPlayer::new(width, height, 4),
+                    height,
+                    width,
+                )
+            }
         };
 
         return Ok(player.wrap_to_java());
     }
 
     Err(Error::StreamNotFound)
+}
+
+fn start_multithreading(
+    env: JNIEnv,
+    ptr: jlong,
+) -> anyhow::Result<()>{
+    println!("P: {}", ptr);
+    let player = video_player::decode_from_java(ptr);
+    println!("P sucess");
+
+    unsafe {
+        println!("read soon");
+        println!("About that: {}", player.threading.is_null());
+        let a = ptr::read(player.threading);
+        println!("read after");
+
+        a.start(player).unwrap();
+        println!("start after");
+    }
+
+    // let mut threading = &player.threading;
+    // let copy_threading = mem::copy(&mut threading);
+    //
+    // let y = copy_threading as *const Option<ThreadedVideoPlayer>;
+    //
+    //
+    // unsafe {
+    //     let mut copy_threading = std::ptr::read(y);
+    //     let result = copy_threading.take().unwrap();
+    //     result.start(player).expect("Couldn't set multithreading"); //start takes ownership
+    // }
+
+    println!("Yed!!");
+    Ok(())
 }
 
 
@@ -179,17 +224,44 @@ fn load_frame(
     // let since_the_epoch = start
     //     .duration_since(UNIX_EPOCH)
     //     .expect("Time went backwards");
-    let frame = player.decode_frame().expect("Couldn't decode frame");
-    let data = frame.data(0);
 
-    //println!("DEBUG RUST: {}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().sub(since_the_epoch).as_micros());
 
-    let transformed_frame = colorlib::transform_frame_to_mc(data, player.width, player.height);
+    return match player.threading.is_null() {
+        true => {
+            let frame = player.decode_frame().expect("Couldn't decode frame");
+            let data = frame.data(0);
 
-    let output = env.new_byte_array((player.width * player.height) as jsize).unwrap(); //Can't fail to create array unless system is out of memory
-    env.set_byte_array_region(output, 0, &transformed_frame.as_slice()).unwrap();
+            //println!("DEBUG RUST: {}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().sub(since_the_epoch).as_micros());
 
-    return Ok(output);
+            let transformed_frame = colorlib::transform_frame_to_mc(data, player.width, player.height);
+
+            let output = env.new_byte_array((player.width * player.height) as jsize).unwrap(); //Can't fail to create array unless system is out of memory
+            env.set_byte_array_region(output, 0, &transformed_frame.as_slice()).unwrap();
+
+            Ok(output)
+        }
+        false => {
+            println!("Threading??");
+
+            println!("Threading22212312??");
+
+            unsafe {
+                let threading = player.threading.read();
+
+                println!("Threadin333?");
+
+                let frame = threading.get_frame();
+                println!("Threadin8888");
+                println!("Threadin7778");
+
+                let output = env.new_byte_array((player.width * player.height) as jsize).unwrap(); //Can't fail to create array unless system is out of memory
+                env.set_byte_array_region(output, 0, &frame.as_slice()).unwrap();
+
+                Ok(output)
+            }
+
+        }
+    };
 }
 
 //Destroy function must be called to drop video_player struct
@@ -324,6 +396,9 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, des
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, jlong, {
     filename: JString,
     multithreading: jboolean,
+});
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_startMultithreading, start_multithreading, {
+    ptr: jlong,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,

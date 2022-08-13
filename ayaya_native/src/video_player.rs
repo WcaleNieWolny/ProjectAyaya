@@ -6,6 +6,7 @@ use ffmpeg::format::context::Input;
 use ffmpeg::Packet;
 use ffmpeg::software::scaling::Context;
 use tokio::runtime::Runtime;
+use crate::threading::ThreadedVideoPlayer;
 
 pub struct VideoPlayer {
     decode_function: fn(&mut Video, &mut Context, packet: &Packet) -> Result<ffmpeg::frame::Video, ffmpeg::Error>,
@@ -16,7 +17,7 @@ pub struct VideoPlayer {
     //ffmpeg scaling
     input: Input,
     decoder: Video,
-    pool: Option<Runtime>,
+    pub threading: *mut ThreadedVideoPlayer,
     pub height: u32,
     pub width: u32,
 }
@@ -28,10 +29,11 @@ impl VideoPlayer {
         scaler: Context,
         input: Input,
         decoder: Video,
-        pool: Option<Runtime>,
+        threading: *mut ThreadedVideoPlayer,
         height: u32,
         width: u32,
     ) -> Self {
+
         Self {
             decode_function,
             frame_index: 0,
@@ -39,7 +41,7 @@ impl VideoPlayer {
             scaler,
             input,
             decoder,
-            pool,
+            threading,
             width,
             height,
         }
@@ -73,6 +75,9 @@ impl VideoPlayer {
         decoder.send_eof().unwrap(); //This shouldn't fail? I do not know.
     }
 }
+
+unsafe impl Sync for VideoPlayer {}
+unsafe impl Send for VideoPlayer {}
 
 impl PartialEq for VideoPlayer {
     fn eq(&self, other: &Self) -> bool {

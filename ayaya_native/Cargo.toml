@@ -10,6 +10,7 @@ jni = "0.19.0"
 ffmpeg-next = "5.0.3"
 lazy_static = "1.4.0"
 tokio = { version = "1", features = ["full"] }
+anyhow = "1.0"
 
 [lib]
 crate_type = ["cdylib"]
