@@ -11,9 +11,9 @@ object PlaybackControllerFactory {
     fun create(
         filename: String,
     ): PlaybackController {
-        val ptr = NativeRenderControler.init(filename, true)
+        val ptr = NativeRenderControler.init(filename, false)
 
-        NativeRenderControler.startMultithreading(ptr)
+        //NativeRenderControler.startMultithreading(ptr)
 
         val width = NativeRenderControler.width(ptr)
         val height = NativeRenderControler.height(ptr)

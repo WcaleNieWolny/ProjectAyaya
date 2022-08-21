@@ -2,34 +2,28 @@
 #![feature(mem_copy_fn)]
 #![feature(strict_provenance)]
 #![feature(pointer_is_aligned)]
+#![feature(new_uninit)]
 
 extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
+extern crate core;
 
-use std::borrow::BorrowMut;
-use std::cell::UnsafeCell;
-use std::{mem, ptr};
-use std::time::{SystemTime};
-use ffmpeg::{Error, Packet};
+use ffmpeg::{Error};
 use ffmpeg::codec::Capabilities;
 use ffmpeg::decoder::Decoder;
-use ffmpeg::format::{input, Pixel};
-use ffmpeg::frame::Video;
+use ffmpeg::format::{input};
 use ffmpeg::media::Type;
-use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::threading::Config;
 use ffmpeg::threading::Type::{Frame, Slice};
 use jni::JNIEnv;
 use jni::objects::*;
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jsize};
-use crate::threading::ThreadedVideoPlayer;
+use crate::player::player_context::{PlayerContext, VideoPlayer};
+use crate::player::single_video_player::SingleVideoPlayer;
 
-use crate::video_player::VideoPlayer;
-
-mod video_player;
 mod colorlib;
-mod threading;
+mod player;
 
 fn ffmpeg_set_multithreading(
     target_decoder: &mut Decoder,
@@ -81,134 +75,27 @@ fn init(
     file_name: JString,
     multithreading: jboolean,
 ) -> Result<jlong, Error> {
-
-    let multithreading = multithreading == 1;
-
-    println!("Multi: {}", multithreading);
-
     let file_name: String = env
         .get_string(file_name)
         .expect("Couldn't get java string!")
         .into();
-    ffmpeg::init().unwrap();
 
-    if let Ok(ictx) = input(&file_name) {
-        let input = ictx
-            .streams()
-            .best(Type::Video)
-            .ok_or(ffmpeg::Error::StreamNotFound)
-            .expect("Couldn't find video stream");
+    let multithreading = multithreading == 1;
 
-        let video_stream_index = input.index();
+    match multithreading {
+        false => {
+            let player_context = SingleVideoPlayer::create(file_name).expect("Couldn't create single threaded player context");
+            return Ok(PlayerContext::wrap_to_ptr(player_context))
 
-        let context_decoder = ffmpeg::codec::context::Context::from_parameters(input.parameters())
-            .expect("Couldn't decode context decoder");
-
-
-        let mut decoder = context_decoder.decoder();
-        ffmpeg_set_multithreading(&mut decoder, file_name);
-
-        let decoder = decoder
-            .video()
-            .expect("Couldn't create decoder");
-
-        let scaler = Context::get(
-            decoder.format(),
-            decoder.width(),
-            decoder.height(),
-            Pixel::RGB24,
-            decoder.width(),
-            decoder.height(),
-            Flags::BILINEAR,
-        )?;
-
-        let receive_and_process_decoded_frames =
-            |decoder: &mut ffmpeg::decoder::Video, scaler: &mut Context, packet: &Packet| -> Result<Video, ffmpeg::Error> {
-                let mut decoded = Video::empty();
-                let mut rgb_frame = Video::empty();
-
-                let mut out = decoder.receive_frame(&mut decoded);
-
-                while !out.is_ok() {
-                    let err = out.unwrap_err();
-
-                    if err == Error::from(-11) {
-                        decoder.send_packet(packet).expect("Couldn't send packet to decoder");
-                        out = decoder.receive_frame(&mut decoded);
-                    } else {
-                        return Err(err);
-                    }
-                }
-
-                scaler.run(&decoded, &mut rgb_frame).expect("Scaler run failed");
-                return Ok(rgb_frame);
-            };
-
-        let height = decoder.height();
-        let width = decoder.width();
-
-        let player = match multithreading {
-            false => VideoPlayer::new(
-                receive_and_process_decoded_frames,
-                video_stream_index as i16,
-                scaler,
-                ictx,
-                decoder,
-                ptr::null_mut(),
-                height,
-                width,
-            ),
-            true => {
-                VideoPlayer::new(
-                    receive_and_process_decoded_frames,
-                    video_stream_index as i16,
-                    scaler,
-                    ictx,
-                    decoder,
-                    &mut ThreadedVideoPlayer::new(width, height, 4),
-                    height,
-                    width,
-                )
-            }
-        };
-
-        return Ok(player.wrap_to_java());
+        }
+        true => todo!()
     }
-
-    Err(Error::StreamNotFound)
 }
 
 fn start_multithreading(
     env: JNIEnv,
     ptr: jlong,
 ) -> anyhow::Result<()>{
-    println!("P: {}", ptr);
-    let player = video_player::decode_from_java(ptr);
-    println!("P sucess");
-
-    unsafe {
-        println!("read soon");
-        println!("About that: {}", player.threading.is_null());
-        let a = ptr::read(player.threading);
-        println!("read after");
-
-        a.start(player).unwrap();
-        println!("start after");
-    }
-
-    // let mut threading = &player.threading;
-    // let copy_threading = mem::copy(&mut threading);
-    //
-    // let y = copy_threading as *const Option<ThreadedVideoPlayer>;
-    //
-    //
-    // unsafe {
-    //     let mut copy_threading = std::ptr::read(y);
-    //     let result = copy_threading.take().unwrap();
-    //     result.start(player).expect("Couldn't set multithreading"); //start takes ownership
-    // }
-
-    println!("Yed!!");
     Ok(())
 }
 
@@ -217,51 +104,12 @@ fn start_multithreading(
 fn load_frame(
     env: JNIEnv,
     ptr: jlong,
-) -> Result<jbyteArray, String> {
-    let mut player = video_player::decode_from_java(ptr);
+) -> anyhow::Result<jbyteArray> {
+    let data = PlayerContext::load_frame(ptr)?;
+    let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
+    env.set_byte_array_region(output, 0, &data.as_slice())?;
 
-    //let start = SystemTime::now();
-    // let since_the_epoch = start
-    //     .duration_since(UNIX_EPOCH)
-    //     .expect("Time went backwards");
-
-
-    return match player.threading.is_null() {
-        true => {
-            let frame = player.decode_frame().expect("Couldn't decode frame");
-            let data = frame.data(0);
-
-            //println!("DEBUG RUST: {}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().sub(since_the_epoch).as_micros());
-
-            let transformed_frame = colorlib::transform_frame_to_mc(data, player.width, player.height);
-
-            let output = env.new_byte_array((player.width * player.height) as jsize).unwrap(); //Can't fail to create array unless system is out of memory
-            env.set_byte_array_region(output, 0, &transformed_frame.as_slice()).unwrap();
-
-            Ok(output)
-        }
-        false => {
-            println!("Threading??");
-
-            println!("Threading22212312??");
-
-            unsafe {
-                let threading = player.threading.read();
-
-                println!("Threadin333?");
-
-                let frame = threading.get_frame();
-                println!("Threadin8888");
-                println!("Threadin7778");
-
-                let output = env.new_byte_array((player.width * player.height) as jsize).unwrap(); //Can't fail to create array unless system is out of memory
-                env.set_byte_array_region(output, 0, &frame.as_slice()).unwrap();
-
-                Ok(output)
-            }
-
-        }
-    };
+    Ok(output)
 }
 
 //Destroy function must be called to drop video_player struct
@@ -269,10 +117,7 @@ fn destroy(
     _env: JNIEnv,
     ptr: jlong,
 ) -> Result<(), String> {
-    let mut player = video_player::decode_from_java(ptr);
-
-    player.destroy();
-    drop(player);
+    println!("TODO!");
     Ok(())
 }
 
@@ -280,14 +125,14 @@ fn get_width(
     _env: JNIEnv,
     ptr: jlong,
 ) -> Result<jint, String> {
-    Ok(video_player::decode_from_java(ptr).width as jint)
+    Ok(PlayerContext::width(ptr))
 }
 
 fn get_height(
     _env: JNIEnv,
     ptr: jlong,
 ) -> Result<jint, String> {
-    Ok(video_player::decode_from_java(ptr).height as jint)
+    Ok(PlayerContext::height(ptr))
 }
 
 //Thanks to thatbakamono (https://github.com/thatbakamono) for help with developing this macro
@@ -307,8 +152,6 @@ macro_rules! jvm_impl {
             if let Err(error) = response {
                 environment.throw_new("java/lang/RuntimeException", format!("{:?}", error))
                     .expect("Couldn't throw java error");
-            }else{
-                response.unwrap(); //magic code
             }
         }
     };
@@ -328,8 +171,6 @@ macro_rules! jvm_impl {
             if let Err(error) = response {
                 environment.throw_new("java/lang/RuntimeException", format!("{:?}", error))
                     .expect("Couldn't throw java error");
-            }else{
-                response.unwrap();
             }
         }
     };
