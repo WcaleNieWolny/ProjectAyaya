@@ -7,7 +7,6 @@
 extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
-extern crate core;
 
 use ffmpeg::{Error};
 use ffmpeg::codec::Capabilities;
@@ -19,6 +18,7 @@ use ffmpeg::threading::Type::{Frame, Slice};
 use jni::JNIEnv;
 use jni::objects::*;
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jsize};
+use crate::player::multi_video_player::MultiVideoPlayer;
 use crate::player::player_context::{PlayerContext, VideoPlayer};
 use crate::player::single_video_player::SingleVideoPlayer;
 
@@ -88,7 +88,10 @@ fn init(
             return Ok(PlayerContext::wrap_to_ptr(player_context))
 
         }
-        true => todo!()
+        true => {
+            let player_context = MultiVideoPlayer::create(file_name).expect("Couldn't create single threaded player context");
+            return Ok(PlayerContext::wrap_to_ptr(player_context))
+        }
     }
 }
 

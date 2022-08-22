@@ -3,7 +3,7 @@ use ffmpeg::{Error, Packet};
 use ffmpeg::frame::Video;
 use ffmpeg::software::scaling::Context;
 use crate::player::multi_video_player::MultiVideoPlayer;
-use crate::player::player_context::PlayerType::SingleThreaded;
+use crate::player::player_context::PlayerType::{MultiThreaded, SingleThreaded};
 use crate::player::single_video_player::SingleVideoPlayer;
 
 pub enum PlayerType{
@@ -30,6 +30,13 @@ impl PlayerContext {
         }
     }
 
+    pub fn from_multi_video_player(multi_video_player: MultiVideoPlayer) -> Self {
+        Self {
+            player_type: MultiThreaded,
+            ptr: Box::into_raw(Box::new(multi_video_player)) as i64
+        }
+    }
+
     pub fn wrap_to_ptr(self) -> i64 {
         Box::into_raw(Box::new(self)) as i64
     }
@@ -48,7 +55,11 @@ impl PlayerContext {
                 single_video_player.load_frame()
             },
             _multi_threaded => {
-                panic!("Multithreaded video player is not implemented")
+                let mut multi_video_player = unsafe {
+                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut MultiVideoPlayer))
+                };
+
+                multi_video_player.load_frame()
             }
         }
     }
@@ -59,13 +70,17 @@ impl PlayerContext {
         };
         match &player_context.player_type {
             SingleThreaded => {
-                let mut single_video_player = unsafe {
+                let single_video_player = unsafe {
                     ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut SingleVideoPlayer))
                 };
                 return single_video_player.width as i32;
             }
             _multi_threaded => {
-                panic!("Multithreaded video player is not implemented")
+                let multi_video_player = unsafe {
+                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut MultiVideoPlayer))
+                };
+
+                multi_video_player.width()
             }
         }
     }
@@ -82,7 +97,11 @@ impl PlayerContext {
                 return single_video_player.height as i32;
             }
             _multi_threaded => {
-                panic!("Multithreaded video player is not implemented")
+                let multi_video_player = unsafe {
+                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut MultiVideoPlayer))
+                };
+
+                multi_video_player.height()
             }
         }
     }
