@@ -6,8 +6,8 @@ class RenderService(
 
     private var initialized = false
 
-    fun startRendering(){
-        if(!initialized){
+    fun startRendering() {
+        if (!initialized) {
             renderThread.renderFrames.set(true)
         }
         renderThread.name = "ProjectAyaya Render Thread"
@@ -16,14 +16,14 @@ class RenderService(
         initialized = true
     }
 
-    fun pauseRendering(){
-        if(!initialized){
+    fun pauseRendering() {
+        if (!initialized) {
             throw IllegalStateException("Cannot pause rendering due to render thread being not initialized")
         }
         renderThread.renderFrames.set(false)
     }
 
-    fun killRendering(){
+    fun killRendering() {
 
     }
 

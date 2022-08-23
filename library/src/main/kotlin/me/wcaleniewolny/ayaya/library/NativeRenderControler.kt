@@ -15,8 +15,6 @@ object NativeRenderControler {
      */
     external fun init(fileName: String, multithreading: Boolean): Long
 
-    external fun startMultithreading(ptr: Long)
-
     /**
      * Tell native library to free any native memory. After that calling [NativeRenderControler.loadFrame] is an illegal operation.
      * @param ptr Pointer acquired by calling init function
@@ -27,12 +25,9 @@ object NativeRenderControler {
     /**
      * @param ptr Pointer acquired by calling init function
      */
-    external fun width(ptr: Long): Int
+    external fun getVideoData(ptr: Long): VideoData
 
-    /**
-     * @param ptr Pointer acquired by calling init function
-     */
-    external fun height(ptr: Long): Int
+    external fun test(data: ByteArray, ptr: Long): ByteArray
 
     init {
         System.loadLibrary("ayaya_native")

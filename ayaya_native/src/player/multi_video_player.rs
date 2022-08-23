@@ -1,7 +1,8 @@
+use std::{thread, time};
 use std::sync::{Arc, mpsc};
-use std::sync::mpsc::{Receiver, Sender, SyncSender};
-use std::thread;
-use ffmpeg::decoder::{Video};
+use std::sync::mpsc::Receiver;
+
+use ffmpeg::decoder::Video;
 use ffmpeg::Error;
 use ffmpeg::Error::Eof;
 use ffmpeg::format::{input, Pixel};
@@ -9,18 +10,20 @@ use ffmpeg::format::context::Input;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 use tokio::runtime::{Builder, Runtime};
-use tokio::sync::{oneshot};
-use crate::{ffmpeg_set_multithreading, init, PlayerContext, VideoPlayer};
-use crate::colorlib::transform_frame_to_mc;
-use crate::player::player_context::receive_and_process_decoded_frames;
+use tokio::sync::oneshot;
 
-pub struct MultiVideoPlayer{
-    pub width: Option<i32>,
-    pub height: Option<i32>,
+use crate::{ffmpeg_set_multithreading, PlayerContext, VideoPlayer};
+use crate::colorlib::transform_frame_to_mc;
+use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
+
+pub struct MultiVideoPlayer {
+    width: Option<i32>,
+    height: Option<i32>,
+    fps: Option<i32>,
     thread_pool_size: i32,
     file_name: String,
     receiver: Option<Arc<Receiver<Vec<i8>>>>,
-    runtime: Arc<Runtime>
+    runtime: Arc<Runtime>,
 }
 
 impl MultiVideoPlayer {
@@ -29,7 +32,7 @@ impl MultiVideoPlayer {
             if stream.index() == video_stream_index {
                 decoder.send_packet(&packet)?;
                 let frame_data = receive_and_process_decoded_frames(decoder, scaler, &packet)?;
-                return Ok(frame_data)
+                return Ok(frame_data);
             }
         };
 
@@ -37,9 +40,9 @@ impl MultiVideoPlayer {
     }
 }
 
-impl VideoPlayer for MultiVideoPlayer{
+impl VideoPlayer for MultiVideoPlayer {
     fn create(file_name: String) -> anyhow::Result<PlayerContext> {
-        let thread_pool_size = 4;
+        let thread_pool_size = 6;
         let runtime = Builder::new_multi_thread()
             .worker_threads(thread_pool_size as usize)
             .thread_name("ProjectAyaya native worker thread")
@@ -50,10 +53,11 @@ impl VideoPlayer for MultiVideoPlayer{
         let mut multi_video_player = MultiVideoPlayer {
             width: None,
             height: None,
+            fps: None,
             thread_pool_size,
             file_name,
             receiver: None,
-            runtime: Arc::new(runtime)
+            runtime: Arc::new(runtime),
         };
 
         multi_video_player.init().expect("Couldn't initialize multithreaded player");
@@ -62,9 +66,8 @@ impl VideoPlayer for MultiVideoPlayer{
     }
 
     fn init(&mut self) -> anyhow::Result<()> {
-
         let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(50);
-        let (len_tx, len_rx) = mpsc::sync_channel::<i32>(2);
+        let (data_tx, data_rx) = mpsc::sync_channel::<i32>(2);
 
         self.receiver = Some(Arc::new(global_rx));
 
@@ -91,8 +94,9 @@ impl VideoPlayer for MultiVideoPlayer{
                 let width = decoder.width();
                 let height = decoder.height();
 
-                len_tx.send(width as i32).unwrap();
-                len_tx.send(height as i32).unwrap();
+                data_tx.send(width as i32).unwrap();
+                data_tx.send(height as i32).unwrap();
+                data_tx.send(input.rate().0).unwrap();
 
                 let mut scaler = Context::get(
                     decoder.format(),
@@ -107,7 +111,6 @@ impl VideoPlayer for MultiVideoPlayer{
                 let mut frames_channels: Vec<oneshot::Receiver<Vec<i8>>> = Vec::with_capacity((thread_pool_size + 1) as usize);
 
                 for _ in 0..thread_pool_size {
-
                     println!("loop en");
 
                     let frame = MultiVideoPlayer::decode_frame(&mut ictx, video_stream_index, &mut decoder, &mut scaler).expect("Couldn't create async frame");
@@ -138,29 +141,57 @@ impl VideoPlayer for MultiVideoPlayer{
                         global_tx.send(rx.blocking_recv().unwrap()).expect("Couldn't send global async message");
                     }
                 }
-
-            }else {
+            } else {
                 panic!("Couldn't create async video input")
             }
         });
 
-        self.width = Some(len_rx.recv().unwrap());
-        self.height = Some(len_rx.recv().unwrap());
+        self.width = Some(data_rx.recv().unwrap());
+        self.height = Some(data_rx.recv().unwrap());
+        self.fps = Some(data_rx.recv().unwrap());
 
         Ok(())
-
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
-        Ok(self.receiver.as_ref().unwrap().recv().expect("Couldn't receive async global message"))
+        let reciver = self.receiver.as_ref().unwrap();
+
+        return loop {
+            let frame = reciver.try_recv();
+            if frame.is_ok() {
+                break Ok(frame.unwrap());
+            } else {
+                thread::sleep(time::Duration::from_millis(3));
+            }
+        };
     }
 
-    fn width(&self) -> i32 {
-        self.width.unwrap()
-    }
+    fn video_data(&self) -> anyhow::Result<VideoData> {
+        //let width = self.width.expect("Couldn't get multi video width");
+        let width = match self.width {
+            Some(width) => width,
+            None => {
+                return Err(anyhow::Error::msg("Couldn't get multi video width"));
+            }
+        };
+        let height = match self.height {
+            Some(height) => height,
+            None => {
+                return Err(anyhow::Error::msg("Couldn't get multi video height"));
+            }
+        };
+        let fps = match self.fps {
+            Some(fps) => fps,
+            None => {
+                return Err(anyhow::Error::msg("Couldn't get multi video fps"));
+            }
+        };
 
-    fn height(&self) -> i32 {
-        self.height.unwrap()
+        Ok(VideoData {
+            width,
+            height,
+            fps,
+        })
     }
 
     fn destroy(self) -> anyhow::Result<()> {

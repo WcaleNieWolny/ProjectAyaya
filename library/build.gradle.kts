@@ -47,11 +47,11 @@ tasks.register<Jar>("packageTests") {
     }
 }
 
-tasks.register<ShadowJar>("shadowTests"){
+tasks.register<ShadowJar>("shadowTests") {
     archiveClassifier.set("tests")
     from(sourceSets.test.get().output, sourceSets.main.get().output)
 
-    manifest{
+    manifest {
         attributes(
             Pair("Main-Class", "me.wcaleniewolny.ayaya.MainAppTestKt")
         )

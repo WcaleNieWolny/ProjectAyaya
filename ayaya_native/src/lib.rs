@@ -8,27 +8,30 @@ extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
-use ffmpeg::{Error};
+use ffmpeg::Error;
 use ffmpeg::codec::Capabilities;
 use ffmpeg::decoder::Decoder;
-use ffmpeg::format::{input};
+use ffmpeg::format::input;
 use ffmpeg::media::Type;
 use ffmpeg::threading::Config;
 use ffmpeg::threading::Type::{Frame, Slice};
 use jni::JNIEnv;
 use jni::objects::*;
-use jni::sys::{jboolean, jbyteArray, jint, jlong, jsize};
+use jni::sys::{jboolean, jbyteArray, jlong, jobject, jsize};
+
 use crate::player::multi_video_player::MultiVideoPlayer;
 use crate::player::player_context::{PlayerContext, VideoPlayer};
 use crate::player::single_video_player::SingleVideoPlayer;
+use crate::splitting::SplittedFrame;
 
 mod colorlib;
 mod player;
+mod splitting;
 
 fn ffmpeg_set_multithreading(
     target_decoder: &mut Decoder,
-    file_name: String
-){
+    file_name: String,
+) {
     let copy_input = input(&file_name).unwrap();
 
     let copy_input = copy_input
@@ -51,22 +54,21 @@ fn ffmpeg_set_multithreading(
         let config = Config {
             kind: Frame,
             count: 2,
-            safe: false
+            safe: false,
         };
 
         target_decoder.set_threading(config);
-    }else if copy_capabilities.contains(Capabilities::SLICE_THREADS) {
+    } else if copy_capabilities.contains(Capabilities::SLICE_THREADS) {
         let config = Config {
             kind: Slice,
             count: 2,
-            safe: false
+            safe: false,
         };
 
         target_decoder.set_threading(config);
     }
 
     copy_video.send_eof().expect("Couldn't close cloned codec");
-
 }
 
 //Init function
@@ -82,24 +84,16 @@ fn init(
 
     let multithreading = multithreading == 1;
 
-    match multithreading {
+    return match multithreading {
         false => {
             let player_context = SingleVideoPlayer::create(file_name).expect("Couldn't create single threaded player context");
-            return Ok(PlayerContext::wrap_to_ptr(player_context))
-
+            Ok(PlayerContext::wrap_to_ptr(player_context))
         }
         true => {
             let player_context = MultiVideoPlayer::create(file_name).expect("Couldn't create single threaded player context");
-            return Ok(PlayerContext::wrap_to_ptr(player_context))
+            Ok(PlayerContext::wrap_to_ptr(player_context))
         }
-    }
-}
-
-fn start_multithreading(
-    env: JNIEnv,
-    ptr: jlong,
-) -> anyhow::Result<()>{
-    Ok(())
+    };
 }
 
 
@@ -119,23 +113,53 @@ fn load_frame(
 fn destroy(
     _env: JNIEnv,
     ptr: jlong,
-) -> Result<(), String> {
-    println!("TODO!");
+) -> anyhow::Result<()> {
+    PlayerContext::destroy(ptr)?;
     Ok(())
 }
 
-fn get_width(
-    _env: JNIEnv,
+fn test_splitting(
+    env: JNIEnv,
+    data: jbyteArray,
     ptr: jlong,
-) -> Result<jint, String> {
-    Ok(PlayerContext::width(ptr))
+) -> anyhow::Result<jbyteArray> {
+    let len = env.get_array_length(data)?;
+    let mut vec = vec![0i8; len as usize];
+
+    env.get_byte_array_region(data, 0, vec.as_mut_slice())?;
+    let video_data = PlayerContext::video_data(ptr)?;
+
+    println!("SIZE: {}", vec.len());
+
+    let width = video_data.width;
+    let height = video_data.height;
+
+    let mut frames = SplittedFrame::initialize_frames(width, height)?;
+    println!("INIT F");
+    SplittedFrame::split_frames(vec, &mut frames, width)?;
+
+    let len = &frames[0].frame_length;
+    let output = env.new_byte_array(*len as jsize)?; //Can't fail to create array unless system is out of memory
+    env.set_byte_array_region(output, 0, &frames[0].data.as_slice())?;
+
+    //let output = env.new_byte_array(1 as jsize)?;
+
+    Ok(output)
 }
 
-fn get_height(
-    _env: JNIEnv,
+fn get_video_data(
+    env: JNIEnv,
     ptr: jlong,
-) -> Result<jint, String> {
-    Ok(PlayerContext::height(ptr))
+) -> anyhow::Result<jobject> {
+    // let jclass = env.find_class("me/wcaleniewolny/ayaya/library/VideoData")?;
+    // let jconstructor = env.get_method_id(jclass, "<init>", "(III)V")?;
+
+    let video_data = PlayerContext::video_data(ptr)?;
+
+    let jobject = env.new_object("me/wcaleniewolny/ayaya/library/VideoData", "(III)V", &[
+        JValue::Int(video_data.width), JValue::Int(video_data.height), JValue::Int(video_data.fps)
+    ])?;
+    Ok(jobject.into_inner())
 }
 
 //Thanks to thatbakamono (https://github.com/thatbakamono) for help with developing this macro
@@ -227,10 +251,11 @@ macro_rules! jvm_impl {
     };
 }
 
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_height, get_height, jint, {
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getVideoData, get_video_data, jobject, {
     ptr: jlong,
 });
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_width, get_width, jint, {
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_test, test_splitting, jbyteArray, {
+    data: jbyteArray,
     ptr: jlong,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, destroy,
@@ -240,9 +265,6 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, des
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, jlong, {
     filename: JString,
     multithreading: jboolean,
-});
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_startMultithreading, start_multithreading, {
-    ptr: jlong,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,

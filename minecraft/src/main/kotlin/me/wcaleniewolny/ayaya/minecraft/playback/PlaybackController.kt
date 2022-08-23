@@ -6,14 +6,14 @@ class PlaybackController(
     private val renderService: RenderService
 ) {
 
-    fun startPlayback(){
+    fun startPlayback() {
         renderService.startRendering()
     }
 
     /*
     Serves both as pause and unpause function
      */
-    fun pausePlayback(){
+    fun pausePlayback() {
         renderService.pauseRendering()
     }
 }

@@ -13,7 +13,7 @@ import org.bukkit.util.Vector
 class MapMinecraftClient : CommandExecutor, JavaPlugin() {
 
     //private val fileName =  "/home/wolny/Downloads/test.mp4"
-    private val fileName = "/home/wolny/IdeaProjects/ProjectAyaya/library/src/test/resources/test.mp4"
+    private val fileName = "/home/wolny/Downloads/4k_test.mp4"
     private val playbackController = PlaybackControllerFactory.create(fileName)
 
     override fun onEnable() {
@@ -22,7 +22,7 @@ class MapMinecraftClient : CommandExecutor, JavaPlugin() {
     }
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        when (args.size){
+        when (args.size) {
             0 -> playbackController.startPlayback()
             1 -> {
                 sender.sendMessage("PAUSE!")
@@ -30,8 +30,8 @@ class MapMinecraftClient : CommandExecutor, JavaPlugin() {
             }
             2 -> {
                 val screen = MapScreen(
-                    Vector(-13, 74, 36),
-                    Vector(-13, 66, 50),
+                    Vector(-13, 82, 36),
+                    Vector(-13, 66, 65),
                     BlockFace.WEST,
                     Bukkit.getWorld("world")!!
                 )

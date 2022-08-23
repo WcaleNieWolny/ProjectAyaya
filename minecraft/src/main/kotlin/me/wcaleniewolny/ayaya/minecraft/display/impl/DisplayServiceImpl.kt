@@ -12,15 +12,14 @@ class DisplayServiceImpl(
     private val broadcaster: Broadcaster,
     private val width: Int,
     private val height: Int
-): DisplayService {
-
+) : DisplayService {
 
 
     private var initialized = false
     private val frames = mutableListOf<SplittedFrame>()
 
     override fun displayFrame(data: ByteArray) {
-        if(!initialized){
+        if (!initialized) {
             throw IllegalStateException("PlaybackService is not initialized")
         }
 

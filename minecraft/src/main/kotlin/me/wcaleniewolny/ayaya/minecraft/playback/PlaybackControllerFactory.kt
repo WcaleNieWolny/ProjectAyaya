@@ -12,13 +12,13 @@ object PlaybackControllerFactory {
         filename: String,
     ): PlaybackController {
         val ptr = NativeRenderControler.init(filename, true)
+        val videoData = NativeRenderControler.getVideoData(ptr)
+        println("DATA: $videoData")
 
-        //NativeRenderControler.startMultithreading(ptr)
+        val width = videoData.width
+        val height = videoData.height
 
-        val width = NativeRenderControler.width(ptr)
-        val height = NativeRenderControler.height(ptr)
-
-        val fps = 30 //TODO: use FFMPEG to extract it later from video
+        val fps = videoData.fps
 
         return PlaybackController(
             RenderService(

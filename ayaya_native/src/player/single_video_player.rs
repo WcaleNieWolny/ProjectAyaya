@@ -1,24 +1,26 @@
+use ffmpeg::Error;
 use ffmpeg::decoder::Video;
-use ffmpeg::{Error};
 use ffmpeg::Error::Eof;
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::format::context::Input;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
+
 use crate::colorlib::transform_frame_to_mc;
 use crate::ffmpeg_set_multithreading;
-use crate::player::player_context::{PlayerContext, receive_and_process_decoded_frames, VideoPlayer};
+use crate::player::player_context::{PlayerContext, receive_and_process_decoded_frames, VideoData, VideoPlayer};
 
-pub struct SingleVideoPlayer{
+pub struct SingleVideoPlayer {
     video_stream_index: usize,
     scaler: Context,
     input: Input,
     decoder: Video,
-    pub width: u32,
-    pub height: u32,
+    width: u32,
+    height: u32,
+    fps: i32,
 }
 
-impl VideoPlayer for SingleVideoPlayer{
+impl VideoPlayer for SingleVideoPlayer {
     fn create(file_name: String) -> anyhow::Result<PlayerContext> {
         ffmpeg::init()?;
 
@@ -40,6 +42,8 @@ impl VideoPlayer for SingleVideoPlayer{
             let width = decoder.width();
             let height = decoder.height();
 
+            let fps = input.rate().0;
+
             let scaler = Context::get(
                 decoder.format(),
                 width,
@@ -50,13 +54,14 @@ impl VideoPlayer for SingleVideoPlayer{
                 Flags::BILINEAR,
             )?;
 
-            let mut single_video_player = Self{
+            let mut single_video_player = Self {
                 video_stream_index,
                 scaler,
                 input: ictx,
                 decoder,
                 width,
-                height
+                height,
+                fps,
             };
 
             SingleVideoPlayer::init(&mut single_video_player)?;
@@ -78,19 +83,19 @@ impl VideoPlayer for SingleVideoPlayer{
                 self.decoder.send_packet(&packet)?;
                 let frame_data = receive_and_process_decoded_frames(&mut self.decoder, &mut self.scaler, &packet)?;
                 let transformed_frame = transform_frame_to_mc(frame_data.data(0), self.width, self.height);
-                return Ok(transformed_frame)
+                return Ok(transformed_frame);
             }
         };
 
         Err(anyhow::Error::new(Eof))
     }
 
-    fn width(&self) -> i32 {
-        self.width as i32
-    }
-
-    fn height(&self) -> i32 {
-        self.height as i32
+    fn video_data(&self) -> anyhow::Result<VideoData> {
+        Ok(VideoData {
+            width: self.width as i32,
+            height: self.height as i32,
+            fps: self.fps,
+        })
     }
 
     fn destroy(self) -> anyhow::Result<()> {

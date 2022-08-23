@@ -8,11 +8,11 @@ import me.wcaleniewolny.ayaya.library.SplittedFrame
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.Broadcaster
 import org.bukkit.entity.Player
 
-class ProtocolLibBroadcaster: Broadcaster {
+class ProtocolLibBroadcaster : Broadcaster {
 
     override fun sendPackets(data: MutableList<SplittedFrame>, players: List<Player>) {
 
-        for(i in 0 until data.size){
+        for (i in 0 until data.size) {
             val frame = data[i]
 
             //TODO: Do not have static map ID
@@ -25,7 +25,7 @@ class ProtocolLibBroadcaster: Broadcaster {
                 frame.data
             )
 
-            players.forEach{
+            players.forEach {
                 ProtocolLibrary.getProtocolManager().sendServerPacket(it, mapPacket)
             }
 
@@ -33,7 +33,7 @@ class ProtocolLibBroadcaster: Broadcaster {
     }
 
     override fun blackoutFrames(data: MutableList<SplittedFrame>, players: List<Player>) {
-        for(i in 0 until data.size){
+        for (i in 0 until data.size) {
             val mapPacket = makeMapPacket(
                 i,
                 0,
@@ -41,10 +41,10 @@ class ProtocolLibBroadcaster: Broadcaster {
                 128,
                 128,
                 ByteArray(16384) { 119 }
-            //119 is probably the blackest you can get. -49 is technically closer to black but is kind of red and 119 is black but a little grayish
+                //119 is probably the blackest you can get. -49 is technically closer to black but is kind of red and 119 is black but a little grayish
             )
 
-            players.forEach{
+            players.forEach {
                 ProtocolLibrary.getProtocolManager().sendServerPacket(it, mapPacket)
             }
         }
@@ -57,7 +57,7 @@ class ProtocolLibBroadcaster: Broadcaster {
         width: Int,
         height: Int,
         data: ByteArray
-    ): PacketContainer{
+    ): PacketContainer {
         val mapPacket = PacketContainer(PacketType.Play.Server.MAP)
         mapPacket.integers.write(0, id) //Map ID
         mapPacket.bytes.write(0, 0) //Scale, do not change
