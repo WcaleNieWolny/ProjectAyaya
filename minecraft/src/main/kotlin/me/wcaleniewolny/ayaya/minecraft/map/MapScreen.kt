@@ -24,7 +24,7 @@ class MapScreen(
     private val blockFace = validateBlockFace(preFace)
 
     //Source: https://github.com/northpl93/NativeScreen/blob/8471e6701a0da3f5a90f92850d76cdb90d696a56/src/main/java/pl/north93/nativescreen/renderer/impl/BoardFactory.java#L54-L69
-    fun buildScreen(){
+    fun buildScreen() {
         world.forEachIn(loc1, loc2) {
             it.type = Material.SEA_LANTERN
         }
@@ -70,7 +70,7 @@ class MapScreen(
             preFace != BlockFace.EAST &&
             preFace != BlockFace.SOUTH &&
             preFace != BlockFace.WEST
-        ){
+        ) {
             throw IllegalArgumentException("BlockFace is neither north, east, south or west")
         }
 

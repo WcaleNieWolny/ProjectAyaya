@@ -17,25 +17,17 @@ object FrameSplitter {
             throw IllegalArgumentException("Frame list size does not match required lenght (${allFramesX * allFramesY})")
         }
 
-        val twoD = Array(height) { ByteArray(width) }
-
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                twoD[y][x] = data[(y * width) + x]
-            }
-        }
-
         var i = 0
         var yI = 0 //Y index
 
         for (y in 0 until allFramesY) {
             var xI = 0 //X index
-            for (x in 0 until  allFramesX) {
+            for (x in 0 until allFramesX) {
                 val frame = frames[i]
 
                 val frameData = frames[i].data
 
-                for (y1 in 0 until frame.height){
+                for (y1 in 0 until frame.height) {
 //                    for (x1 in 0 until frame.width){
 //                        frameData[(y1 * frame.width) + x1] = data[((yI * width) + xI) + ((y1 * width) + x1)]
 //                    }
@@ -67,17 +59,18 @@ object FrameSplitter {
         val framesX = width / 128.0
         val framesY = height / 128.0
 
-        val xMargin = if(width % 128 == 0) 0 else 128 - (width - (framesX.toInt() * 128))
-        val yMargin = if(height % 128 == 0) 0 else 128 - (height - (framesY.toInt() * 128))
+        val xMargin = if (width % 128 == 0) 0 else 128 - (width - (framesX.toInt() * 128))
+        val yMargin = if (height % 128 == 0) 0 else 128 - (height - (framesY.toInt() * 128))
 
         allFramesX = ceil(framesX).toInt()
         allFramesY = ceil(framesY).toInt()
 
         println("W: ${width}, $height")
         println("A: ${allFramesX}, $allFramesY")
+        println("M: $xMargin, $yMargin")
 
-        for (y in 0 until  allFramesY) {
-            for (x in 0 until  allFramesX) {
+        for (y in 0 until allFramesY) {
+            for (x in 0 until allFramesX) {
                 val xFrameMargin = if (x == 0) (xMargin / 2) else 0
                 val yFrameMargin = if (y == 0) (yMargin / 2) else 0
 
