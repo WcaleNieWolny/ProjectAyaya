@@ -1,5 +1,6 @@
 package me.wcaleniewolny.ayaya.library
 
+import java.nio.ByteBuffer
 import kotlin.math.ceil
 
 //Note: If we want to speed this up we need to use C and JNI to do it.
@@ -11,38 +12,41 @@ object FrameSplitter {
     private var allFramesY = 0
 
     @Throws(IllegalArgumentException::class)
-    fun splitFrames(data: ByteArray, frames: List<SplittedFrame>, width: Int, height: Int) {
+    fun splitFrames(data: ByteArray, frames: List<SplittedFrame>, width: Int) {
 
         if (allFramesX * allFramesY != frames.size) {
             throw IllegalArgumentException("Frame list size does not match required lenght (${allFramesX * allFramesY})")
         }
 
-        var i = 0
-        var yI = 0 //Y index
+        var frameIndex = 0
+        var lenIndex = 0;
+
+        var dI = 0
 
         for (y in 0 until allFramesY) {
-            var xI = 0 //X index
             for (x in 0 until allFramesX) {
-                val frame = frames[i]
+                val frame = frames[frameIndex]
 
-                val frameData = frames[i].data
+                val frameData = frames[frameIndex].data
 
-                for (y1 in 0 until frame.height) {
-//                    for (x1 in 0 until frame.width){
-//                        frameData[(y1 * frame.width) + x1] = data[((yI * width) + xI) + ((y1 * width) + x1)]
-//                    }
-                    System.arraycopy(data, (yI * width + xI) + (y1 * width), frameData, y1 * frame.width, frame.width)
+                var fI = 0
+
+                for (x1 in 0 until frame.width) {
+                    for (y1 in 0 until frame.height) {
+                        frameData[fI] = data[dI]
+                        fI++
+                        dI++
+                    }
                 }
 
-                if (!frames[i].initialized) {
-                    frames[i].initialized = true
+                if (!frames[frameIndex].initialized) {
+                    frames[frameIndex].initialized = true
                 }
 
+                lenIndex += frame.frameLength
+                frameIndex++
 
-                xI += frame.width
-                i++
             }
-            yI += frames[y * allFramesX].height
         }
     }
 
@@ -97,5 +101,41 @@ object FrameSplitter {
         }
 
         return frames;
+    }
+
+    @Throws(IllegalArgumentException::class)
+    fun legacy_splitFrames(data: ByteArray, frames: List<SplittedFrame>, width: Int, height: Int) {
+
+        if (allFramesX * allFramesY != frames.size) {
+            throw IllegalArgumentException("Frame list size does not match required lenght (${allFramesX * allFramesY})")
+        }
+
+        var i = 0
+        var yI = 0 //Y index
+
+        for (y in 0 until allFramesY) {
+            var xI = 0 //X index
+            for (x in 0 until allFramesX) {
+                val frame = frames[i]
+
+                val frameData = frames[i].data
+
+                for (y1 in 0 until frame.height) {
+//                    for (x1 in 0 until frame.width){
+//                        frameData[(y1 * frame.width) + x1] = data[((yI * width) + xI) + ((y1 * width) + x1)]
+//                    }
+                    System.arraycopy(data, (yI * width + xI) + (y1 * width), frameData, y1 * frame.width, frame.width)
+                }
+
+                if (!frames[i].initialized) {
+                    frames[i].initialized = true
+                }
+
+
+                xI += frame.width
+                i++
+            }
+            yI += frames[y * allFramesX].height
+        }
     }
 }

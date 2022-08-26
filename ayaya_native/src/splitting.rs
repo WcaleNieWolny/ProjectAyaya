@@ -3,13 +3,8 @@ use std::sync::atomic::Ordering::Relaxed;
 
 #[derive(Debug, Clone)]
 pub struct SplittedFrame {
-    start_x: i32,
-    start_y: i32,
     width: i32,
     height: i32,
-    x_margin: i32,
-    y_margin: i32,
-    pub data: Vec<i8>,
     pub frame_length: i32,
 }
 
@@ -49,8 +44,8 @@ impl SplittedFrame {
 
         let mut i = 0;
 
-        for x in 0..all_frames_x {
-            for y in 0..all_frames_y {
+        for y in 0..all_frames_y {
+            for x in 0..all_frames_x {
                 let x_frame_margin = if x == 0 {
                     x_margin / 2
                 } else {
@@ -75,18 +70,14 @@ impl SplittedFrame {
 
                 let frame_length = frame_height * frame_width;
 
-                //println!("DAT: {}, {}, {}, {}, {}, {}", x_frame_margin, y_frame_margin, width, height, x_margin, y_margin);
+                //println!("DAT: {}, {}, {}, {}, {}, {}", x_frame_margin, y_frame_margin, frame_width, frame_height, x_margin, y_margin);
+                //println!("DAT: {}", frame_width);
                 i = i + 1;
 
                 frames.push(
                     SplittedFrame {
-                        start_x: x_frame_margin,
-                        start_y: y_frame_margin,
                         width: frame_width,
                         height: frame_height,
-                        x_margin,
-                        y_margin,
-                        data: Vec::with_capacity(frame_length as usize),
                         frame_length,
                     }
                 )
@@ -96,13 +87,17 @@ impl SplittedFrame {
         Ok(frames)
     }
 
-    pub fn split_frames(data: Vec<i8>, frames: &mut Vec<SplittedFrame>, width: i32) -> anyhow::Result<()> {
+    pub fn split_frames(data: Vec<i8>, frames: &mut Vec<SplittedFrame>, width: i32) -> anyhow::Result<Vec<i8>> {
         let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed);
         let all_frames_y = FRAME_SPLITTER_ALL_FRAMES_Y.load(Relaxed);
 
         if all_frames_y * all_frames_x != frames.len() as i32 {
             return Err(anyhow::Error::msg("Frame list size does not match required lenght"));
         }
+
+        let mut final_data: Vec<i8> = Vec::with_capacity((all_frames_x * all_frames_y * 128 * 128) as usize);
+
+        //println!("D SIZE: {}, {}", final_data.len(), data.len());
 
         let mut i = 0;
         let mut y_i = 0;
@@ -111,19 +106,25 @@ impl SplittedFrame {
             let mut x_i = 0;
             for _x in 0..all_frames_x {
                 let frame = &mut frames[i];
-                let frame_data = &mut frame.data;
 
                 for y1 in 0..frame.height {
-                    frame_data.extend_from_slice(&data[(y_i * width + x_i) as usize + (y1 * width) as usize..(y_i * width + x_i) as usize + (y1 * width) as usize + frame.width as usize])
+
+                    final_data.extend_from_slice(&data[(y_i * width + x_i) as usize + (y1 * width) as usize..(y_i * width + x_i) as usize + (y1 * width) as usize + frame.width as usize])
+                    //for x1 in 0..frame.width{
+                        // ((yI * width) + xI) + ((y1 * width) + x1)
+                        // final_data[f_i as usize + (y1 * frame.width) as usize + x1 as usize] = data[((y_i * width) + x_i) as usize + ((y1 * width) as usize + x1 as usize)];
+                        //final_data.push(data[((y_i * width) + x_i) as usize + ((y1 * width) as usize + x1 as usize)]);
+                        //final_data.push(88);
+                    //}
                 }
 
-                x_i += frame.width;
+                x_i = x_i + frame.width;
                 i = i + 1;
             }
-            y_i += frames[(y * all_frames_x) as usize].height
+            y_i += frames[(y * all_frames_x) as usize].height;
         };
 
-        Ok(())
+        Ok(final_data)
     }
 }
 

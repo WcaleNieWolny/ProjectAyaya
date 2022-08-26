@@ -8,7 +8,6 @@ extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
-use ffmpeg::Error;
 use ffmpeg::codec::Capabilities;
 use ffmpeg::decoder::Decoder;
 use ffmpeg::format::input;
@@ -76,7 +75,7 @@ fn init(
     env: JNIEnv,
     file_name: JString,
     multithreading: jboolean,
-) -> Result<jlong, Error> {
+) -> anyhow::Result<jlong> {
     let file_name: String = env
         .get_string(file_name)
         .expect("Couldn't get java string!")
@@ -136,11 +135,10 @@ fn test_splitting(
 
     let mut frames = SplittedFrame::initialize_frames(width, height)?;
     println!("INIT F");
-    SplittedFrame::split_frames(vec, &mut frames, width)?;
+    let data = SplittedFrame::split_frames(vec, &mut frames, width)?;
 
-    let len = &frames[0].frame_length;
-    let output = env.new_byte_array(*len as jsize)?; //Can't fail to create array unless system is out of memory
-    env.set_byte_array_region(output, 0, &frames[0].data.as_slice())?;
+    let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
+    env.set_byte_array_region(output, 0, &data.as_slice())?;
 
     //let output = env.new_byte_array(1 as jsize)?;
 

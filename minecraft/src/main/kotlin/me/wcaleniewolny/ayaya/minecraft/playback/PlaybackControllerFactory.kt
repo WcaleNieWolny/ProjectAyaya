@@ -18,7 +18,8 @@ object PlaybackControllerFactory {
         val width = videoData.width
         val height = videoData.height
 
-        val fps = videoData.fps
+        //val fps = videoData.fps
+        val fps = 60
 
         return PlaybackController(
             RenderService(

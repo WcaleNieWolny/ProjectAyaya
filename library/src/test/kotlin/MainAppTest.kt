@@ -37,7 +37,7 @@ internal class MainAppTest {
 
     @Test
     fun splitTest() {
-        val ptr = NativeRenderControler.init("/home/wolny/rick-hd.webm", false)
+        val ptr = NativeRenderControler.init("/home/wolny/Downloads/vid_c.mp4", false)
         val data = NativeRenderControler.getVideoData(ptr)
 
         val w = data.width
@@ -53,12 +53,22 @@ internal class MainAppTest {
         val nativeSplit = NativeRenderControler.test(frame, ptr)
 
         val split = FrameSplitter.initializeFrames(w, h)
+        val legacySplit = FrameSplitter.initializeFrames(w, h)
 
-        FrameSplitter.splitFrames(frame, split, w, h);
+        FrameSplitter.splitFrames(nativeSplit, split, w);
+        FrameSplitter.legacy_splitFrames(frame, legacySplit, w, h)
 
-        println("a: ${nativeSplit.contentHashCode()}")
-        println("b: ${split[0].data.contentHashCode()}")
+        val i = 10
 
+        println("a: ${split[i].data.contentHashCode()}")
+        println("b: ${legacySplit[i].data.contentHashCode()}")
+
+        FrameAwtGui(split, w, h)
+        //FrameAwtGui(legacySplit, w, h)
+
+        while (true){
+
+        }
     }
 
     @Test
@@ -67,8 +77,6 @@ internal class MainAppTest {
 
         //val file = javaClass.classLoader.getResource("test.webm")!!.path
         val ptr = NativeRenderControler.init("/home/wolny/rick-hd.webm", false);
-
-        NativeRenderControler.startMultithreading(ptr)
 
         println("try w!")
 
@@ -85,7 +93,7 @@ internal class MainAppTest {
         println("get h ($h)!")
 
         val splitted = FrameSplitter.initializeFrames(w, h)
-        FrameSplitter.splitFrames(NativeRenderControler.loadFrame(ptr), splitted, w, h)
+        //FrameSplitter.splitFrames(NativeRenderControler.loadFrame(ptr), splitted, w, h)
         FrameAwtGui(splitted, w, h)
         FullAwtGui(w, h, future, ptr)
 

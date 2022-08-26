@@ -4,6 +4,8 @@ import me.wcaleniewolny.ayaya.library.SplittedFrame
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Graphics
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
 import javax.swing.JFrame
 import javax.swing.JPanel
 
@@ -280,6 +282,8 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
 
     val indexMap = mutableMapOf<Int, Color>()
 
+    var i = 0
+
     init { //AWT Stuff
 
         println("B: ${matchColor(Color(13, 13, 13))}")
@@ -287,6 +291,7 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
         isFocusable = true;
         repaint()
         generateMap()
+        addKeyListener(NextFrameKeyAdapter(this))
         background = Color.RED
     }
 
@@ -329,7 +334,7 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-        val frame = frames[1];
+        val frame = frames[i];
 
         for (x in 0 until frame.width) {
             for (y in 0 until frame.height) {
@@ -344,4 +349,17 @@ class FrameImagePanel(private val frames: List<SplittedFrame>, private val imgWi
     //14, 34, 119
     //34 = white
 
+}
+
+class NextFrameKeyAdapter(private val frameImagePanel: FrameImagePanel) : KeyAdapter() {
+    override fun keyPressed(event: KeyEvent) {
+        when (event.keyCode) {
+            KeyEvent.VK_N -> {
+                frameImagePanel.i++
+                frameImagePanel.repaint() //do not waste cpu cycles
+                println("NEXT!")
+            }
+            else -> println(KeyEvent.getKeyText(event.keyCode))
+        }
+    }
 }

@@ -42,7 +42,7 @@ impl VideoPlayer for SingleVideoPlayer {
             let width = decoder.width();
             let height = decoder.height();
 
-            let fps = input.rate().0;
+            let fps = input.rate().0 / input.rate().1;
 
             let scaler = Context::get(
                 decoder.format(),

@@ -38,6 +38,15 @@ impl PlayerContext {
             ptr: Box::into_raw(Box::new(multi_video_player)) as i64,
         }
     }
+    
+    // pub fn post_creation(&mut self) -> anyhow::Result<()>{
+    //     let video_data = PlayerContext::video_data(self.ptr)?;
+    //     
+    //     let initialized_data = SplittedFrame::initialize_frames(video_data.width, video_data.height)?;
+    //     self.splitter_frames.extend_from_slice(initialized_data.as_slice());
+    //     
+    //     Ok(())
+    // }
 
     pub fn wrap_to_ptr(self) -> i64 {
         Box::into_raw(Box::new(self)) as i64

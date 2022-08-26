@@ -12,7 +12,7 @@ use ffmpeg::software::scaling::{Context, Flags};
 use tokio::runtime::{Builder, Runtime};
 use tokio::sync::oneshot;
 
-use crate::{ffmpeg_set_multithreading, PlayerContext, VideoPlayer};
+use crate::{ffmpeg_set_multithreading, PlayerContext, SplittedFrame, VideoPlayer};
 use crate::colorlib::transform_frame_to_mc;
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
 
@@ -20,6 +20,7 @@ pub struct MultiVideoPlayer {
     width: Option<i32>,
     height: Option<i32>,
     fps: Option<i32>,
+    splitter_frames: Vec<SplittedFrame>,
     thread_pool_size: i32,
     file_name: String,
     receiver: Option<Arc<Receiver<Vec<i8>>>>,
@@ -54,6 +55,7 @@ impl VideoPlayer for MultiVideoPlayer {
             width: None,
             height: None,
             fps: None,
+            splitter_frames: Vec::new(),
             thread_pool_size,
             file_name,
             receiver: None,
@@ -96,7 +98,9 @@ impl VideoPlayer for MultiVideoPlayer {
 
                 data_tx.send(width as i32).unwrap();
                 data_tx.send(height as i32).unwrap();
-                data_tx.send(input.rate().0).unwrap();
+                data_tx.send(input.rate().0 / input.rate().1).unwrap();
+
+                let splitted_frames = SplittedFrame::initialize_frames(width as i32, height as i32).expect("Couldn't initialize frame splitting");
 
                 let mut scaler = Context::get(
                     decoder.format(),
@@ -118,8 +122,11 @@ impl VideoPlayer for MultiVideoPlayer {
                     let (tx, rx) = oneshot::channel::<Vec<i8>>();
                     frames_channels.push(rx);
 
+                    let mut splitted_frames = splitted_frames.clone();
+
                     handle.spawn(async move {
                         let vec = transform_frame_to_mc(frame.data(0), width, height);
+                        let vec = SplittedFrame::split_frames(vec, &mut splitted_frames, width as i32).expect("Couldn't split frames async");
                         tx.send(vec)
                     });
                 };
@@ -130,8 +137,11 @@ impl VideoPlayer for MultiVideoPlayer {
                         let (tx, rx) = oneshot::channel::<Vec<i8>>();
                         frames_channels.push(rx);
 
+                        let mut splitted_frames = splitted_frames.clone();
+
                         handle.spawn(async move {
                             let vec = transform_frame_to_mc(frame.data(0), width, height);
+                            let vec = SplittedFrame::split_frames(vec, &mut splitted_frames, width as i32).expect("Couldn't split frames async");
                             tx.send(vec)
                         });
 
@@ -146,8 +156,15 @@ impl VideoPlayer for MultiVideoPlayer {
             }
         });
 
-        self.width = Some(data_rx.recv().unwrap());
-        self.height = Some(data_rx.recv().unwrap());
+        let width = data_rx.recv().unwrap();
+        let height = data_rx.recv().unwrap();
+
+        self.width = Some(width);
+        self.height = Some(height);
+
+        let splitted_frames = SplittedFrame::initialize_frames(width, height)?;
+        self.splitter_frames.extend_from_slice(splitted_frames.as_slice());
+
         self.fps = Some(data_rx.recv().unwrap());
 
         Ok(())
