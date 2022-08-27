@@ -18,3 +18,4 @@ crate_type = ["cdylib"]
 [profile.release]
 strip = "symbols"
 opt-level = 3
+panic = "abort"
