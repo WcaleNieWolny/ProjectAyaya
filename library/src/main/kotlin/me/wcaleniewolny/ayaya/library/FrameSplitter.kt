@@ -29,15 +29,7 @@ object FrameSplitter {
 
                 val frameData = frames[frameIndex].data
 
-                var fI = 0
-
-                for (x1 in 0 until frame.width) {
-                    for (y1 in 0 until frame.height) {
-                        frameData[fI] = data[dI]
-                        fI++
-                        dI++
-                    }
-                }
+                System.arraycopy(data, lenIndex, frameData, 0, frame.frameLength)
 
                 if (!frames[frameIndex].initialized) {
                     frames[frameIndex].initialized = true
