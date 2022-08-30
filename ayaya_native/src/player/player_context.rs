@@ -38,7 +38,7 @@ impl PlayerContext {
             ptr: Box::into_raw(Box::new(multi_video_player)) as i64,
         }
     }
-    
+
     // pub fn post_creation(&mut self) -> anyhow::Result<()>{
     //     let video_data = PlayerContext::video_data(self.ptr)?;
     //     

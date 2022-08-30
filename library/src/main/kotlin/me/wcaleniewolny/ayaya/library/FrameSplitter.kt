@@ -1,6 +1,5 @@
 package me.wcaleniewolny.ayaya.library
 
-import java.nio.ByteBuffer
 import kotlin.math.ceil
 
 //Note: If we want to speed this up we need to use C and JNI to do it.
@@ -20,8 +19,6 @@ object FrameSplitter {
 
         var frameIndex = 0
         var lenIndex = 0;
-
-        var dI = 0
 
         for (y in 0 until allFramesY) {
             for (x in 0 until allFramesX) {

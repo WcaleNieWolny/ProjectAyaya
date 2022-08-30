@@ -66,7 +66,7 @@ internal class MainAppTest {
         FrameAwtGui(split, w, h)
         //FrameAwtGui(legacySplit, w, h)
 
-        while (true){
+        while (true) {
 
         }
     }

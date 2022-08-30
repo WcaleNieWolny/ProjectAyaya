@@ -95,12 +95,15 @@ impl SplittedFrame {
             return Err(anyhow::Error::msg("Frame list size does not match required lenght"));
         }
 
-        let mut final_data: Vec<i8> = Vec::with_capacity((all_frames_x * all_frames_y * 128 * 128) as usize);
+        //let mut final_data: Vec<i8> = Vec::with_capacity((all_frames_x * all_frames_y * 128 * 128) as usize);
+        let mut final_data = vec![0i8; (all_frames_x * all_frames_y * 128 * 128) as usize];
 
         //println!("D SIZE: {}, {}", final_data.len(), data.len());
 
         let mut i = 0;
         let mut y_i = 0;
+
+        let mut final_data_index = 0;
 
         for y in 0..all_frames_y {
             let mut x_i = 0;
@@ -108,13 +111,16 @@ impl SplittedFrame {
                 let frame = &mut frames[i];
 
                 for y1 in 0..frame.height {
+                    //final_data.extend_from_slice(&data[(y_i * width + x_i) as usize + (y1 * width) as usize..(y_i * width + x_i) as usize + (y1 * width) as usize + frame.width as usize])
+                    final_data[final_data_index as usize..final_data_index as usize + frame.width as usize].copy_from_slice(&data[(y_i * width + x_i) as usize + (y1 * width) as usize..(y_i * width + x_i) as usize + (y1 * width) as usize + frame.width as usize]);
 
-                    final_data.extend_from_slice(&data[(y_i * width + x_i) as usize + (y1 * width) as usize..(y_i * width + x_i) as usize + (y1 * width) as usize + frame.width as usize])
+                    final_data_index = final_data_index + frame.width
+
                     //for x1 in 0..frame.width{
-                        // ((yI * width) + xI) + ((y1 * width) + x1)
-                        // final_data[f_i as usize + (y1 * frame.width) as usize + x1 as usize] = data[((y_i * width) + x_i) as usize + ((y1 * width) as usize + x1 as usize)];
-                        //final_data.push(data[((y_i * width) + x_i) as usize + ((y1 * width) as usize + x1 as usize)]);
-                        //final_data.push(88);
+                    // ((yI * width) + xI) + ((y1 * width) + x1)
+                    // final_data[f_i as usize + (y1 * frame.width) as usize + x1 as usize] = data[((y_i * width) + x_i) as usize + ((y1 * width) as usize + x1 as usize)];
+                    //final_data.push(data[((y_i * width) + x_i) as usize + ((y1 * width) as usize + x1 as usize)]);
+                    //final_data.push(88);
                     //}
                 }
 

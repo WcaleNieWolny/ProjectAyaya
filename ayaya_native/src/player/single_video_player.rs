@@ -1,13 +1,13 @@
-use ffmpeg::Error;
 use ffmpeg::decoder::Video;
+use ffmpeg::Error;
 use ffmpeg::Error::Eof;
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::format::context::Input;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 
+use crate::{ffmpeg_set_multithreading, SplittedFrame};
 use crate::colorlib::transform_frame_to_mc;
-use crate::ffmpeg_set_multithreading;
 use crate::player::player_context::{PlayerContext, receive_and_process_decoded_frames, VideoData, VideoPlayer};
 
 pub struct SingleVideoPlayer {
@@ -15,6 +15,7 @@ pub struct SingleVideoPlayer {
     scaler: Context,
     input: Input,
     decoder: Video,
+    splitted_frames: Vec<SplittedFrame>,
     width: u32,
     height: u32,
     fps: i32,
@@ -59,6 +60,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 scaler,
                 input: ictx,
                 decoder,
+                splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
                 width,
                 height,
                 fps,
@@ -83,6 +85,9 @@ impl VideoPlayer for SingleVideoPlayer {
                 self.decoder.send_packet(&packet)?;
                 let frame_data = receive_and_process_decoded_frames(&mut self.decoder, &mut self.scaler, &packet)?;
                 let transformed_frame = transform_frame_to_mc(frame_data.data(0), self.width, self.height);
+
+                let transformed_frame = SplittedFrame::split_frames(transformed_frame, &mut self.splitted_frames, self.width as i32)?;
+
                 return Ok(transformed_frame);
             }
         };

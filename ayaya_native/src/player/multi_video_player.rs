@@ -1,7 +1,7 @@
 use std::{thread, time};
 use std::collections::HashMap;
 use std::sync::{Arc, mpsc};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicU32, AtomicU64, Ordering};
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::mpsc::{Receiver, TrySendError};
 use std::thread::Thread;
@@ -25,6 +25,7 @@ pub struct MultiVideoPlayer {
     width: Option<i32>,
     height: Option<i32>,
     fps: Option<i32>,
+    pub frame_index: Arc<AtomicI64>,
     splitter_frames: Vec<SplittedFrame>,
     thread_pool_size: i32,
     file_name: String,
@@ -33,7 +34,7 @@ pub struct MultiVideoPlayer {
 }
 
 struct FrameWithIdentifier {
-    id: u64,
+    id: i64,
     data: Vec<i8>,
 }
 
@@ -65,6 +66,7 @@ impl VideoPlayer for MultiVideoPlayer {
             width: None,
             height: None,
             fps: None,
+            frame_index: Arc::new(AtomicI64::new(0)),
             splitter_frames: Vec::new(),
             thread_pool_size,
             file_name,
@@ -78,9 +80,9 @@ impl VideoPlayer for MultiVideoPlayer {
     }
 
     fn init(&mut self) -> anyhow::Result<()> {
-        let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(50);
+        let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(100);
         let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
-        let(frames_tx, frames_rx) = mpsc::sync_channel::<FrameWithIdentifier>(50);
+        let (frames_tx, frames_rx) = mpsc::sync_channel::<FrameWithIdentifier>(100);
 
         self.receiver = Some(Arc::new(global_rx));
 
@@ -89,7 +91,7 @@ impl VideoPlayer for MultiVideoPlayer {
         let file_name = self.file_name.clone();
         let thread_pool_size = self.thread_pool_size.clone() - 1;
 
-        let (processing_sleep_tx, processing_sleep_rx) =  mpsc::sync_channel::<bool>(3);
+        let (processing_sleep_tx, processing_sleep_rx) = mpsc::sync_channel::<bool>(3);
 
         thread::spawn(move || {
             if let Ok(mut ictx) = input(&file_name) {
@@ -127,54 +129,14 @@ impl VideoPlayer for MultiVideoPlayer {
 
                 let mut frames_channels: Vec<oneshot::Receiver<Vec<i8>>> = Vec::with_capacity((thread_pool_size + 1) as usize);
 
-
-                // for _ in 0..thread_pool_size {
-                //     println!("loop en");
-                //
-                //     let frame = MultiVideoPlayer::decode_frame(&mut ictx, video_stream_index, &mut decoder, &mut scaler).expect("Couldn't create async frame");
-                //
-                //     let (tx, rx) = oneshot::channel::<Vec<i8>>();
-                //     frames_channels.push(rx);
-                //
-                //     let mut splitted_frames = splitted_frames.clone();
-                //
-                //     handle.spawn(async move {
-                //         let vec = transform_frame_to_mc(frame.data(0), width, height);
-                //         let vec = SplittedFrame::split_frames(vec, &mut splitted_frames, width as i32).expect("Couldn't split frames async");
-                //         tx.send(vec)
-                //     });
-                // };
-                //
-                // loop {
-                //     for i in 0..thread_pool_size {
-                //         let frame = MultiVideoPlayer::decode_frame(&mut ictx, video_stream_index, &mut decoder, &mut scaler).expect("Couldn't create async frame");
-                //         let (tx, rx) = oneshot::channel::<Vec<i8>>();
-                //         frames_channels.push(rx);
-                //
-                //         let mut splitted_frames = splitted_frames.clone();
-                //
-                //         handle.spawn(async move {
-                //             let vec = transform_frame_to_mc(frame.data(0), width, height);
-                //             let vec = SplittedFrame::split_frames(vec, &mut splitted_frames, width as i32).expect("Couldn't split frames async");
-                //             tx.send(vec)
-                //         });
-                //
-                //         //Note: This is suboptimal behavior! We should have some NONE space in the vector that we will later replace with new chanel - TODO!
-                //
-                //         let rx = frames_channels.swap_remove(i as usize);
-                //         global_tx.send(rx.blocking_recv().unwrap()).expect("Couldn't send global async message");
-                //     }
-                //}
-
-                let mut frame_id: u64 = 0;
+                let mut frame_id: i64 = 0;
 
                 loop {
-
                     match processing_sleep_rx.try_recv() {
                         Ok(val) => {
                             println!("Entering sleeping phase!");
 
-                            while processing_sleep_rx.try_recv().is_err(){
+                            while processing_sleep_rx.try_recv().is_err() {
                                 thread::sleep(Duration::from_millis(100))
                             }
                         }
@@ -190,9 +152,9 @@ impl VideoPlayer for MultiVideoPlayer {
                         let vec = transform_frame_to_mc(frame.data(0), width, height);
                         let vec = SplittedFrame::split_frames(vec, &mut splitted_frames, width as i32).expect("Couldn't split frames async");
 
-                        let frame_with_id = FrameWithIdentifier{
+                        let frame_with_id = FrameWithIdentifier {
                             id: frame_id,
-                            data: vec
+                            data: vec,
                         };
 
                         match sender.try_send(frame_with_id) {
@@ -201,10 +163,10 @@ impl VideoPlayer for MultiVideoPlayer {
 
                                 //processing_sleep_tx_copy.clone().send(true).unwrap();
                                 //should_break.store(true, Relaxed)
-                                if matches!(err, TrySendError::Full(_)){
+                                if matches!(err, TrySendError::Full(_)) {
                                     panic!("CRITICAL ERROR ACCURED!!! COULDN'T SEND DATA TO GLOBAL PROCESSING THREAD!! THIS IS NOT RECOVERABLE AS IT WILL RESULT IN MEM LEAK!!!")
                                 }
-                            },
+                            }
                         }
 
                         // sender.send(FrameWithIdentifier{
@@ -219,40 +181,43 @@ impl VideoPlayer for MultiVideoPlayer {
             }
         });
 
+        let frame_index = self.frame_index.clone();
+
         thread::spawn(move || {
             let mut frame_hash_map: HashMap<u64, FrameWithIdentifier> = HashMap::new();
-            let mut last_id: u64 = 0;
+            let mut last_id: i64 = 0;
 
             loop {
-
-                println!("REC WITH ID: {}", last_id);
-
-                if last_id == 48 {
+                if last_id - frame_index.load(Relaxed) > 80 {
                     processing_sleep_tx.send(true).expect("Couldnt send sleep request");
-                    println!("FINISHED");
-                    break
+                    println!("SLEEP ({} - {}) REQUEST: {}", last_id, frame_index.load(Relaxed), last_id - frame_index.load(Relaxed));
+
+                    while last_id - frame_index.load(Relaxed) > 80 {
+                        thread::sleep(Duration::from_millis(50))
+                    }
+                    processing_sleep_tx.send(false).expect("Couldnt send sleep disable request");
                 }
 
-                let cached_frame = frame_hash_map.remove(&(last_id + 1));
+                let cached_frame = frame_hash_map.remove(&(last_id as u64 + 1 as u64));
 
                 match cached_frame {
                     Some(cached_frame) => {
                         global_tx.send(cached_frame.data).expect("Couldn't send cached global frame");
                         last_id = cached_frame.id;
-                        continue
+                        continue;
                     }
                     _ => {}
                 }
 
                 let frame = frames_rx.recv().expect("Couldn't recive with identifier");
 
-                if frame.id == last_id+1 || frame.id == 0 {
+                if frame.id == last_id + 1 || frame.id == 0 {
                     global_tx.send(frame.data).expect("Couldn't send global frame");
                     last_id = frame.id;
-                    continue
+                    continue;
                 }
 
-                frame_hash_map.insert(frame.id, frame);
+                frame_hash_map.insert(frame.id as u64, frame);
             }
         });
 
@@ -272,6 +237,8 @@ impl VideoPlayer for MultiVideoPlayer {
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
         let reciver = self.receiver.as_ref().unwrap();
+
+        self.frame_index.store(self.frame_index.load(Relaxed) + 1, Relaxed);
 
         return loop {
             let frame = reciver.try_recv();

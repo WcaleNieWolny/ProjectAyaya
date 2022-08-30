@@ -1,7 +1,7 @@
 package me.wcaleniewolny.ayaya.minecraft.playback
 
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
-import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.ProtocolLibBroadcaster
+import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.NativeMinecraftBroadcaster
 import me.wcaleniewolny.ayaya.minecraft.display.impl.DisplayServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.RenderService
 import me.wcaleniewolny.ayaya.minecraft.render.RenderThread
@@ -19,13 +19,14 @@ object PlaybackControllerFactory {
         val height = videoData.height
 
         //val fps = videoData.fps
-        val fps = 60
+        val fps = videoData.fps
 
         return PlaybackController(
             RenderService(
                 RenderThread(
                     DisplayServiceImpl(
-                        ProtocolLibBroadcaster(),
+                        //ProtocolLibBroadcaster(),
+                        NativeMinecraftBroadcaster(),
                         width, height
                     ),
                     fps,
