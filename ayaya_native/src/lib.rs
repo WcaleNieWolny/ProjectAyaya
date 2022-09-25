@@ -16,7 +16,8 @@ use ffmpeg::threading::Config;
 use ffmpeg::threading::Type::{Frame, Slice};
 use jni::JNIEnv;
 use jni::objects::*;
-use jni::sys::{jboolean, jbyteArray, jlong, jobject, jsize};
+use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
+use crate::player::gpu_player::GpuVideoPlayer;
 
 use crate::player::multi_video_player::MultiVideoPlayer;
 use crate::player::player_context::{PlayerContext, VideoPlayer};
@@ -74,23 +75,31 @@ fn ffmpeg_set_multithreading(
 fn init(
     env: JNIEnv,
     file_name: JString,
-    multithreading: jboolean,
+    render_type: JObject,
 ) -> anyhow::Result<jlong> {
     let file_name: String = env
         .get_string(file_name)
         .expect("Couldn't get java string!")
         .into();
 
-    let multithreading = multithreading == 1;
+    let render_type = env.call_method(render_type, "ordinal", "()I", &[])?;
+    let render_type = render_type.i()?;
 
-    return match multithreading {
-        false => {
+    return match render_type {
+        0 => {
             let player_context = SingleVideoPlayer::create(file_name).expect("Couldn't create single threaded player context");
             Ok(PlayerContext::wrap_to_ptr(player_context))
         }
-        true => {
-            let player_context = MultiVideoPlayer::create(file_name).expect("Couldn't create single threaded player context");
+        1 => {
+            let player_context = MultiVideoPlayer::create(file_name).expect("Couldn't create multi threaded player context");
             Ok(PlayerContext::wrap_to_ptr(player_context))
+        }
+        2 => {
+            let player_context = GpuVideoPlayer::create(file_name).expect("Couldn't create gpu player context");
+            Ok(PlayerContext::wrap_to_ptr(player_context))
+        }
+        _ => {
+            Err(anyhow::Error::msg(format!("Invalid id ({})", render_type)))
         }
     };
 }
@@ -262,7 +271,7 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, des
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, jlong, {
     filename: JString,
-    multithreading: jboolean,
+    render_type: JObject,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,

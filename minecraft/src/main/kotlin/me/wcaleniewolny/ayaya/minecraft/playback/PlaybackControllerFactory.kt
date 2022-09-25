@@ -1,6 +1,7 @@
 package me.wcaleniewolny.ayaya.minecraft.playback
 
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
+import me.wcaleniewolny.ayaya.library.NativeRenderType
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.NativeMinecraftBroadcaster
 import me.wcaleniewolny.ayaya.minecraft.display.impl.DisplayServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.RenderService
@@ -11,7 +12,7 @@ object PlaybackControllerFactory {
     fun create(
         filename: String,
     ): PlaybackController {
-        val ptr = NativeRenderControler.init(filename, true)
+        val ptr = NativeRenderControler.init(filename, NativeRenderType.GPU)
         val videoData = NativeRenderControler.getVideoData(ptr)
         println("DATA: $videoData")
 
