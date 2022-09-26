@@ -39,7 +39,7 @@ struct FrameWithIdentifier {
 }
 
 impl MultiVideoPlayer {
-    fn decode_frame(input: &mut Input, video_stream_index: usize, decoder: &mut Video, scaler: &mut Context) -> anyhow::Result<ffmpeg_next::util::frame::video::Video> {
+    pub fn decode_frame(input: &mut Input, video_stream_index: usize, decoder: &mut Video, scaler: &mut Context) -> anyhow::Result<ffmpeg_next::util::frame::video::Video> {
         while let Some((stream, packet)) = input.packets().next() {
             if stream.index() == video_stream_index {
                 decoder.send_packet(&packet)?;
@@ -150,7 +150,7 @@ impl VideoPlayer for MultiVideoPlayer {
 
                     handle.spawn(async move {
                         let vec = transform_frame_to_mc(frame.data(0), width, height);
-                        let vec = SplittedFrame::split_frames(vec, &mut splitted_frames, width as i32).expect("Couldn't split frames async");
+                        let vec = SplittedFrame::split_frames(vec.as_slice(), &mut splitted_frames, width as i32).expect("Couldn't split frames async");
 
                         let frame_with_id = FrameWithIdentifier {
                             id: frame_id,

@@ -12,7 +12,7 @@ import org.bukkit.util.Vector
 
 class MapMinecraftClient : CommandExecutor, JavaPlugin() {
 
-    private val fileName = "/home/wolny/Downloads/sakaido.mp4"
+    private val fileName = "/home/wolny/Downloads/4k_test.mp4"
 
     //private val fileName = "/home/wolny/Downloads/4k_test.mp4"
     //private val fileName = "/home/wolny/rick-hd.webm"

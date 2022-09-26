@@ -144,7 +144,7 @@ fn test_splitting(
 
     let mut frames = SplittedFrame::initialize_frames(width, height)?;
     println!("INIT F");
-    let data = SplittedFrame::split_frames(vec, &mut frames, width)?;
+    let data = SplittedFrame::split_frames(vec.as_slice(), &mut frames, width)?;
 
     let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
     env.set_byte_array_region(output, 0, &data.as_slice())?;

@@ -87,7 +87,7 @@ impl SplittedFrame {
         Ok(frames)
     }
 
-    pub fn split_frames(data: Vec<i8>, frames: &mut Vec<SplittedFrame>, width: i32) -> anyhow::Result<Vec<i8>> {
+    pub fn split_frames(data: &[i8], frames: &mut Vec<SplittedFrame>, width: i32) -> anyhow::Result<Vec<i8>> {
         let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed);
         let all_frames_y = FRAME_SPLITTER_ALL_FRAMES_Y.load(Relaxed);
 

@@ -86,7 +86,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 let frame_data = receive_and_process_decoded_frames(&mut self.decoder, &mut self.scaler, &packet)?;
                 let transformed_frame = transform_frame_to_mc(frame_data.data(0), self.width, self.height);
 
-                let transformed_frame = SplittedFrame::split_frames(transformed_frame, &mut self.splitted_frames, self.width as i32)?;
+                let transformed_frame = SplittedFrame::split_frames(transformed_frame.as_slice(), &mut self.splitted_frames, self.width as i32)?;
 
                 return Ok(transformed_frame);
             }
