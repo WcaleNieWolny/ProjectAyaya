@@ -1,6 +1,9 @@
 use core::time;
 use std::cell::{RefCell, Cell};
-use std::sync::mpsc::Receiver;
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::mem::ManuallyDrop;
+use std::sync::mpsc::{Receiver, Sender, SyncSender};
 use std::sync::{Arc, mpsc, Mutex};
 use std::thread;
 
@@ -31,11 +34,30 @@ pub struct GpuVideoPlayer {
     width: i32,
     height: i32,
     fps: i32,
-    jvm_receiver: Arc<Mutex<tokio::sync::mpsc::Receiver<Vec<i8>>>>,
-    jvm_sender: Arc<Mutex<tokio::sync::mpsc::Sender<Vec<i8>>>>,
-    gpu_reciver: Arc<Mutex<tokio::sync::mpsc::Receiver<GpuFrameWithIdentifier>>>,
+    jvm_receiver: Option<Arc<GpuTest>>,//Receiver<Vec<i8>
+    gpu_reciver: Arc<Mutex<Receiver<GpuFrameWithIdentifier>>>,
     splitted_frames: Vec<SplittedFrame>,
 }
+
+struct GpuTest{
+    r: Receiver<Vec<i8>>,
+}
+
+impl GpuTest{
+    fn recv(&self) -> Result<Vec<i8>, std::sync::mpsc::RecvError>{
+        self.r.recv()
+    }
+}
+
+impl Drop for GpuTest {
+    fn drop(&mut self) {
+        println!("DROPP!!!!!!!!");
+        panic!("AA");
+    }
+}
+
+unsafe impl Sync for GpuTest {}
+unsafe impl Send for GpuTest {}
 
 struct GpuFrameWithIdentifier {
     id: i64,
@@ -51,8 +73,7 @@ impl VideoPlayer for GpuVideoPlayer {
 
         if let Ok(mut ictx) = input(&file_name) {
 
-            let (global_tx, global_rx) = tokio::sync::mpsc::channel::<Vec<i8>>(100);
-            let (gpu_tx,gpu_rx) = tokio::sync::mpsc::channel::<GpuFrameWithIdentifier>(100);
+            let (gpu_tx,gpu_rx) = mpsc::sync_channel::<GpuFrameWithIdentifier>(100);
             let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
 
             //ffmpeg setup
@@ -100,7 +121,7 @@ impl VideoPlayer for GpuVideoPlayer {
                             id: id,
                             data: frame,
                         };
-                        gpu_tx.blocking_send(frame_with_id);
+                        gpu_tx.send(frame_with_id).unwrap();
                     }
                 });
             };
@@ -117,9 +138,8 @@ impl VideoPlayer for GpuVideoPlayer {
                 width,
                 height,
                 fps,
-                jvm_sender: Arc::new(Mutex::new(global_tx)),
-                jvm_receiver: Arc::new(Mutex::new(global_rx)),
-                gpu_reciver: Arc::new(Mutex::new(gpu_rx)),
+                jvm_receiver: None, //Arc::new(Mutex::new(global_rx))
+                gpu_reciver: Arc::new(Mutex::new(gpu_rx)),//
                 splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?
             };
 
@@ -134,8 +154,14 @@ impl VideoPlayer for GpuVideoPlayer {
     //Note: GPU init!!
     fn init(&mut self) -> anyhow::Result<()> {
 
+        let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(100);
+        self.jvm_receiver = Some(Arc::new(GpuTest { r: global_rx }));
+
+        let a = &self.jvm_receiver;
+        println!("SL {}", a.is_some());
+        
         let gpu_reciver = self.gpu_reciver.clone();
-        let gpu_sender = self.jvm_sender.clone();
+
         let len = self.width * self.height;
 
         let width = self.width;
@@ -143,6 +169,8 @@ impl VideoPlayer for GpuVideoPlayer {
         let mut splited_frames = self.splitted_frames.clone();
 
         thread::spawn(move || {
+            let jvm_sender = global_tx;
+
             let library = VulkanLibrary::new().unwrap();
             let instance = Instance::new(library, Default::default()).expect("failed to create instance");
 
@@ -231,11 +259,11 @@ impl VideoPlayer for GpuVideoPlayer {
             drop(write);
 
             let mut size = 0;
-            let mut gpu_recive = gpu_reciver.lock().unwrap();
-            let mut jvm_send = gpu_sender.lock().unwrap();
+            let gpu_recive = gpu_reciver.lock().unwrap();
+
             loop {
                 
-                let frame = gpu_recive.blocking_recv().unwrap();
+                let frame = gpu_recive.recv().unwrap();
                 let data = frame.data;
                 size += 1;
 
@@ -245,6 +273,7 @@ impl VideoPlayer for GpuVideoPlayer {
                         ((len * 3) as u64) as vulkano::DeviceSize,
                         BufferUsage {
                             transfer_src: true,
+                            storage_buffer: true,
                             ..Default::default()
                         },
                         false
@@ -256,6 +285,7 @@ impl VideoPlayer for GpuVideoPlayer {
                         device.clone(),
                         (len as u64) as vulkano::DeviceSize,
                         BufferUsage {
+                            storage_buffer: true,
                             transfer_src: true,
                             ..Default::default()
                         },
@@ -321,34 +351,18 @@ impl VideoPlayer for GpuVideoPlayer {
                 let data = &*output_data_buffer.read().unwrap();
                 let splitting = SplittedFrame::split_frames(data, &mut splited_frames, width).expect("Couldn't split frames async");
 
-                jvm_send.blocking_send(splitting).unwrap();
+                jvm_sender.send(splitting).expect("JVM SEND ERROR");
             };
         });
+
+        println!("ABOUT TO QUIT!");
         Ok(())
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
-        // while let Some((stream, packet)) = self.input.packets().next() {
-        //     if stream.index() == self.video_stream_index as usize {
-        //         self.decoder.send_packet(&packet)?;
-        //         let frame_data = receive_and_process_decoded_frames(&mut self.decoder, &mut self.scaler, &packet)?;
-        //         let transformed_frame = transform_frame_to_mc(frame_data.data(0), self.width, self.height);
-        //
-        //         let transformed_frame = SplittedFrame::split_frames(transformed_frame, &mut self.splitted_frames, self.width as i32)?;
-        //
-        //         return Ok(transformed_frame);
-        //     }
-        // };
-        //
-        // Err(anyhow::Error::new(Eof))
-        return loop {
-            let frame = self.jvm_receiver.lock().unwrap().try_recv();
-            if frame.is_ok() {
-                break Ok(frame.unwrap());
-            } else {
-                thread::sleep(time::Duration::from_millis(3));
-            }
-        };
+        let reciver = self.jvm_receiver.as_ref().unwrap();
+
+        return Ok(reciver.recv().expect("Cannot get frame to pass for JVM"));
     }
 
     fn video_data(&self) -> anyhow::Result<VideoData> {

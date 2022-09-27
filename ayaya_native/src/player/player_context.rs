@@ -112,7 +112,7 @@ impl PlayerContext {
                 let gpu_video_player = unsafe {
                     ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut GpuVideoPlayer))
                 };
-                let gpu_video_player = ManuallyDrop::into_inner(gpu_video_player);
+                
                 gpu_video_player.video_data()
             }
         }

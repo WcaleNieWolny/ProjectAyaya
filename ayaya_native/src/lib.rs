@@ -27,6 +27,7 @@ use crate::splitting::SplittedFrame;
 mod colorlib;
 mod player;
 mod splitting;
+mod test;
 
 fn ffmpeg_set_multithreading(
     target_decoder: &mut Decoder,
