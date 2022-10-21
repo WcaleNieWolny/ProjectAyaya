@@ -5,7 +5,7 @@ use std::fmt::Display;
 use std::mem::ManuallyDrop;
 use std::sync::mpsc::{Receiver, Sender, SyncSender};
 use std::sync::{Arc, mpsc, Mutex};
-use std::thread;
+use std::{thread, ptr};
 
 use ffmpeg::decoder::Video;
 use ffmpeg::Error;
@@ -15,11 +15,14 @@ use ffmpeg::format::context::Input;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 use vulkano::buffer::{CpuAccessibleBuffer, BufferUsage, DeviceLocalBuffer};
+use vulkano::command_buffer::allocator::{CommandBufferAllocator, StandardCommandBufferAllocator};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo};
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
-use vulkano::device::{DeviceCreateInfo, QueueCreateInfo, Device};
+use vulkano::device::{DeviceCreateInfo, QueueCreateInfo, Device, Features};
 use vulkano::device::physical::PhysicalDeviceType;
-use vulkano::instance::Instance;
+use vulkano::instance::debug::{DebugUtilsMessengerCreateInfo, DebugUtilsMessageType, DebugUtilsMessageSeverity, DebugUtilsMessenger, ValidationFeatureEnable};
+use vulkano::instance::{Instance, InstanceCreateInfo, InstanceExtensions};
 use vulkano::pipeline::{ComputePipeline, Pipeline, PipelineBindPoint};
 use vulkano::sync::GpuFuture;
 use vulkano::{VulkanLibrary, DeviceSize, sync};
@@ -34,30 +37,10 @@ pub struct GpuVideoPlayer {
     width: i32,
     height: i32,
     fps: i32,
-    jvm_receiver: Option<Arc<GpuTest>>,//Receiver<Vec<i8>
+    jvm_receiver: Option<Arc<Receiver<Vec<i8>>>>,//Receiver<Vec<i8>
     gpu_reciver: Arc<Mutex<Receiver<GpuFrameWithIdentifier>>>,
     splitted_frames: Vec<SplittedFrame>,
 }
-
-struct GpuTest{
-    r: Receiver<Vec<i8>>,
-}
-
-impl GpuTest{
-    fn recv(&self) -> Result<Vec<i8>, std::sync::mpsc::RecvError>{
-        self.r.recv()
-    }
-}
-
-impl Drop for GpuTest {
-    fn drop(&mut self) {
-        println!("DROPP!!!!!!!!");
-        panic!("AA");
-    }
-}
-
-unsafe impl Sync for GpuTest {}
-unsafe impl Send for GpuTest {}
 
 struct GpuFrameWithIdentifier {
     id: i64,
@@ -117,6 +100,9 @@ impl VideoPlayer for GpuVideoPlayer {
                     loop {    
                         let frame = MultiVideoPlayer::decode_frame(&mut ictx, video_stream_index, &mut decoder, &mut scaler).expect("Couldn't create async frame");
 
+
+                        let data = frame.data(0);
+
                         let frame_with_id = GpuFrameWithIdentifier{
                             id: id,
                             data: frame,
@@ -155,7 +141,7 @@ impl VideoPlayer for GpuVideoPlayer {
     fn init(&mut self) -> anyhow::Result<()> {
 
         let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(100);
-        self.jvm_receiver = Some(Arc::new(GpuTest { r: global_rx }));
+        self.jvm_receiver = Some(Arc::new(global_rx));
 
         let a = &self.jvm_receiver;
         println!("SL {}", a.is_some());
@@ -172,12 +158,88 @@ impl VideoPlayer for GpuVideoPlayer {
             let jvm_sender = global_tx;
 
             let library = VulkanLibrary::new().unwrap();
-            let instance = Instance::new(library, Default::default()).expect("failed to create instance");
+            let layers = library.layer_properties().unwrap();
+            for l in layers {
+                println!("\t{}", l.name());
+            }
+            // let instance = Instance::new(library, Default::default()).expect("failed to create instance");
+            let instance = Instance::new(
+                library,
+                InstanceCreateInfo {
+                    enabled_extensions: InstanceExtensions {
+                        ext_debug_utils: true,
+                        //ext_validation_features: true, $VALD
+                        ..InstanceExtensions::empty()
+                    },
+                    // Enable enumerating devices that use non-conformant vulkan implementations. (ex. MoltenVK)
+                    enumerate_portability: true,
+                    //enabled_validation_features: vec![ValidationFeatureEnable::DebugPrintf], $VALD
+                    //enabled_layers: vec!["VK_LAYER_KHRONOS_validation".to_string()], $VALD
+                    ..Default::default()
+                },
+            )
+            .expect("failed to create Vulkan instance");
 
             let device_extensions = vulkano::device::DeviceExtensions {
                 khr_storage_buffer_storage_class: true,
+                khr_shader_float16_int8: true,
+                khr_8bit_storage: true,
                 ..vulkano::device::DeviceExtensions::empty()
             };
+
+            let _debug_callback = unsafe {
+                DebugUtilsMessenger::new(
+                    instance.clone(),
+                    DebugUtilsMessengerCreateInfo {
+                        message_severity: DebugUtilsMessageSeverity {
+                            error: true,
+                            warning: true,
+                            information: true,
+                            verbose: true,
+                            ..DebugUtilsMessageSeverity::empty()
+                        },
+                        message_type: DebugUtilsMessageType {
+                            general: true,
+                            validation: true,
+                            performance: true,
+                            ..DebugUtilsMessageType::empty()
+                        },
+                        ..DebugUtilsMessengerCreateInfo::user_callback(Arc::new(|msg| {
+                            let severity = if msg.severity.error {
+                                "error"
+                            } else if msg.severity.warning {
+                                "warning"
+                            } else if msg.severity.information {
+                                "information"
+                            } else if msg.severity.verbose {
+                                "verbose"
+                            } else {
+                                panic!("no-impl");
+                            };
+        
+                            let ty = if msg.ty.general {
+                                "general"
+                            } else if msg.ty.validation {
+                                "validation"
+                            } else if msg.ty.performance {
+                                "performance"
+                            } else {
+                                panic!("no-impl");
+                            };
+        
+                            println!(
+                                "{} {} {}: {}",
+                                msg.layer_prefix.unwrap_or("unknown"),
+                                ty,
+                                severity,
+                                msg.description
+                            );
+                        }))
+                    },
+                )
+                .ok()
+            };
+
 
             let (physical_device, queue_family_index) = instance
                 .enumerate_physical_devices()
@@ -198,13 +260,6 @@ impl VideoPlayer for GpuVideoPlayer {
                     _ => 5,
                 }).unwrap();
 
-            println!(
-                "[GPU SCREEN RENDER] Using device: {} (type: {:?}), mem: {:?}",
-                physical_device.properties().device_name,
-                physical_device.properties().device_type,
-                physical_device.memory_properties()
-            );
-
             let (device, mut queues) = Device::new(
                 physical_device,
                 DeviceCreateInfo {
@@ -213,13 +268,20 @@ impl VideoPlayer for GpuVideoPlayer {
                         ..Default::default()
                     }],
                     enabled_extensions: device_extensions,
+                    enabled_features: Features {
+                        shader_int8: true,
+                        uniform_and_storage_buffer8_bit_access: true,
+                        ..Features::empty()
+                    },
                     ..Default::default()
                 },
             ).expect("Couldn't create decive");
 
             let queue = queues.next().unwrap();
 
-            let cache_slice: &[i8] = bytemuck::cast_slice(colorlib::CONVERSION_TABLE);
+
+            let cache_slice = colorlib::CONVERSION_TABLE;
+            let cache_slice: &[i8] = bytemuck::cast_slice(cache_slice);
             let size = cache_slice.len();
 
             let cache_temp_buffer = unsafe {
@@ -258,13 +320,36 @@ impl VideoPlayer for GpuVideoPlayer {
             write.copy_from_slice(cache_slice);
             drop(write);
 
+            let command_allocator = StandardCommandBufferAllocator::new(device.clone());
+
+            let mut builder = AutoCommandBufferBuilder::primary(
+                &command_allocator,
+                queue_family_index,
+                CommandBufferUsage::OneTimeSubmit,
+            ).unwrap();
+
+            builder
+                .copy_buffer(CopyBufferInfo::buffers(
+                    cache_temp_buffer.clone(),
+                    cache_buffer.clone(),
+                )).expect("Couldn't copy cache buffer (2)");
+
+
+            let command_buffer = builder.build().unwrap();
+
+            let future = sync::now(device.clone())
+                .then_execute(queue.clone(), command_buffer)
+                .unwrap()
+                .then_signal_fence_and_flush()
+                .unwrap();
+
+            future.wait(None).unwrap();
+
             let mut size = 0;
             let gpu_recive = gpu_reciver.lock().unwrap();
-
-            loop {
+            
                 
                 let frame = gpu_recive.recv().unwrap();
-                let data = frame.data;
                 size += 1;
 
                 let frame_buffer = unsafe {
@@ -272,7 +357,6 @@ impl VideoPlayer for GpuVideoPlayer {
                         device.clone(),
                         ((len * 3) as u64) as vulkano::DeviceSize,
                         BufferUsage {
-                            transfer_src: true,
                             storage_buffer: true,
                             ..Default::default()
                         },
@@ -293,7 +377,17 @@ impl VideoPlayer for GpuVideoPlayer {
                     ).expect("Couldn't alloc temp cache buffer")
                 };
 
-                frame_buffer.write().unwrap().copy_from_slice(data.data(0));
+                let mut write = frame_buffer.write().expect("Couldn't do a write lock");
+                //write.copy_from_slice(frame_data);
+                println!("AB TO FUCK MEM!");
+                unsafe {
+                    let dst_ptr: *mut u8 = write.as_mut_ptr();
+                    let src_ptr = frame.data.data(0).as_ptr();
+                    println!("PTR? HELL YEAH!, {:?}, {:?}", dst_ptr, src_ptr);
+                    ptr::copy(src_ptr, dst_ptr, (len * 3) as usize);
+                    //Fuck memory safety
+                }
+                drop(write);
 
                 let shader = cs::load(device.clone()).expect("failed to create shader module");
                 let compute_pipeline = ComputePipeline::new(
@@ -305,8 +399,11 @@ impl VideoPlayer for GpuVideoPlayer {
                 )
                 .expect("failed to create compute pipeline");
 
+                let descriptor_alocator = StandardDescriptorSetAllocator::new(device.clone());
+
                 let layout = compute_pipeline.layout().set_layouts().get(0).unwrap();
                 let set = PersistentDescriptorSet::new(
+                    &descriptor_alocator,
                     layout.clone(),
                     [
                         WriteDescriptorSet::buffer(0, output_data_buffer.clone()),
@@ -317,26 +414,20 @@ impl VideoPlayer for GpuVideoPlayer {
                 .unwrap();
 
                 let mut builder = AutoCommandBufferBuilder::primary(
-                    device.clone(),
+                    &command_allocator,
                     queue_family_index,
                     CommandBufferUsage::OneTimeSubmit,
                 ).unwrap();
 
-                builder
-                    .copy_buffer(CopyBufferInfo::buffers(
-                        cache_temp_buffer.clone(),
-                        cache_buffer.clone(),
-                    )).expect("Couldn't copy cache buffer (2)")
-                    .bind_pipeline_compute(compute_pipeline.clone())
-                    .bind_descriptor_sets(
-                        PipelineBindPoint::Compute,
-                        compute_pipeline.layout().clone(),
-                        0, // 0 is the index of our set
-                        set,
-                    )
-                    .dispatch([((width / 8) as u32), ((height / 8) as u32), 1])
-                    .unwrap();
-
+                builder.bind_pipeline_compute(compute_pipeline.clone())
+                .bind_descriptor_sets(
+                    PipelineBindPoint::Compute,
+                    compute_pipeline.layout().clone(),
+                    0, // 0 is the index of our set
+                    set,
+                )
+                .dispatch([((width / 8) as u32), ((height * 3 / 8) as u32), 1])
+                .unwrap();
 
                 let command_buffer = builder.build().unwrap();
 
@@ -352,7 +443,6 @@ impl VideoPlayer for GpuVideoPlayer {
                 let splitting = SplittedFrame::split_frames(data, &mut splited_frames, width).expect("Couldn't split frames async");
 
                 jvm_sender.send(splitting).expect("JVM SEND ERROR");
-            };
         });
 
         println!("ABOUT TO QUIT!");
@@ -378,32 +468,72 @@ impl VideoPlayer for GpuVideoPlayer {
     }
 }
 
+////1. output_data_buffer 2.frame_buffer 3.cache_buffer
 mod cs {
     vulkano_shaders::shader! {
         ty: "compute",
-        src: "
+        src: r#"
 #version 450
+//#extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_8bit_storage : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : enable
+
+
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(set = 0, binding = 0) buffer Data {
-int data[];
+    int8_t data[];
 } buf;
 layout(set = 0, binding = 1) buffer Frame {
-    uint data[];
+    uint8_t data[];
 } frame;
 layout(set = 0, binding = 2) buffer Cache {
-uint data[];
+    uint8_t data[];
 } cache;
+
 void main() {
-uint idx = gl_GlobalInvocationID.x;
-uint idy = gl_GlobalInvocationID.y;
+    uint idx = gl_GlobalInvocationID.x;
+    uint idy = gl_GlobalInvocationID.y;
 
-uint width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+    uint width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
 
-uint r = frame.data[(idy * width * 3) + (idx * 3)];
-uint g = frame.data[(idy * width * 3) + (idx * 3) + 1];
-uint b = frame.data[(idy * width * 3) + (idx * 3) + 2];
+    uint8_t r = frame.data[(idy * width * 3) + (idx * 3)];
+    uint8_t g = frame.data[(idy * width * 3) + (idx * 3) + 1];
+    uint8_t b = frame.data[(idy * width * 3) + (idx * 3) + 2];
 
-buf.data[(idy * width) + idx] = int(cache.data[(r * 256 * 256) + (g * 256) + b]);
-}"
+    //debugPrintfEXT("%u, %u, %u", r, g, b);
+    buf.data[(idy * width) + idx] = int8_t(cache.data[(r * 256 * 256) + (g * 256) + b]);
+}
+
+"#
     }
 }
+// uint width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+//uint width = 3840;
+
+// #extension GL_EXT_debug_printf : enable
+// layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+// layout(set = 0, binding = 0) buffer Data {
+// int data[];
+// } buf;
+// layout(set = 0, binding = 1) buffer Frame {
+//     uint data[];
+// } frame;
+// layout(set = 0, binding = 2) buffer Cache {
+// uint data[];
+// } cache;
+// void main() {
+// uint idx = gl_GlobalInvocationID.x;
+// uint idy = gl_GlobalInvocationID.y;
+
+// uint width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+
+// uint r = frame.data[(idy * width * 3) + (idx * 3)];
+// uint g = frame.data[(idy * width * 3) + (idx * 3) + 1];
+// uint b = frame.data[(idy * width * 3) + (idx * 3) + 2];
+
+// //((y * width * 3) + (x * 3)
+// //int(cache.data[(r * 256 * 256) + (g * 256) + b])
+
+// debugPrintfEXT("FICK!");
+// buf.data[(idy * width) + idx] = int(cache.data[(r * 256 * 256) + (g * 256) + b]);
+// }

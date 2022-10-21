@@ -17,7 +17,7 @@ impl MinecraftColor {
 }
 
 // static CONVERSION_TABLE_DIR: String = format!("{}/cached_color.hex", env::var("OUT_DIR").unwrap());
-pub static CONVERSION_TABLE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
+pub static CONVERSION_TABLE: &[u8; 16777216] = include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
 pub fn get_cached_index(color: MinecraftColor) -> i8 {
     CONVERSION_TABLE[(color.red as usize * 256 * 256) + (color.green as usize * 256) + color.blue as usize] as i8

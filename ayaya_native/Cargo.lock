@@ -3,6 +3,18 @@
 version = 3
 
 [[package]]
+name = "ahash"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57e6e951cfbb2db8de1828d49073a113a29fd7117b1596caa781a258c7e38d72"
+dependencies = [
+ "cfg-if",
+ "getrandom",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -247,6 +259,17 @@ name = "foreign-types-shared"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
+
+[[package]]
+name = "getrandom"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c05aeb6a22b8f62540c194aac980f2115af067bfe15a0734d7277a768d396b31"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "wasi",
+]
 
 [[package]]
 name = "glob"
@@ -715,6 +738,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
+name = "version_check"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
 name = "vk-parse"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -726,9 +755,9 @@ dependencies = [
 [[package]]
 name = "vulkano"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "617cd0984a92f4839e58e1ae7c94e6f7e0b79695ec8f2c516cfbcdaaa4a9f921"
+source = "git+https://github.com/vulkano-rs/vulkano?branch=master#a9bd46e96a96822393f26d319e52b5263d2f52eb"
 dependencies = [
+ "ahash",
  "ash",
  "bytemuck",
  "core-graphics-types",
@@ -752,9 +781,9 @@ dependencies = [
 [[package]]
 name = "vulkano-shaders"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbf704c3a109eeec3deed8ed058888c4321da200ef8d23d664f40b3b0a39b5b4"
+source = "git+https://github.com/vulkano-rs/vulkano?branch=master#a9bd46e96a96822393f26d319e52b5263d2f52eb"
 dependencies = [
+ "ahash",
  "heck",
  "proc-macro2",
  "quote",
