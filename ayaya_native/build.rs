@@ -1,6 +1,6 @@
-use std::{env, slice};
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::{env, slice};
 
 pub struct MinecraftColor {
     red: u8,
@@ -271,11 +271,14 @@ static MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
     c(89, 117, 105),
     c(109, 144, 129),
     c(127, 167, 150),
-    c(67, 88, 79)
+    c(67, 88, 79),
 ];
 
 fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
-    let r = ((c2.red as f64 - c1.red as f64).powi(2) + (c2.blue as f64 - c1.blue as f64).powi(2) + (c2.green as f64 - c1.green as f64).powi(2)).sqrt();
+    let r = ((c2.red as f64 - c1.red as f64).powi(2)
+        + (c2.blue as f64 - c1.blue as f64).powi(2)
+        + (c2.green as f64 - c1.green as f64).powi(2))
+    .sqrt();
 
     r
 }
@@ -289,8 +292,7 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
         let c = &MINECRAFT_COLOR_ARRAY[i];
         let d = color_distance(&color, c);
 
-        if d < best || best == -1.0
-        {
+        if d < best || best == -1.0 {
             best = d;
             index = i as i16;
         }
@@ -311,13 +313,10 @@ fn main() {
 
     let mut file = BufWriter::new(File::create(out_dir).unwrap());
 
-
     for r in 0..=255 {
         for g in 0..=255 {
             for b in 0..=255 {
-                let color = get_mc_index(
-                    MinecraftColor::new(r, g, b)
-                );
+                let color = get_mc_index(MinecraftColor::new(r, g, b));
 
                 let color: u8 = color as u8;
 

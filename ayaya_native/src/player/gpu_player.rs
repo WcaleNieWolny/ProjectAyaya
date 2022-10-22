@@ -1,50 +1,122 @@
 use core::time;
-use std::cell::{RefCell, Cell};
-use std::collections::HashMap;
-use std::fmt::Display;
-use std::mem::ManuallyDrop;
-use std::sync::mpsc::{Receiver, Sender, SyncSender};
-use std::sync::{Arc, mpsc, Mutex};
-use std::{thread, ptr};
+use std::sync::mpsc::Receiver;
+use std::sync::{mpsc, Arc, Mutex};
+use std::{ptr, thread};
+use std::sync::atomic::Ordering::Relaxed;
 
-use ffmpeg::decoder::Video;
-use ffmpeg::Error;
-use ffmpeg::Error::Eof;
+use bytemuck::{Zeroable, Pod};
 use ffmpeg::format::{input, Pixel};
-use ffmpeg::format::context::Input;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
-use vulkano::buffer::{CpuAccessibleBuffer, BufferUsage, DeviceLocalBuffer};
-use vulkano::command_buffer::allocator::{CommandBufferAllocator, StandardCommandBufferAllocator};
+use ffmpeg::Error;
+use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer, DeviceLocalBuffer};
+use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo};
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
-use vulkano::device::{DeviceCreateInfo, QueueCreateInfo, Device, Features};
 use vulkano::device::physical::PhysicalDeviceType;
-use vulkano::instance::debug::{DebugUtilsMessengerCreateInfo, DebugUtilsMessageType, DebugUtilsMessageSeverity, DebugUtilsMessenger, ValidationFeatureEnable};
+use vulkano::device::{Device, DeviceCreateInfo, Features, QueueCreateInfo};
 use vulkano::instance::{Instance, InstanceCreateInfo, InstanceExtensions};
 use vulkano::pipeline::{ComputePipeline, Pipeline, PipelineBindPoint};
+use vulkano::shader::{SpecializationConstants, SpecializationMapEntry};
 use vulkano::sync::GpuFuture;
-use vulkano::{VulkanLibrary, DeviceSize, sync};
+use vulkano::{sync, VulkanLibrary};
 
-use crate::{ffmpeg_set_multithreading, SplittedFrame, colorlib};
-use crate::colorlib::transform_frame_to_mc;
-use crate::player::player_context::{PlayerContext, receive_and_process_decoded_frames, VideoData, VideoPlayer};
+use crate::player::player_context::{PlayerContext, VideoData, VideoPlayer};
+use crate::splitting::{FRAME_SPLITTER_ALL_FRAMES_X, FRAME_SPLITTER_ALL_FRAMES_Y};
+use crate::{colorlib, ffmpeg_set_multithreading, SplittedFrame};
 
-use super::multi_video_player::{MultiVideoPlayer};
+use super::multi_video_player::MultiVideoPlayer;
 
 pub struct GpuVideoPlayer {
     width: i32,
     height: i32,
     fps: i32,
-    jvm_receiver: Option<Arc<Receiver<Vec<i8>>>>,//Receiver<Vec<i8>
-    gpu_reciver: Arc<Mutex<Receiver<GpuFrameWithIdentifier>>>,
+    jvm_receiver: Option<Arc<Receiver<Vec<i8>>>>, //Receiver<Vec<i8>
+    gpu_receiver: Arc<Mutex<Receiver<GpuFrameWithIdentifier>>>,
     splitted_frames: Vec<SplittedFrame>,
 }
 
 struct GpuFrameWithIdentifier {
     id: i64,
     data: ffmpeg::frame::Video,
+}
+
+struct GpuProcessedFrame {
+    id: i64,
+    data: Arc<CpuAccessibleBuffer<[i8]>>,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod, PartialEq, Eq)]
+pub struct GpuSplittedFrameInfo {
+    pub width_start: u32,
+    pub height_start: u32,
+    pub width_end: u32,
+    pub height_end: u32
+}
+
+impl GpuSplittedFrameInfo {
+    pub fn from_splitted_frames(data: &Vec<SplittedFrame>) -> Vec<Self>{
+        let mut out = Vec::<GpuSplittedFrameInfo>::with_capacity(data.len());
+
+        let mut offset_x = 0;
+        let mut offset_y = 0;
+        let mut i = 0;
+
+        let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed) as u32;
+        let all_frames_y = FRAME_SPLITTER_ALL_FRAMES_Y.load(Relaxed) as u32;
+
+        for y in 0..all_frames_y {
+            for _ in 0..all_frames_x {
+                let frame = &data[i];
+                
+                out.push(GpuSplittedFrameInfo{
+                    width_start: offset_x,
+                    height_start: offset_y,
+                    width_end: offset_x + (frame.width as u32),
+                    height_end: offset_y + (frame.height as u32),
+                    
+                });
+
+                offset_x += frame.width as u32;
+                i += 1;
+            }
+            offset_y += data[(y * all_frames_x) as usize].height as u32;
+            offset_x = 0;
+        }
+
+        out
+    }
+}
+
+unsafe impl SpecializationConstants for GpuSplittedFrameInfo {
+    fn descriptors() -> &'static [SpecializationMapEntry] {
+        static DESCRIPTORS: [SpecializationMapEntry; 4] = [
+            SpecializationMapEntry {
+                constant_id: 0,
+                offset: 0,
+                size: 4,
+            },
+            SpecializationMapEntry {
+                constant_id: 1,
+                offset: 4,
+                size: 4,
+            },
+            SpecializationMapEntry {
+                constant_id: 2,
+                offset: 8,
+                size: 4,
+            },
+            SpecializationMapEntry {
+                constant_id: 3,
+                offset: 12,
+                size: 4,
+            },
+        ];
+
+        &DESCRIPTORS
+    }
 }
 
 unsafe impl Sync for GpuFrameWithIdentifier {}
@@ -55,32 +127,34 @@ impl VideoPlayer for GpuVideoPlayer {
         ffmpeg::init()?;
 
         if let Ok(mut ictx) = input(&file_name) {
-
-            let (gpu_tx,gpu_rx) = mpsc::sync_channel::<GpuFrameWithIdentifier>(100);
+            let (gpu_tx, gpu_rx) = mpsc::sync_channel::<GpuFrameWithIdentifier>(100);
             let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
 
             //ffmpeg setup
             {
                 thread::spawn(move || {
                     let input = ictx
-                    .streams()
-                    .best(Type::Video)
-                    .ok_or(Error::StreamNotFound).expect("Couldn't find stream");
-    
+                        .streams()
+                        .best(Type::Video)
+                        .ok_or(Error::StreamNotFound)
+                        .expect("Couldn't find stream");
+
                     let video_stream_index = input.index();
-    
-                    let context_decoder = ffmpeg::codec::context::Context::from_parameters(input.parameters()).expect("Couldn't create context_decoder");
-    
+
+                    let context_decoder =
+                        ffmpeg::codec::context::Context::from_parameters(input.parameters())
+                            .expect("Couldn't create context_decoder");
+
                     let mut decoder = context_decoder.decoder();
                     ffmpeg_set_multithreading(&mut decoder, file_name);
-    
+
                     let mut decoder = decoder.video().expect("Couldn't get decoder");
-    
+
                     let width = decoder.width();
                     let height = decoder.height();
-    
+
                     let fps = input.rate().0 / input.rate().1;
-    
+
                     let mut scaler = Context::get(
                         decoder.format(),
                         width,
@@ -89,25 +163,31 @@ impl VideoPlayer for GpuVideoPlayer {
                         width,
                         height,
                         Flags::BILINEAR,
-                    ).expect("Couldn't create scaler");
-    
+                    )
+                    .expect("Couldn't create scaler");
+
                     data_tx.send(fps).unwrap();
                     data_tx.send(width as i32).unwrap();
                     data_tx.send(height as i32).unwrap();
-    
+
                     let mut id = 0;
 
-                    loop {    
-                        let frame = MultiVideoPlayer::decode_frame(&mut ictx, video_stream_index, &mut decoder, &mut scaler).expect("Couldn't create async frame");
+                    loop {
+                        let frame = MultiVideoPlayer::decode_frame(
+                            &mut ictx,
+                            video_stream_index,
+                            &mut decoder,
+                            &mut scaler,
+                        )
+                        .expect("Couldn't create async frame");
 
-
-                        let data = frame.data(0);
-
-                        let frame_with_id = GpuFrameWithIdentifier{
+                        let frame_with_id = GpuFrameWithIdentifier {
                             id: id,
                             data: frame,
                         };
+
                         gpu_tx.send(frame_with_id).unwrap();
+                        id += 1;
                     }
                 });
             };
@@ -117,16 +197,16 @@ impl VideoPlayer for GpuVideoPlayer {
             let height = data_rx.recv().unwrap();
 
             if width % 8 != 0 || height % 8 != 0 {
-                return Err(anyhow::Error::msg(format!("The width or height is not divisible by 8! The GPU does NOT support that ({}, {})", width, height)))
+                return Err(anyhow::Error::msg(format!("The width or height is not divisible by 8! The GPU does NOT support that ({}, {})", width, height)));
             }
 
             let mut gpu_video_player = Self {
                 width,
                 height,
                 fps,
-                jvm_receiver: None, //Arc::new(Mutex::new(global_rx))
-                gpu_reciver: Arc::new(Mutex::new(gpu_rx)),//
-                splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?
+                jvm_receiver: None,
+                gpu_receiver: Arc::new(Mutex::new(gpu_rx)),
+                splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
             };
 
             GpuVideoPlayer::init(&mut gpu_video_player)?;
@@ -134,25 +214,24 @@ impl VideoPlayer for GpuVideoPlayer {
             return Ok(PlayerContext::from_gpu_video_player(gpu_video_player));
         };
 
-        return Err(anyhow::Error::new(Error::StreamNotFound))
+        return Err(anyhow::Error::new(Error::StreamNotFound));
     }
 
     //Note: GPU init!!
     fn init(&mut self) -> anyhow::Result<()> {
-
         let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(100);
         self.jvm_receiver = Some(Arc::new(global_rx));
 
-        let a = &self.jvm_receiver;
-        println!("SL {}", a.is_some());
-        
-        let gpu_reciver = self.gpu_reciver.clone();
+        let a = &self.splitted_frames;
+        let b = GpuSplittedFrameInfo::from_splitted_frames(a);
+
+        let gpu_receiver = self.gpu_receiver.clone();
 
         let len = self.width * self.height;
 
         let width = self.width;
         let height = self.height;
-        let mut splited_frames = self.splitted_frames.clone();
+        let mut splitted_frames = self.splitted_frames.clone();
 
         thread::spawn(move || {
             let jvm_sender = global_tx;
@@ -162,19 +241,18 @@ impl VideoPlayer for GpuVideoPlayer {
             for l in layers {
                 println!("\t{}", l.name());
             }
-            // let instance = Instance::new(library, Default::default()).expect("failed to create instance");
             let instance = Instance::new(
                 library,
                 InstanceCreateInfo {
                     enabled_extensions: InstanceExtensions {
                         ext_debug_utils: true,
-                        //ext_validation_features: true, $VALD
+                        //ext_validation_features: true, $VALID
                         ..InstanceExtensions::empty()
                     },
                     // Enable enumerating devices that use non-conformant vulkan implementations. (ex. MoltenVK)
                     enumerate_portability: true,
-                    //enabled_validation_features: vec![ValidationFeatureEnable::DebugPrintf], $VALD
-                    //enabled_layers: vec!["VK_LAYER_KHRONOS_validation".to_string()], $VALD
+                    //enabled_validation_features: vec![ValidationFeatureEnable::DebugPrintf], $VALID
+                    //enabled_layers: vec!["VK_LAYER_KHRONOS_validation".to_string()], $VALID
                     ..Default::default()
                 },
             )
@@ -186,60 +264,6 @@ impl VideoPlayer for GpuVideoPlayer {
                 khr_8bit_storage: true,
                 ..vulkano::device::DeviceExtensions::empty()
             };
-
-            let _debug_callback = unsafe {
-                DebugUtilsMessenger::new(
-                    instance.clone(),
-                    DebugUtilsMessengerCreateInfo {
-                        message_severity: DebugUtilsMessageSeverity {
-                            error: true,
-                            warning: true,
-                            information: true,
-                            verbose: true,
-                            ..DebugUtilsMessageSeverity::empty()
-                        },
-                        message_type: DebugUtilsMessageType {
-                            general: true,
-                            validation: true,
-                            performance: true,
-                            ..DebugUtilsMessageType::empty()
-                        },
-                        ..DebugUtilsMessengerCreateInfo::user_callback(Arc::new(|msg| {
-                            let severity = if msg.severity.error {
-                                "error"
-                            } else if msg.severity.warning {
-                                "warning"
-                            } else if msg.severity.information {
-                                "information"
-                            } else if msg.severity.verbose {
-                                "verbose"
-                            } else {
-                                panic!("no-impl");
-                            };
-        
-                            let ty = if msg.ty.general {
-                                "general"
-                            } else if msg.ty.validation {
-                                "validation"
-                            } else if msg.ty.performance {
-                                "performance"
-                            } else {
-                                panic!("no-impl");
-                            };
-        
-                            println!(
-                                "{} {} {}: {}",
-                                msg.layer_prefix.unwrap_or("unknown"),
-                                ty,
-                                severity,
-                                msg.description
-                            );
-                        }))
-                    },
-                )
-                .ok()
-            };
-
 
             let (physical_device, queue_family_index) = instance
                 .enumerate_physical_devices()
@@ -258,7 +282,8 @@ impl VideoPlayer for GpuVideoPlayer {
                     PhysicalDeviceType::Cpu => 3,
                     PhysicalDeviceType::Other => 4,
                     _ => 5,
-                }).unwrap();
+                })
+                .unwrap();
 
             let (device, mut queues) = Device::new(
                 physical_device,
@@ -275,10 +300,10 @@ impl VideoPlayer for GpuVideoPlayer {
                     },
                     ..Default::default()
                 },
-            ).expect("Couldn't create decive");
+            )
+            .expect("Couldn't create deceive");
 
             let queue = queues.next().unwrap();
-
 
             let cache_slice = colorlib::CONVERSION_TABLE;
             let cache_slice: &[i8] = bytemuck::cast_slice(cache_slice);
@@ -292,8 +317,9 @@ impl VideoPlayer for GpuVideoPlayer {
                         transfer_src: true,
                         ..Default::default()
                     },
-                    false
-                ).expect("Couldn't alloc temp cache buffer")
+                    false,
+                )
+                .expect("Couldn't alloc temp cache buffer")
             };
 
             let cache_buffer = DeviceLocalBuffer::<[i8]>::array(
@@ -305,16 +331,10 @@ impl VideoPlayer for GpuVideoPlayer {
                     ..BufferUsage::empty()
                 }, // Specify use as a storage buffer and transfer destination.
                 device.active_queue_family_indices().iter().copied(),
-            ).expect("Couldn't alloc cache buffer");
+            )
+            .expect("Couldn't alloc cache buffer");
 
-            // let data_content: Vec<i32> = (0..size).map(|_| 0).collect();
-            // let data_buffer =
-            // CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage {
-            //     storage_buffer: true,
-            //     ..Default::default()
-            // }, true, data_content)?;
-
-            //This will be build when submiting a frame
+            //This will be build when submitting a frame
 
             let mut write = cache_temp_buffer.write().expect("Couldn't do a write lock");
             write.copy_from_slice(cache_slice);
@@ -326,14 +346,15 @@ impl VideoPlayer for GpuVideoPlayer {
                 &command_allocator,
                 queue_family_index,
                 CommandBufferUsage::OneTimeSubmit,
-            ).unwrap();
+            )
+            .unwrap();
 
             builder
                 .copy_buffer(CopyBufferInfo::buffers(
                     cache_temp_buffer.clone(),
                     cache_buffer.clone(),
-                )).expect("Couldn't copy cache buffer (2)");
-
+                ))
+                .expect("Couldn't copy cache buffer (2)");
 
             let command_buffer = builder.build().unwrap();
 
@@ -345,12 +366,76 @@ impl VideoPlayer for GpuVideoPlayer {
 
             future.wait(None).unwrap();
 
-            let mut size = 0;
-            let gpu_recive = gpu_reciver.lock().unwrap();
-            
-                
-                let frame = gpu_recive.recv().unwrap();
-                size += 1;
+            let mut builder = AutoCommandBufferBuilder::primary(
+                &command_allocator,
+                queue_family_index,
+                CommandBufferUsage::OneTimeSubmit,
+            )
+            .unwrap();
+
+            let gpu_receive = gpu_receiver.lock().unwrap();
+            let mut gpu_process_vec = Vec::<GpuProcessedFrame>::with_capacity(128);
+            let mut frame_id = 0;
+
+            loop {
+                if frame_id == 128 {
+
+                    println!("GO GO GO!");
+                    // let command_buffer = builder.build().unwrap();
+
+                    // let future = sync::now(device.clone())
+                    //     .then_execute(queue.clone(), command_buffer)
+                    //     .unwrap()
+                    //     .then_signal_fence_and_flush()
+                    //     .unwrap();
+
+                    // future.wait(None).unwrap();
+
+                    // let data = &*output_data_buffer.read().unwrap();
+                    // let splitting = SplittedFrame::split_frames(data, &mut splitted_frames, width)
+                    //     .expect("Couldn't split frames async");
+
+                    // jvm_sender.send(splitting).expect("JVM SEND ERROR");
+
+                    let command_buffer = builder.build().unwrap();
+
+                    let now = std::time::Instant::now();
+
+                    let future = sync::now(device.clone())
+                        .then_execute(queue.clone(), command_buffer)
+                        .unwrap()
+                        .then_signal_fence_and_flush()
+                        .unwrap();
+
+                    future.wait(None).unwrap();
+
+                    let elapsed = now.elapsed();
+                    println!("Elapsed: {:.2?}", elapsed);
+
+                    for frame in gpu_process_vec.drain(..) {
+                        let data = &*frame.data.read().unwrap();
+
+                        //jvm_sender.send(vec![data[0]]).expect("JVM SEND ERROR")
+                        let splitting =
+                            SplittedFrame::split_frames(data, &mut splitted_frames, width)
+                                .expect("Couldn't split frames async");
+
+                        jvm_sender.send(splitting).expect("JVM SEND ERROR");
+                    }
+
+                    builder = AutoCommandBufferBuilder::primary(
+                        &command_allocator,
+                        queue_family_index,
+                        CommandBufferUsage::OneTimeSubmit,
+                    )
+                    .unwrap();
+                    //New buffer due to move of previous one above
+
+                    frame_id = 0;
+                    continue;
+                };
+
+                let frame = gpu_receive.recv().unwrap();
 
                 let frame_buffer = unsafe {
                     CpuAccessibleBuffer::<[u8]>::uninitialized_array(
@@ -360,8 +445,9 @@ impl VideoPlayer for GpuVideoPlayer {
                             storage_buffer: true,
                             ..Default::default()
                         },
-                        false
-                    ).expect("Couldn't alloc temp cache buffer")
+                        false,
+                    )
+                    .expect("Couldn't alloc temp cache buffer")
                 };
 
                 let output_data_buffer = unsafe {
@@ -373,19 +459,17 @@ impl VideoPlayer for GpuVideoPlayer {
                             transfer_src: true,
                             ..Default::default()
                         },
-                        false
-                    ).expect("Couldn't alloc temp cache buffer")
+                        false,
+                    )
+                    .expect("Couldn't alloc temp cache buffer")
                 };
 
                 let mut write = frame_buffer.write().expect("Couldn't do a write lock");
-                //write.copy_from_slice(frame_data);
-                println!("AB TO FUCK MEM!");
                 unsafe {
                     let dst_ptr: *mut u8 = write.as_mut_ptr();
                     let src_ptr = frame.data.data(0).as_ptr();
-                    println!("PTR? HELL YEAH!, {:?}, {:?}", dst_ptr, src_ptr);
                     ptr::copy(src_ptr, dst_ptr, (len * 3) as usize);
-                    //Fuck memory safety
+                    //The "safe rust way" caused a segfault - mem safety is not desireable
                 }
                 drop(write);
 
@@ -399,50 +483,38 @@ impl VideoPlayer for GpuVideoPlayer {
                 )
                 .expect("failed to create compute pipeline");
 
-                let descriptor_alocator = StandardDescriptorSetAllocator::new(device.clone());
+                let descriptor_allocator = StandardDescriptorSetAllocator::new(device.clone());
 
                 let layout = compute_pipeline.layout().set_layouts().get(0).unwrap();
                 let set = PersistentDescriptorSet::new(
-                    &descriptor_alocator,
+                    &descriptor_allocator,
                     layout.clone(),
                     [
                         WriteDescriptorSet::buffer(0, output_data_buffer.clone()),
                         WriteDescriptorSet::buffer(1, frame_buffer.clone()),
-                        WriteDescriptorSet::buffer(2, cache_buffer.clone())
+                        WriteDescriptorSet::buffer(2, cache_buffer.clone()),
                     ], // 0 is the binding
                 )
                 .unwrap();
 
-                let mut builder = AutoCommandBufferBuilder::primary(
-                    &command_allocator,
-                    queue_family_index,
-                    CommandBufferUsage::OneTimeSubmit,
-                ).unwrap();
-
-                builder.bind_pipeline_compute(compute_pipeline.clone())
-                .bind_descriptor_sets(
-                    PipelineBindPoint::Compute,
-                    compute_pipeline.layout().clone(),
-                    0, // 0 is the index of our set
-                    set,
-                )
-                .dispatch([((width / 8) as u32), ((height * 3 / 8) as u32), 1])
-                .unwrap();
-
-                let command_buffer = builder.build().unwrap();
-
-                let future = sync::now(device.clone())
-                    .then_execute(queue.clone(), command_buffer)
-                    .unwrap()
-                    .then_signal_fence_and_flush()
+                builder
+                    .bind_pipeline_compute(compute_pipeline.clone())
+                    .bind_descriptor_sets(
+                        PipelineBindPoint::Compute,
+                        compute_pipeline.layout().clone(),
+                        0, // 0 is the index of our set
+                        set,
+                    )
+                    .dispatch([((width / 32) as u32), ((height * 3 / 32) as u32), 1])
                     .unwrap();
 
-                future.wait(None).unwrap();
+                gpu_process_vec.push(GpuProcessedFrame {
+                    id: frame.id,
+                    data: output_data_buffer.clone(),
+                });
 
-                let data = &*output_data_buffer.read().unwrap();
-                let splitting = SplittedFrame::split_frames(data, &mut splited_frames, width).expect("Couldn't split frames async");
-
-                jvm_sender.send(splitting).expect("JVM SEND ERROR");
+                frame_id += 1;
+            }
         });
 
         println!("ABOUT TO QUIT!");
@@ -452,7 +524,15 @@ impl VideoPlayer for GpuVideoPlayer {
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
         let reciver = self.jvm_receiver.as_ref().unwrap();
 
-        return Ok(reciver.recv().expect("Cannot get frame to pass for JVM"));
+
+        return loop {
+            let frame = reciver.try_recv();
+            if frame.is_ok() {
+                break Ok(frame.unwrap());
+            } else {
+                thread::sleep(time::Duration::from_millis(1));
+            }
+        };
     }
 
     fn video_data(&self) -> anyhow::Result<VideoData> {
@@ -479,7 +559,15 @@ mod cs {
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : enable
 
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+struct GpuSplittedFrameInfo
+{
+  uint width_start;
+  uint height_start;
+  uint width_end;
+  uint height_end;
+};
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 layout(set = 0, binding = 0) buffer Data {
     int8_t data[];
 } buf;
@@ -489,51 +577,90 @@ layout(set = 0, binding = 1) buffer Frame {
 layout(set = 0, binding = 2) buffer Cache {
     uint8_t data[];
 } cache;
+layout(set = 0, binding = 3) buffer GpuSplittedFrameInfoList {
+    GpuSplittedFrameInfo data[];
+} splitting;
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
     uint idy = gl_GlobalInvocationID.y;
 
     uint width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+    uint height = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
 
     uint8_t r = frame.data[(idy * width * 3) + (idx * 3)];
     uint8_t g = frame.data[(idy * width * 3) + (idx * 3) + 1];
     uint8_t b = frame.data[(idy * width * 3) + (idx * 3) + 2];
 
-    //debugPrintfEXT("%u, %u, %u", r, g, b);
-    buf.data[(idy * width) + idx] = int8_t(cache.data[(r * 256 * 256) + (g * 256) + b]);
+    uint offset = 0;
+    uint for_len = splitting.data.length();
+
+    for(int i=0;i<for_len;i++){
+        GpuSplittedFrameInfo info = splitting.data[i];
+        if(info.width_start >= idx && info.width_end <= idx && info.height_start >= idy && info.height_end <= idy){
+            uint frame_height = info.height_end - info.height_start + 1;
+            uint frame_width = info.width_end - info.width_start + 1;
+            uint y = offset + (frame_height * width) + idx;
+            buf.data[1] = int8_t(1);
+        };
+    };
+
+    //buf.data[(idy * width) + idx] = int8_t(cache.data[(r * 256 * 256) + (g * 256) + b]);
 }
 
 "#
     }
 }
-// uint width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
-//uint width = 3840;
 
-// #extension GL_EXT_debug_printf : enable
-// layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-// layout(set = 0, binding = 0) buffer Data {
-// int data[];
-// } buf;
-// layout(set = 0, binding = 1) buffer Frame {
-//     uint data[];
-// } frame;
-// layout(set = 0, binding = 2) buffer Cache {
-// uint data[];
-// } cache;
-// void main() {
-// uint idx = gl_GlobalInvocationID.x;
-// uint idy = gl_GlobalInvocationID.y;
+// let _debug_callback = unsafe {
+//     DebugUtilsMessenger::new(
+//         instance.clone(),
+//         DebugUtilsMessengerCreateInfo {
+//             message_severity: DebugUtilsMessageSeverity {
+//                 error: true,
+//                 warning: true,
+//                 information: true,
+//                 verbose: true,
+//                 ..DebugUtilsMessageSeverity::empty()
+//             },
+//             message_type: DebugUtilsMessageType {
+//                 general: true,
+//                 validation: true,
+//                 performance: true,
+//                 ..DebugUtilsMessageType::empty()
+//             },
+//             ..DebugUtilsMessengerCreateInfo::user_callback(Arc::new(|msg| {
+//                 let severity = if msg.severity.error {
+//                     "error"
+//                 } else if msg.severity.warning {
+//                     "warning"
+//                 } else if msg.severity.information {
+//                     "information"
+//                 } else if msg.severity.verbose {
+//                     "verbose"
+//                 } else {
+//                     panic!("no-impl");
+//                 };
 
-// uint width = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+//                 let ty = if msg.ty.general {
+//                     "general"
+//                 } else if msg.ty.validation {
+//                     "validation"
+//                 } else if msg.ty.performance {
+//                     "performance"
+//                 } else {
+//                     panic!("no-impl");
+//                 };
 
-// uint r = frame.data[(idy * width * 3) + (idx * 3)];
-// uint g = frame.data[(idy * width * 3) + (idx * 3) + 1];
-// uint b = frame.data[(idy * width * 3) + (idx * 3) + 2];
-
-// //((y * width * 3) + (x * 3)
-// //int(cache.data[(r * 256 * 256) + (g * 256) + b])
-
-// debugPrintfEXT("FICK!");
-// buf.data[(idy * width) + idx] = int(cache.data[(r * 256 * 256) + (g * 256) + b]);
-// }
+//                 println!(
+//                     "{} {} {}: {}",
+//                     msg.layer_prefix.unwrap_or("unknown"),
+//                     ty,
+//                     severity,
+//                     msg.description
+//                 );
+//             }))
+//         },
+//     )
+//     .ok()
+// };

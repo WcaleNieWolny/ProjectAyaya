@@ -1,25 +1,25 @@
-use std::{thread, time};
 use std::collections::HashMap;
-use std::sync::{Arc, mpsc};
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicU32, AtomicU64, Ordering};
 use std::sync::atomic::Ordering::Relaxed;
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, TrySendError};
+use std::sync::{mpsc, Arc};
 use std::thread::Thread;
 use std::time::Duration;
+use std::{thread, time};
 
 use ffmpeg::decoder::Video;
-use ffmpeg::Error;
-use ffmpeg::Error::Eof;
-use ffmpeg::format::{input, Pixel};
 use ffmpeg::format::context::Input;
+use ffmpeg::format::{input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
+use ffmpeg::Error;
+use ffmpeg::Error::Eof;
 use tokio::runtime::{Builder, Runtime};
 use tokio::sync::oneshot;
 
-use crate::{ffmpeg_set_multithreading, PlayerContext, SplittedFrame, VideoPlayer};
 use crate::colorlib::transform_frame_to_mc;
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
+use crate::{ffmpeg_set_multithreading, PlayerContext, SplittedFrame, VideoPlayer};
 
 pub struct MultiVideoPlayer {
     width: Option<i32>,
@@ -39,14 +39,19 @@ struct FrameWithIdentifier {
 }
 
 impl MultiVideoPlayer {
-    pub fn decode_frame(input: &mut Input, video_stream_index: usize, decoder: &mut Video, scaler: &mut Context) -> anyhow::Result<ffmpeg_next::util::frame::video::Video> {
+    pub fn decode_frame(
+        input: &mut Input,
+        video_stream_index: usize,
+        decoder: &mut Video,
+        scaler: &mut Context,
+    ) -> anyhow::Result<ffmpeg_next::util::frame::video::Video> {
         while let Some((stream, packet)) = input.packets().next() {
             if stream.index() == video_stream_index {
                 decoder.send_packet(&packet)?;
                 let frame_data = receive_and_process_decoded_frames(decoder, scaler, &packet)?;
                 return Ok(frame_data);
             }
-        };
+        }
 
         Err(anyhow::Error::new(Eof))
     }
@@ -74,7 +79,9 @@ impl VideoPlayer for MultiVideoPlayer {
             runtime: Arc::new(runtime),
         };
 
-        multi_video_player.init().expect("Couldn't initialize multithreaded player");
+        multi_video_player
+            .init()
+            .expect("Couldn't initialize multithreaded player");
 
         Ok(PlayerContext::from_multi_video_player(multi_video_player))
     }
@@ -98,11 +105,14 @@ impl VideoPlayer for MultiVideoPlayer {
                 let input = ictx
                     .streams()
                     .best(Type::Video)
-                    .ok_or(Error::StreamNotFound).expect("Couldn't create async video stream");
+                    .ok_or(Error::StreamNotFound)
+                    .expect("Couldn't create async video stream");
 
                 let video_stream_index = input.index();
 
-                let context_decoder = ffmpeg::codec::context::Context::from_parameters(input.parameters()).expect("Couldn't get context from parametrs async");
+                let context_decoder =
+                    ffmpeg::codec::context::Context::from_parameters(input.parameters())
+                        .expect("Couldn't get context from parametrs async");
                 let mut decoder = context_decoder.decoder();
                 ffmpeg_set_multithreading(&mut decoder, file_name);
 
@@ -115,7 +125,8 @@ impl VideoPlayer for MultiVideoPlayer {
                 data_tx.send(height as i32).unwrap();
                 data_tx.send(input.rate().0 / input.rate().1).unwrap();
 
-                let splitted_frames = SplittedFrame::initialize_frames(width as i32, height as i32).expect("Couldn't initialize frame splitting");
+                let splitted_frames = SplittedFrame::initialize_frames(width as i32, height as i32)
+                    .expect("Couldn't initialize frame splitting");
 
                 let mut scaler = Context::get(
                     decoder.format(),
@@ -125,9 +136,11 @@ impl VideoPlayer for MultiVideoPlayer {
                     width,
                     height,
                     Flags::BILINEAR,
-                ).expect("Couldn't get async scaler");
+                )
+                .expect("Couldn't get async scaler");
 
-                let mut frames_channels: Vec<oneshot::Receiver<Vec<i8>>> = Vec::with_capacity((thread_pool_size + 1) as usize);
+                let mut frames_channels: Vec<oneshot::Receiver<Vec<i8>>> =
+                    Vec::with_capacity((thread_pool_size + 1) as usize);
 
                 let mut frame_id: i64 = 0;
 
@@ -143,7 +156,13 @@ impl VideoPlayer for MultiVideoPlayer {
                         _ => {}
                     }
 
-                    let frame = MultiVideoPlayer::decode_frame(&mut ictx, video_stream_index, &mut decoder, &mut scaler).expect("Couldn't create async frame");
+                    let frame = MultiVideoPlayer::decode_frame(
+                        &mut ictx,
+                        video_stream_index,
+                        &mut decoder,
+                        &mut scaler,
+                    )
+                    .expect("Couldn't create async frame");
                     let mut splitted_frames = splitted_frames.clone();
 
                     let sender = frames_tx.clone();
@@ -189,20 +208,31 @@ impl VideoPlayer for MultiVideoPlayer {
 
             loop {
                 if last_id - frame_index.load(Relaxed) > 80 {
-                    processing_sleep_tx.send(true).expect("Couldnt send sleep request");
-                    println!("SLEEP ({} - {}) REQUEST: {}", last_id, frame_index.load(Relaxed), last_id - frame_index.load(Relaxed));
+                    processing_sleep_tx
+                        .send(true)
+                        .expect("Couldnt send sleep request");
+                    println!(
+                        "SLEEP ({} - {}) REQUEST: {}",
+                        last_id,
+                        frame_index.load(Relaxed),
+                        last_id - frame_index.load(Relaxed)
+                    );
 
                     while last_id - frame_index.load(Relaxed) > 80 {
                         thread::sleep(Duration::from_millis(50))
                     }
-                    processing_sleep_tx.send(false).expect("Couldnt send sleep disable request");
+                    processing_sleep_tx
+                        .send(false)
+                        .expect("Couldnt send sleep disable request");
                 }
 
                 let cached_frame = frame_hash_map.remove(&(last_id as u64 + 1 as u64));
 
                 match cached_frame {
                     Some(cached_frame) => {
-                        global_tx.send(cached_frame.data).expect("Couldn't send cached global frame");
+                        global_tx
+                            .send(cached_frame.data)
+                            .expect("Couldn't send cached global frame");
                         last_id = cached_frame.id;
                         continue;
                     }
@@ -212,7 +242,9 @@ impl VideoPlayer for MultiVideoPlayer {
                 let frame = frames_rx.recv().expect("Couldn't recive with identifier");
 
                 if frame.id == last_id + 1 || frame.id == 0 {
-                    global_tx.send(frame.data).expect("Couldn't send global frame");
+                    global_tx
+                        .send(frame.data)
+                        .expect("Couldn't send global frame");
                     last_id = frame.id;
                     continue;
                 }
@@ -228,7 +260,8 @@ impl VideoPlayer for MultiVideoPlayer {
         self.height = Some(height);
 
         let splitted_frames = SplittedFrame::initialize_frames(width, height)?;
-        self.splitter_frames.extend_from_slice(splitted_frames.as_slice());
+        self.splitter_frames
+            .extend_from_slice(splitted_frames.as_slice());
 
         self.fps = Some(data_rx.recv().unwrap());
 
@@ -238,7 +271,8 @@ impl VideoPlayer for MultiVideoPlayer {
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
         let reciver = self.receiver.as_ref().unwrap();
 
-        self.frame_index.store(self.frame_index.load(Relaxed) + 1, Relaxed);
+        self.frame_index
+            .store(self.frame_index.load(Relaxed) + 1, Relaxed);
 
         return loop {
             let frame = reciver.try_recv();
@@ -271,15 +305,12 @@ impl VideoPlayer for MultiVideoPlayer {
             }
         };
 
-        Ok(VideoData {
-            width,
-            height,
-            fps,
-        })
+        Ok(VideoData { width, height, fps })
     }
 
     fn destroy(self) -> anyhow::Result<()> {
-        let runtime = Arc::try_unwrap(self.runtime).expect("Couldn't get ownership to async runtime");
+        let runtime =
+            Arc::try_unwrap(self.runtime).expect("Couldn't get ownership to async runtime");
         runtime.shutdown_background();
         Ok(())
     }

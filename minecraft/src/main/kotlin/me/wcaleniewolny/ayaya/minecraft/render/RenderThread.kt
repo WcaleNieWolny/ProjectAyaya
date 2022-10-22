@@ -13,7 +13,7 @@ class RenderThread(
     private val ptr: Long
 ) : Thread() {
 
-    val renderFrames = AtomicBoolean(true)
+    val renderFrames = AtomicBoolean(false)
     private var frame: ByteArray = ByteArray(0)
     private val timeWindow = oneFrameTimeWindow()
 
@@ -22,40 +22,38 @@ class RenderThread(
         renderLoop()
     }
 
-//    private fun renderLoop() {
-//        while (true) {
-//            val start = System.nanoTime();
-//            val frame = if (frame.isNotEmpty()) frame else NativeRenderControler.loadFrame(ptr)
-//
-//            displayService.displayFrame(frame)
-//
-//            this.frame = NativeRenderControler.loadFrame(ptr)
-//
-//            val took = (System.nanoTime() - start)
-//            val toWait = max(0, timeWindow - took)
-//            val toWaitMilis = TimeUnit.NANOSECONDS.toMillis(toWait)
-//            if (toWait > 0) {
-//                sleep(toWaitMilis)
-//            }
-//
-//            println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
-//
-//            while (!renderFrames.get()) {
-//                sleep(50)
-//            }
-//
-//            break
-//        }
-//    }
-
     private fun renderLoop() {
-        while (!renderFrames.get()) {
-            sleep(50)
-        }
+        while (true) {
+            val start = System.nanoTime();
+            val frame = if (frame.isNotEmpty()) frame else NativeRenderControler.loadFrame(ptr)
 
-        this.frame = NativeRenderControler.loadFrame(ptr)
-        displayService.displayFrame(this.frame)
+            displayService.displayFrame(frame)
+
+            this.frame = NativeRenderControler.loadFrame(ptr)
+
+            val took = (System.nanoTime() - start)
+            val toWait = max(0, timeWindow - took)
+            val toWaitMilis = TimeUnit.NANOSECONDS.toMillis(toWait)
+            if (toWait > 0) {
+                sleep(toWaitMilis)
+            }
+
+            println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
+
+            while (!renderFrames.get()) {
+                sleep(50)
+            }
+        }
     }
+
+//    private fun renderLoop() {
+//        while (!renderFrames.get()) {
+//            sleep(50)
+//        }
+//
+//        this.frame = NativeRenderControler.loadFrame(ptr)
+//        displayService.displayFrame(this.frame)
+//    }
 
     private fun oneFrameTimeWindow(): Long {
         return TimeUnit.SECONDS.toNanos(1) / fps

@@ -17,10 +17,13 @@ impl MinecraftColor {
 }
 
 // static CONVERSION_TABLE_DIR: String = format!("{}/cached_color.hex", env::var("OUT_DIR").unwrap());
-pub static CONVERSION_TABLE: &[u8; 16777216] = include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
+pub static CONVERSION_TABLE: &[u8; 16777216] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
 pub fn get_cached_index(color: MinecraftColor) -> i8 {
-    CONVERSION_TABLE[(color.red as usize * 256 * 256) + (color.green as usize * 256) + color.blue as usize] as i8
+    CONVERSION_TABLE
+        [(color.red as usize * 256 * 256) + (color.green as usize * 256) + color.blue as usize]
+        as i8
 }
 
 pub fn transform_frame_to_mc(data: &[u8], width: u32, height: u32) -> Vec<i8> {
@@ -29,13 +32,11 @@ pub fn transform_frame_to_mc(data: &[u8], width: u32, height: u32) -> Vec<i8> {
 
     for y in 0..height {
         for x in 0..width {
-            buffer.push(get_cached_index(
-                MinecraftColor::new(
-                    data[((y * width * 3) + (x * 3)) as usize],
-                    data[((y * width * 3) + (x * 3) + 1) as usize],
-                    data[((y * width * 3) + (x * 3) + 2) as usize],
-                )
-            ));
+            buffer.push(get_cached_index(MinecraftColor::new(
+                data[((y * width * 3) + (x * 3)) as usize],
+                data[((y * width * 3) + (x * 3) + 1) as usize],
+                data[((y * width * 3) + (x * 3) + 2) as usize],
+            )));
         }
     }
 
