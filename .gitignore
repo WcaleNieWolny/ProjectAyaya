@@ -130,3 +130,8 @@ native_old/cmake-build-debug
 /.gradle/
 /build/
 /build/classes/kotlin/main/
+
+/library/build/
+/minecraft/build/
+/minecraft/.gradle/
+/minecraft/debug/
