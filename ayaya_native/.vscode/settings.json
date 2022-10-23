@@ -1,0 +1,24 @@
+{
+    "spellright.language": [
+        "en-US-10-1.",
+        "en-US-9-0."
+    ],
+    "spellright.documentTypes": [
+        "markdown",
+        "latex",
+        "plaintext",
+        "rust",
+        "rs"
+    ],
+    "spellright.parserByClass": {
+        "rust": {
+            "parser": "code"
+        },
+        "rs": {
+            "parser": "code"
+        }
+    },
+    "cSpell.words": [
+        "colorlib"
+    ]
+}
