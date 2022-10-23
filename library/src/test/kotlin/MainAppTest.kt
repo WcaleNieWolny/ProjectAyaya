@@ -2,6 +2,7 @@ package me.wcaleniewolny.ayaya
 
 import me.wcaleniewolny.ayaya.library.FrameSplitter
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
+import me.wcaleniewolny.ayaya.library.NativeRenderType
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CompletableFuture
 import kotlin.test.assertTrue
@@ -37,7 +38,7 @@ internal class MainAppTest {
 
     @Test
     fun splitTest() {
-        val ptr = NativeRenderControler.init("/home/wolny/Downloads/vid_c.mp4", false)
+        val ptr = NativeRenderControler.init("/home/wolny/Downloads/vid_c.mp4", NativeRenderType.MULTI_THREADED)
         val data = NativeRenderControler.getVideoData(ptr)
 
         val w = data.width
@@ -66,7 +67,7 @@ internal class MainAppTest {
         FrameAwtGui(split, w, h)
         //FrameAwtGui(legacySplit, w, h)
 
-        while (true){
+        while (true) {
 
         }
     }
@@ -76,7 +77,7 @@ internal class MainAppTest {
         val future = CompletableFuture<Boolean>()
 
         //val file = javaClass.classLoader.getResource("test.webm")!!.path
-        val ptr = NativeRenderControler.init("/home/wolny/rick-hd.webm", false);
+        val ptr = NativeRenderControler.init("/home/wolny/rick-hd.webm", NativeRenderType.GPU);
 
         println("try w!")
 

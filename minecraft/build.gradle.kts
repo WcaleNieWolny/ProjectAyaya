@@ -2,6 +2,7 @@ plugins {
     kotlin("jvm") version "1.7.10"
     id("kr.entree.spigradle") version "2.4.2"
     id("xyz.jpenilla.run-paper") version "1.0.6"
+    id("io.papermc.paperweight.userdev") version "1.3.8"
 }
 
 group = "me.wcaleniewolny.ayaya"
@@ -14,6 +15,7 @@ repositories {
 }
 
 dependencies {
+    paperDevBundle("1.18.2-R0.1-SNAPSHOT")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.1")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.1")
     compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
@@ -27,6 +29,8 @@ tasks.getByName<Test>("test") {
 }
 
 tasks.getByName("build").dependsOn(tasks.shadowJar)
+
+tasks.getByName("assemble").dependsOn(tasks.reobfJar)
 
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 

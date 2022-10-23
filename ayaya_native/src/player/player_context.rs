@@ -1,16 +1,18 @@
 use std::mem::ManuallyDrop;
 
-use ffmpeg::{Error, Packet};
 use ffmpeg::frame::Video;
 use ffmpeg::software::scaling::Context;
+use ffmpeg::{Error, Packet};
 
+use crate::player::gpu_player::GpuVideoPlayer;
 use crate::player::multi_video_player::MultiVideoPlayer;
-use crate::player::player_context::PlayerType::{MultiThreaded, SingleThreaded};
+use crate::player::player_context::PlayerType::{Gpu, MultiThreaded, SingleThreaded};
 use crate::player::single_video_player::SingleVideoPlayer;
 
 pub enum PlayerType {
     SingleThreaded,
     MultiThreaded,
+    Gpu,
 }
 
 pub struct PlayerContext {
@@ -38,13 +40,20 @@ impl PlayerContext {
             ptr: Box::into_raw(Box::new(multi_video_player)) as i64,
         }
     }
-    
+
+    pub fn from_gpu_video_player(gpu_video_player: GpuVideoPlayer) -> Self {
+        Self {
+            player_type: Gpu,
+            ptr: Box::into_raw(Box::new(gpu_video_player)) as i64,
+        }
+    }
+
     // pub fn post_creation(&mut self) -> anyhow::Result<()>{
     //     let video_data = PlayerContext::video_data(self.ptr)?;
-    //     
+    //
     //     let initialized_data = SplittedFrame::initialize_frames(video_data.width, video_data.height)?;
     //     self.splitter_frames.extend_from_slice(initialized_data.as_slice());
-    //     
+    //
     //     Ok(())
     // }
 
@@ -53,9 +62,7 @@ impl PlayerContext {
     }
 
     pub fn load_frame(ptr: i64) -> anyhow::Result<Vec<i8>> {
-        let player_context = unsafe {
-            ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext))
-        };
+        let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
 
         match &player_context.player_type {
             SingleThreaded => {
@@ -65,20 +72,24 @@ impl PlayerContext {
 
                 single_video_player.load_frame()
             }
-            _multi_threaded => {
+            MultiThreaded => {
                 let mut multi_video_player = unsafe {
                     ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut MultiVideoPlayer))
                 };
 
                 multi_video_player.load_frame()
             }
+            Gpu => {
+                let mut gpu_video_player = unsafe {
+                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut GpuVideoPlayer))
+                };
+                gpu_video_player.load_frame()
+            }
         }
     }
 
     pub fn video_data(ptr: i64) -> anyhow::Result<VideoData> {
-        let player_context = unsafe {
-            ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext))
-        };
+        let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
         match &player_context.player_type {
             SingleThreaded => {
                 let single_video_player = unsafe {
@@ -86,20 +97,25 @@ impl PlayerContext {
                 };
                 return single_video_player.video_data();
             }
-            _multi_threaded => {
+            MultiThreaded => {
                 let multi_video_player = unsafe {
                     ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut MultiVideoPlayer))
                 };
 
                 multi_video_player.video_data()
             }
+            Gpu => {
+                let gpu_video_player = unsafe {
+                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut GpuVideoPlayer))
+                };
+
+                gpu_video_player.video_data()
+            }
         }
     }
 
     pub fn destroy(ptr: i64) -> anyhow::Result<()> {
-        let player_context = unsafe {
-            ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext))
-        };
+        let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
         match &player_context.player_type {
             SingleThreaded => {
                 let single_video_player = unsafe {
@@ -115,12 +131,23 @@ impl PlayerContext {
                 let single_video_player = ManuallyDrop::into_inner(single_video_player);
                 single_video_player.destroy()?;
             }
+            Gpu => {
+                let gpu_video_player = unsafe {
+                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut GpuVideoPlayer))
+                };
+                let gpu_video_player = ManuallyDrop::into_inner(gpu_video_player);
+                gpu_video_player.destroy()?;
+            }
         }
         Ok(())
     }
 }
 
-pub fn receive_and_process_decoded_frames(decoder: &mut ffmpeg::decoder::Video, scaler: &mut Context, packet: &Packet) -> anyhow::Result<Video> {
+pub fn receive_and_process_decoded_frames(
+    decoder: &mut ffmpeg::decoder::Video,
+    scaler: &mut Context,
+    packet: &Packet,
+) -> anyhow::Result<Video> {
     let mut decoded = Video::empty();
     let mut rgb_frame = Video::empty();
 
@@ -130,14 +157,18 @@ pub fn receive_and_process_decoded_frames(decoder: &mut ffmpeg::decoder::Video, 
         let err = out.unwrap_err();
 
         if err == Error::from(-11) {
-            decoder.send_packet(packet).expect("Couldn't send packet to decoder");
+            decoder
+                .send_packet(packet)
+                .expect("Couldn't send packet to decoder");
             out = decoder.receive_frame(&mut decoded);
         } else {
             return Err(anyhow::Error::from(err));
         }
     }
 
-    scaler.run(&decoded, &mut rgb_frame).expect("Scaler run failed");
+    scaler
+        .run(&decoded, &mut rgb_frame)
+        .expect("Scaler run failed");
     return Ok(rgb_frame);
 }
 

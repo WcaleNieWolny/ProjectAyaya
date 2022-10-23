@@ -1,0 +1,1 @@
+r -cp /home/wolny/IdeaProjects/ProjectAyaya/library/build/libs/randow* -Djava.library.path=/home/wolny/IdeaProjects/ProjectAyaya/ayaya_native/target/debug  -jar library-1.0-SNAPSHOT-tests.jar

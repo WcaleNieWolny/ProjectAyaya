@@ -40,6 +40,7 @@ data class SplittedFrame(
         result = 31 * result + data.contentHashCode()
         result = 31 * result + initialized.hashCode()
         result = 31 * result + frameLength
+
         return result
     }
 }

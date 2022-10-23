@@ -7,14 +7,21 @@ edition = "2021"
 
 [dependencies]
 jni = "0.19.0"
-ffmpeg-next = "5.0.3"
+ffmpeg-next = "5.1.1"
 lazy_static = "1.4.0"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
+vulkano = { git = "https://github.com/vulkano-rs/vulkano", branch = "master" }
+bytemuck = "1.8.0"
+vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano", branch = "master" }
 
 [lib]
 crate_type = ["cdylib"]
 
 [profile.release]
 strip = "symbols"
+opt-level = 3
+panic = "abort"
+
+[profile.test] 
 opt-level = 3

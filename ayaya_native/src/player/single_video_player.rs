@@ -1,20 +1,23 @@
-use ffmpeg::Error;
 use ffmpeg::decoder::Video;
-use ffmpeg::Error::Eof;
-use ffmpeg::format::{input, Pixel};
 use ffmpeg::format::context::Input;
+use ffmpeg::format::{input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
+use ffmpeg::Error;
+use ffmpeg::Error::Eof;
 
 use crate::colorlib::transform_frame_to_mc;
-use crate::ffmpeg_set_multithreading;
-use crate::player::player_context::{PlayerContext, receive_and_process_decoded_frames, VideoData, VideoPlayer};
+use crate::player::player_context::{
+    receive_and_process_decoded_frames, PlayerContext, VideoData, VideoPlayer,
+};
+use crate::{ffmpeg_set_multithreading, SplittedFrame};
 
 pub struct SingleVideoPlayer {
     video_stream_index: usize,
     scaler: Context,
     input: Input,
     decoder: Video,
+    splitted_frames: Vec<SplittedFrame>,
     width: u32,
     height: u32,
     fps: i32,
@@ -32,7 +35,8 @@ impl VideoPlayer for SingleVideoPlayer {
 
             let video_stream_index = input.index();
 
-            let context_decoder = ffmpeg::codec::context::Context::from_parameters(input.parameters())?;
+            let context_decoder =
+                ffmpeg::codec::context::Context::from_parameters(input.parameters())?;
 
             let mut decoder = context_decoder.decoder();
             ffmpeg_set_multithreading(&mut decoder, file_name);
@@ -59,6 +63,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 scaler,
                 input: ictx,
                 decoder,
+                splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
                 width,
                 height,
                 fps,
@@ -81,11 +86,23 @@ impl VideoPlayer for SingleVideoPlayer {
         while let Some((stream, packet)) = self.input.packets().next() {
             if stream.index() == self.video_stream_index as usize {
                 self.decoder.send_packet(&packet)?;
-                let frame_data = receive_and_process_decoded_frames(&mut self.decoder, &mut self.scaler, &packet)?;
-                let transformed_frame = transform_frame_to_mc(frame_data.data(0), self.width, self.height);
+                let frame_data = receive_and_process_decoded_frames(
+                    &mut self.decoder,
+                    &mut self.scaler,
+                    &packet,
+                )?;
+                let transformed_frame =
+                    transform_frame_to_mc(frame_data.data(0), self.width, self.height);
+
+                let transformed_frame = SplittedFrame::split_frames(
+                    transformed_frame.as_slice(),
+                    &mut self.splitted_frames,
+                    self.width as i32,
+                )?;
+
                 return Ok(transformed_frame);
             }
-        };
+        }
 
         Err(anyhow::Error::new(Eof))
     }

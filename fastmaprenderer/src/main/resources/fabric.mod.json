@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "FastMapRenderer",
+  "version": "${version}",
+  "name": "FastMapRenderer",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/FastMapRenderer/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.FastMapRendererClient"
+    ],
+    "main": [
+      "me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.FastMapRenderer"
+    ]
+  },
+  "mixins": [
+    "FastMapRenderer.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.9",
+    "fabric": "*",
+    "minecraft": "1.18.2"
+  }
+}

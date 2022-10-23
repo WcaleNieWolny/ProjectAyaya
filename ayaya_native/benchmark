@@ -1,0 +1,4 @@
+626.86875 < 16 local_size_x, local_size_y (204.18947347431182 FPS, 4.890625 ms per frame)
+378.1866666666667 < 32 local_size_x, local_size_y (338.457199266676 FPS, 2.954583333333334 ms per frame)
+
+SHADER ONLY (NO FFMPEG, BUILDING BUFFER, SPLITTING)
