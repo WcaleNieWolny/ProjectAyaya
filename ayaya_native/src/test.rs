@@ -37,7 +37,34 @@ mod tests {
 
         assert_eq!(4, 4);
     }
-    
+
+    #[test]
+    fn gpu_split_test_2() {
+        let gpu_player =
+            gpu_player::GpuVideoPlayer::create("/home/wolny/Downloads/4k_test.mp4".to_string())
+                .expect("Creation failed");
+
+        let ptr = gpu_player.wrap_to_ptr();
+
+        let frame = PlayerContext::load_frame(ptr).unwrap();
+
+            let mut diff = 0;
+        let single = single_video_player::SingleVideoPlayer::create("/home/wolny/Downloads/4k_test.mp4".to_string())
+            .expect("Creation failed");
+        let single = single.wrap_to_ptr();
+        let frame_single = PlayerContext::load_frame(single).unwrap();
+        for i in 0..frame.len()-1 {
+            if frame_single[i] != frame[i] {
+                diff += 1;
+                println!("O: {}, THE: {}", frame_single[i], frame[i])
+            }
+        };
+
+        println!("D: {}", diff);
+
+
+        assert_eq!(4, 4);
+    }
 
     #[test]
     fn gpu_split_test(){

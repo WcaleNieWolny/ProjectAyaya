@@ -39,7 +39,7 @@ pub struct GpuVideoPlayer {
 
 struct GpuFrameWithIdentifier {
     id: i64,
-    data: ffmpeg::frame::Video,
+    data: ffmpeg::frame::Video
 }
 
 struct GpuProcessedFrame {
@@ -54,6 +54,13 @@ pub struct GpuSplittedFrameInfo {
     pub height_start: u32,
     pub width_end: u32,
     pub height_end: u32
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod, PartialEq, Eq)]
+pub struct GpuShaderMetadata {
+    pub all_frames_x: u32,
+    pub all_frames_y: u32
 }
 
 impl GpuSplittedFrameInfo {
@@ -113,6 +120,25 @@ unsafe impl SpecializationConstants for GpuSplittedFrameInfo {
                 offset: 12,
                 size: 4,
             },
+        ];
+
+        &DESCRIPTORS
+    }
+}
+
+unsafe impl SpecializationConstants for GpuShaderMetadata {
+    fn descriptors() -> &'static [SpecializationMapEntry] {
+        static DESCRIPTORS: [SpecializationMapEntry; 2] = [
+            SpecializationMapEntry {
+                constant_id: 0,
+                offset: 0,
+                size: 4,
+            },
+            SpecializationMapEntry {
+                constant_id: 1,
+                offset: 4,
+                size: 4,
+            }, 
         ];
 
         &DESCRIPTORS
@@ -334,6 +360,34 @@ impl VideoPlayer for GpuVideoPlayer {
             )
             .expect("Couldn't alloc cache buffer");
 
+
+            let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed) as u32;
+            let all_frames_y = FRAME_SPLITTER_ALL_FRAMES_Y.load(Relaxed) as u32;
+
+            let meta_buffer = CpuAccessibleBuffer::<GpuShaderMetadata>::from_data(
+                device.clone(),
+                BufferUsage {
+                    storage_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                GpuShaderMetadata {
+                    all_frames_x: all_frames_x,
+                    all_frames_y: all_frames_y,
+                }
+            );
+
+            let gpu_info_buffer = CpuAccessibleBuffer::from_iter(
+                device.clone(),
+                BufferUsage {
+                    storage_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                
+            GpuSplittedFrameInfo::from_splitted_frames(&self.splitted_frames).iter()
+            ).unwrap();
+
             //This will be build when submitting a frame
 
             let mut write = cache_temp_buffer.write().expect("Couldn't do a write lock");
@@ -493,6 +547,8 @@ impl VideoPlayer for GpuVideoPlayer {
                         WriteDescriptorSet::buffer(0, output_data_buffer.clone()),
                         WriteDescriptorSet::buffer(1, frame_buffer.clone()),
                         WriteDescriptorSet::buffer(2, cache_buffer.clone()),
+                        WriteDescriptorSet::buffer(3, gpu_info_buffer.clone()),
+                        WriteDescriptorSet::buffer(4, meta_buffer.clone()),
                     ], // 0 is the binding
                 )
                 .unwrap();
@@ -567,10 +623,15 @@ struct GpuSplittedFrameInfo
   uint height_end;
 };
 
+struct GpuShaderMetadata{
+  uint all_frames_x;
+  uint all_frames_y;
+};
+
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 layout(set = 0, binding = 0) buffer Data {
-    int8_t data[];
-} buf;
+        int8_t data[];
+    } buf;
 layout(set = 0, binding = 1) buffer Frame {
     uint8_t data[];
 } frame;
@@ -580,6 +641,9 @@ layout(set = 0, binding = 2) buffer Cache {
 layout(set = 0, binding = 3) buffer GpuSplittedFrameInfoList {
     GpuSplittedFrameInfo data[];
 } splitting;
+layout(set = 0, binding = 4) buffer Meta {
+    GpuShaderMetadata data;
+} meta;
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
@@ -592,16 +656,26 @@ void main() {
     uint8_t g = frame.data[(idy * width * 3) + (idx * 3) + 1];
     uint8_t b = frame.data[(idy * width * 3) + (idx * 3) + 2];
 
-    uint offset = 0;
-    uint for_len = splitting.data.length();
+    uint i = 0;
+    uint offset_xy = 0;
 
-    for(int i=0;i<for_len;i++){
-        GpuSplittedFrameInfo info = splitting.data[i];
-        if(info.width_start >= idx && info.width_end <= idx && info.height_start >= idy && info.height_end <= idy){
-            uint frame_height = info.height_end - info.height_start + 1;
-            uint frame_width = info.width_end - info.width_start + 1;
-            uint y = offset + (frame_height * width) + idx;
-            buf.data[1] = int8_t(1);
+    GpuShaderMetadata meta = meta.data;
+    for(int x=0;x<meta.all_frames_x;x++){
+        for(int y=0;y<meta.all_frames_y;y++){
+            
+            GpuSplittedFrameInfo info = splitting.data[i];
+            uint frame_height = info.height_end - info.height_start;
+            uint frame_width =  info.width_end - info.width_start;
+
+            if (info.width_start <= idx && info.width_end > idx && info.height_start <= idy && info.height_end > idy){
+                uint x1 = idx - info.width_start;
+                uint y1 = idy - info.height_start;
+
+                buf.data[offset_xy + (y1 * frame_width) + x1] = int8_t(cache.data[(r * 256 * 256) + (g * 256) + b]);
+                return;
+            } 
+            i++;
+            offset_xy = offset_xy + (frame_height * frame_width);
         };
     };
 
@@ -662,5 +736,4 @@ void main() {
 //             }))
 //         },
 //     )
-//     .ok()
-// };
+//     .ok() };
