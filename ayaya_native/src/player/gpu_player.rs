@@ -246,12 +246,12 @@ impl VideoPlayer for GpuVideoPlayer {
     //Note: GPU init!!
     fn init(&mut self) -> anyhow::Result<()> {
         let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(100);
-        self.jvm_receiver = Some(Arc::new(global_rx));
-
-        let a = &self.splitted_frames;
-        let b = GpuSplittedFrameInfo::from_splitted_frames(a);
+        let global_rx = Arc::new(global_rx);
+        self.jvm_receiver = Some(global_rx.clone());
 
         let gpu_receiver = self.gpu_receiver.clone();
+        let (gpu_reciver_tx, gpu_receiver_rx) = mpsc::sync_channel::<Arc<Receiver<GpuFrameWithIdentifier>>>(1);
+
 
         let len = self.width * self.height;
 
@@ -260,7 +260,8 @@ impl VideoPlayer for GpuVideoPlayer {
         let mut splitted_frames = self.splitted_frames.clone();
 
         thread::spawn(move || {
-            let jvm_sender = global_tx;
+            let gpu_receiver = gpu_receiver_rx.recv().unwrap();
+            let jvm_sender = global_tx.clone();
 
             let library = VulkanLibrary::new().unwrap();
             let layers = library.layer_properties().unwrap();
@@ -372,23 +373,23 @@ impl VideoPlayer for GpuVideoPlayer {
                 },
                 false,
                 GpuShaderMetadata {
-                    all_frames_x: all_frames_x,
-                    all_frames_y: all_frames_y,
+                    all_frames_x,
+                    all_frames_y,
                 }
-            );
-
-            let gpu_info_buffer = CpuAccessibleBuffer::from_iter(
-                device.clone(),
-                BufferUsage {
-                    storage_buffer: true,
-                    ..BufferUsage::empty()
-                },
-                false,
-                
-            GpuSplittedFrameInfo::from_splitted_frames(&self.splitted_frames).iter()
             ).unwrap();
 
-            //This will be build when submitting a frame
+            let gpu_info = GpuSplittedFrameInfo::from_splitted_frames(&self.splitted_frames);
+            let gpu_info_buffer = unsafe {
+                    CpuAccessibleBuffer::<[GpuSplittedFrameInfo]>::from_iter(
+                    device.clone(),
+                    BufferUsage {
+                        storage_buffer: true,
+                        ..BufferUsage::empty()
+                    },
+                    false,
+                    gpu_info 
+                )
+            }.expect("Couldn't create gpu info buffer!");
 
             let mut write = cache_temp_buffer.write().expect("Couldn't do a write lock");
             write.copy_from_slice(cache_slice);
@@ -427,7 +428,7 @@ impl VideoPlayer for GpuVideoPlayer {
             )
             .unwrap();
 
-            let gpu_receive = gpu_receiver.lock().unwrap();
+            //let gpu_receive = gpu_receiver;
             let mut gpu_process_vec = Vec::<GpuProcessedFrame>::with_capacity(128);
             let mut frame_id = 0;
 
@@ -489,7 +490,7 @@ impl VideoPlayer for GpuVideoPlayer {
                     continue;
                 };
 
-                let frame = gpu_receive.recv().unwrap();
+                let frame = gpu_receiver.recv().unwrap();
 
                 let frame_buffer = unsafe {
                     CpuAccessibleBuffer::<[u8]>::uninitialized_array(
