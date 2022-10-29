@@ -1,6 +1,5 @@
 use core::time;
-use std::sync::mpsc::Receiver;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::Arc;
 use std::{ptr, thread};
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -9,6 +8,9 @@ use ffmpeg::format::{input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::Error;
+use tokio::runtime::{Builder, Runtime};
+use tokio::sync::Mutex;
+use tokio::sync::mpsc::{Receiver, channel};
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer, DeviceLocalBuffer};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo};
@@ -32,9 +34,10 @@ pub struct GpuVideoPlayer {
     width: i32,
     height: i32,
     fps: i32,
-    jvm_receiver: Option<Arc<Receiver<Vec<i8>>>>, //Receiver<Vec<i8>
+    jvm_receiver: Option<Arc<Mutex<Receiver<Vec<i8>>>>>, //Receiver<Vec<i8>
     gpu_receiver: Arc<Mutex<Receiver<GpuFrameWithIdentifier>>>,
     splitted_frames: Vec<SplittedFrame>,
+    runtime: Arc<Runtime>
 }
 
 struct GpuFrameWithIdentifier {
@@ -97,7 +100,7 @@ impl GpuSplittedFrameInfo {
     }
 }
 
-unsafe impl SpecializationConstants for GpuSplittedFrameInfo {
+    unsafe impl SpecializationConstants for GpuSplittedFrameInfo {
     fn descriptors() -> &'static [SpecializationMapEntry] {
         static DESCRIPTORS: [SpecializationMapEntry; 4] = [
             SpecializationMapEntry {
@@ -150,77 +153,86 @@ unsafe impl Send for GpuFrameWithIdentifier {}
 
 impl VideoPlayer for GpuVideoPlayer {
     fn create(file_name: String) -> anyhow::Result<PlayerContext> {
-        ffmpeg::init()?;
+            let runtime = Builder::new_multi_thread()
+                .worker_threads(6 as usize)
+                .thread_name("ProjectAyaya native worker thread")
+                .thread_stack_size(3840 as usize * 2160 as usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
+                .build()
+                .expect("Couldn't create tokio runtime");
 
-        if let Ok(mut ictx) = input(&file_name) {
-            let (gpu_tx, gpu_rx) = mpsc::sync_channel::<GpuFrameWithIdentifier>(100);
-            let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
+            let (gpu_tx, gpu_rx) = channel::<GpuFrameWithIdentifier>(100);
+            let (data_tx, mut data_rx) = channel::<i32>(3);
 
             //ffmpeg setup
             {
                 thread::spawn(move || {
-                    let input = ictx
-                        .streams()
-                        .best(Type::Video)
-                        .ok_or(Error::StreamNotFound)
-                        .expect("Couldn't find stream");
+                        ffmpeg::init().unwrap();
 
-                    let video_stream_index = input.index();
+                        if let Ok(mut ictx) = input(&file_name) {
+                            let input = ictx
+                                .streams()
+                                .best(Type::Video)
+                                .ok_or(Error::StreamNotFound)
+                                .expect("Couldn't find stream");
 
-                    let context_decoder =
-                        ffmpeg::codec::context::Context::from_parameters(input.parameters())
-                            .expect("Couldn't create context_decoder");
+                            let video_stream_index = input.index();
+                            let context_decoder =
+                                ffmpeg::codec::context::Context::from_parameters(input.parameters())
+                                    .expect("Couldn't create context_decoder");
 
-                    let mut decoder = context_decoder.decoder();
-                    ffmpeg_set_multithreading(&mut decoder, file_name);
+                            let mut decoder = context_decoder.decoder();
+                            ffmpeg_set_multithreading(&mut decoder, file_name);
 
-                    let mut decoder = decoder.video().expect("Couldn't get decoder");
+                            let mut decoder = decoder.video().expect("Couldn't get decoder");
 
-                    let width = decoder.width();
-                    let height = decoder.height();
+                            let width = decoder.width();
+                            let height = decoder.height();
 
-                    let fps = input.rate().0 / input.rate().1;
+                            let fps = input.rate().0 / input.rate().1;
 
-                    let mut scaler = Context::get(
-                        decoder.format(),
-                        width,
-                        height,
-                        Pixel::RGB24,
-                        width,
-                        height,
-                        Flags::BILINEAR,
-                    )
-                    .expect("Couldn't create scaler");
+                            let mut scaler = Context::get(
+                                decoder.format(),
+                                width,
+                                height,
+                                Pixel::RGB24,
+                                width,
+                                height,
+                                Flags::BILINEAR,
+                            )
+                            .expect("Couldn't create scaler");
 
-                    data_tx.send(fps).unwrap();
-                    data_tx.send(width as i32).unwrap();
-                    data_tx.send(height as i32).unwrap();
+                            data_tx.blocking_send(fps).unwrap();
+                            data_tx.blocking_send(width as i32).unwrap();
+                            data_tx.blocking_send(height as i32).unwrap();
 
-                    let mut id = 0;
+                            let mut id = 0;
 
-                    loop {
-                        let frame = MultiVideoPlayer::decode_frame(
-                            &mut ictx,
-                            video_stream_index,
-                            &mut decoder,
-                            &mut scaler,
-                        )
-                        .expect("Couldn't create async frame");
+                            loop {
+                                let frame = MultiVideoPlayer::decode_frame(
+                                    &mut ictx,
+                                    video_stream_index,
+                                    &mut decoder,
+                                    &mut scaler,
+                                )
+                                .expect("Couldn't create async frame");
 
-                        let frame_with_id = GpuFrameWithIdentifier {
-                            id: id,
-                            data: frame,
+                                let frame_with_id = GpuFrameWithIdentifier {
+                                    id: id,
+                                    data: frame,
+                                };
+
+                                gpu_tx.blocking_send(frame_with_id);
+                                id += 1;
                         };
-
-                        gpu_tx.send(frame_with_id).unwrap();
-                        id += 1;
-                    }
+                    };
                 });
             };
 
-            let fps = data_rx.recv().unwrap();
-            let width = data_rx.recv().unwrap();
-            let height = data_rx.recv().unwrap();
+            let fps = data_rx.blocking_recv().unwrap();
+            let width = data_rx.blocking_recv().unwrap();
+            let height = data_rx.blocking_recv().unwrap();
+
+            println!("{}, {}, {}", fps, width, height);
 
             if width % 8 != 0 || height % 8 != 0 {
                 return Err(anyhow::Error::msg(format!("The width or height is not divisible by 8! The GPU does NOT support that ({}, {})", width, height)));
@@ -233,25 +245,21 @@ impl VideoPlayer for GpuVideoPlayer {
                 jvm_receiver: None,
                 gpu_receiver: Arc::new(Mutex::new(gpu_rx)),
                 splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
+                runtime: Arc::new(runtime)
             };
 
             GpuVideoPlayer::init(&mut gpu_video_player)?;
 
-            return Ok(PlayerContext::from_gpu_video_player(gpu_video_player));
-        };
-
-        return Err(anyhow::Error::new(Error::StreamNotFound));
+            return Ok(PlayerContext::from_gpu_video_player(gpu_video_player));    
     }
 
     //Note: GPU init!!
     fn init(&mut self) -> anyhow::Result<()> {
-        let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(100);
-        let global_rx = Arc::new(global_rx);
-        self.jvm_receiver = Some(global_rx.clone());
+        let (global_tx, global_rx) = channel::<Vec<i8>>(100);
+        let global_rx = Arc::new(Mutex::new(global_rx));
+        self.jvm_receiver = Some(global_rx);
 
         let gpu_receiver = self.gpu_receiver.clone();
-        let (gpu_reciver_tx, gpu_receiver_rx) = mpsc::sync_channel::<Arc<Receiver<GpuFrameWithIdentifier>>>(1);
-
 
         let len = self.width * self.height;
 
@@ -260,7 +268,6 @@ impl VideoPlayer for GpuVideoPlayer {
         let mut splitted_frames = self.splitted_frames.clone();
 
         thread::spawn(move || {
-            let gpu_receiver = gpu_receiver_rx.recv().unwrap();
             let jvm_sender = global_tx.clone();
 
             let library = VulkanLibrary::new().unwrap();
@@ -365,6 +372,8 @@ impl VideoPlayer for GpuVideoPlayer {
             let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed) as u32;
             let all_frames_y = FRAME_SPLITTER_ALL_FRAMES_Y.load(Relaxed) as u32;
 
+            println!("DDD: {} {}", all_frames_x, all_frames_y);
+
             let meta_buffer = CpuAccessibleBuffer::<GpuShaderMetadata>::from_data(
                 device.clone(),
                 BufferUsage {
@@ -378,18 +387,28 @@ impl VideoPlayer for GpuVideoPlayer {
                 }
             ).unwrap();
 
-            let gpu_info = GpuSplittedFrameInfo::from_splitted_frames(&self.splitted_frames);
-            let gpu_info_buffer = unsafe {
-                    CpuAccessibleBuffer::<[GpuSplittedFrameInfo]>::from_iter(
-                    device.clone(),
-                    BufferUsage {
-                        storage_buffer: true,
-                        ..BufferUsage::empty()
-                    },
-                    false,
-                    gpu_info 
-                )
-            }.expect("Couldn't create gpu info buffer!");
+            let gpu_info = GpuSplittedFrameInfo::from_splitted_frames(&splitted_frames);
+            let gpu_info_temp_buffer = CpuAccessibleBuffer::<[GpuSplittedFrameInfo]>::from_iter(
+                device.clone(),
+                BufferUsage {
+                    transfer_src: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                gpu_info 
+            ).expect("Couldn't create gpu info buffer!");
+
+            let gpu_info_buffer = DeviceLocalBuffer::<[GpuSplittedFrameInfo]>::array(
+                device.clone(),
+                ((all_frames_y * all_frames_x) as u64) as vulkano::DeviceSize,
+                BufferUsage {
+                    storage_buffer: true,
+                    transfer_dst: true,
+                    ..BufferUsage::empty()
+                }, // Specify use as a storage buffer and transfer destination.
+                device.active_queue_family_indices().iter().copied(),
+            )
+            .expect("Couldn't alloc cache buffer");
 
             let mut write = cache_temp_buffer.write().expect("Couldn't do a write lock");
             write.copy_from_slice(cache_slice);
@@ -409,7 +428,13 @@ impl VideoPlayer for GpuVideoPlayer {
                     cache_temp_buffer.clone(),
                     cache_buffer.clone(),
                 ))
+                .expect("Couldn't copy cache buffer (2)")
+                .copy_buffer(CopyBufferInfo::buffers(
+                    gpu_info_temp_buffer.clone(),
+                    gpu_info_buffer.clone(),
+                ))
                 .expect("Couldn't copy cache buffer (2)");
+
 
             let command_buffer = builder.build().unwrap();
 
@@ -432,8 +457,10 @@ impl VideoPlayer for GpuVideoPlayer {
             let mut gpu_process_vec = Vec::<GpuProcessedFrame>::with_capacity(128);
             let mut frame_id = 0;
 
+            let mut gpu_receiver = gpu_receiver.blocking_lock();
+
             loop {
-                if frame_id == 128 {
+                if frame_id == 64 {
 
                     println!("GO GO GO!");
                     // let command_buffer = builder.build().unwrap();
@@ -456,6 +483,7 @@ impl VideoPlayer for GpuVideoPlayer {
 
                     let now = std::time::Instant::now();
 
+                    println!("F>!");
                     let future = sync::now(device.clone())
                         .then_execute(queue.clone(), command_buffer)
                         .unwrap()
@@ -469,13 +497,7 @@ impl VideoPlayer for GpuVideoPlayer {
 
                     for frame in gpu_process_vec.drain(..) {
                         let data = &*frame.data.read().unwrap();
-
-                        //jvm_sender.send(vec![data[0]]).expect("JVM SEND ERROR")
-                        let splitting =
-                            SplittedFrame::split_frames(data, &mut splitted_frames, width)
-                                .expect("Couldn't split frames async");
-
-                        jvm_sender.send(splitting).expect("JVM SEND ERROR");
+                        jvm_sender.blocking_send(Vec::from(data)).expect("JVM SEND ERROR");
                     }
 
                     builder = AutoCommandBufferBuilder::primary(
@@ -490,7 +512,7 @@ impl VideoPlayer for GpuVideoPlayer {
                     continue;
                 };
 
-                let frame = gpu_receiver.recv().unwrap();
+                let frame = gpu_receiver.blocking_recv().unwrap();
 
                 let frame_buffer = unsafe {
                     CpuAccessibleBuffer::<[u8]>::uninitialized_array(
@@ -539,7 +561,7 @@ impl VideoPlayer for GpuVideoPlayer {
                 .expect("failed to create compute pipeline");
 
                 let descriptor_allocator = StandardDescriptorSetAllocator::new(device.clone());
-
+                
                 let layout = compute_pipeline.layout().set_layouts().get(0).unwrap();
                 let set = PersistentDescriptorSet::new(
                     &descriptor_allocator,
@@ -562,7 +584,7 @@ impl VideoPlayer for GpuVideoPlayer {
                         0, // 0 is the index of our set
                         set,
                     )
-                    .dispatch([((width / 32) as u32), ((height * 3 / 32) as u32), 1])
+                    .dispatch([((width / 16) as u32), ((height / 16) as u32), 1])
                     .unwrap();
 
                 gpu_process_vec.push(GpuProcessedFrame {
@@ -579,8 +601,8 @@ impl VideoPlayer for GpuVideoPlayer {
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
-        let reciver = self.jvm_receiver.as_ref().unwrap();
-
+        let mut reciver = self.jvm_receiver.as_ref().unwrap();
+        let mut reciver = reciver.blocking_lock();
 
         return loop {
             let frame = reciver.try_recv();
@@ -629,7 +651,7 @@ struct GpuShaderMetadata{
   uint all_frames_y;
 };
 
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 layout(set = 0, binding = 0) buffer Data {
         int8_t data[];
     } buf;
@@ -661,9 +683,8 @@ void main() {
     uint offset_xy = 0;
 
     GpuShaderMetadata meta = meta.data;
-    for(int x=0;x<meta.all_frames_x;x++){
-        for(int y=0;y<meta.all_frames_y;y++){
-            
+    for(int y=0;y<meta.all_frames_y;y++){
+        for(int x=0;x<meta.all_frames_x;x++){         
             GpuSplittedFrameInfo info = splitting.data[i];
             uint frame_height = info.height_end - info.height_start;
             uint frame_width =  info.width_end - info.width_start;

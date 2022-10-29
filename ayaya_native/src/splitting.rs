@@ -11,6 +11,50 @@ pub struct SplittedFrame {
 pub static FRAME_SPLITTER_ALL_FRAMES_X: AtomicI32 = AtomicI32::new(0);
 pub static FRAME_SPLITTER_ALL_FRAMES_Y: AtomicI32 = AtomicI32::new(0);
 
+pub fn generate_index_cache(width: u32, height: u32, splitted_frames: Vec<SplittedFrame>) -> Vec<usize>{
+    let mut output = Vec::<usize>::with_capacity(width as usize * height as usize);
+    output.resize(output.capacity(), 0);
+
+    let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed) as u32;
+    let all_frames_y = FRAME_SPLITTER_ALL_FRAMES_Y.load(Relaxed) as u32;
+
+    let mut offset_x = 0;
+    let mut offset_y = 0;
+    let mut i = 0;
+    let mut offset_xy = 0;
+
+    for a_y in 0..all_frames_y {
+        for _ in 0..all_frames_x {
+            let frame = &splitted_frames[i];
+          
+            let width_start = offset_x;
+            let height_start = offset_y;
+            let width_end = offset_x + (frame.width as u32);
+            let height_end = offset_y + (frame.height as u32);
+            let frame_width = frame.width;
+            let frame_height = frame.height;
+
+            for x in width_start..width_end {
+                for y in height_start..height_end {
+                    let x1 = x - width_start;
+                    let y1 = y - height_start;
+
+                    output[(y as usize * width as usize) + x as usize] = offset_xy as usize + (y1 as usize * frame_width as usize) as usize + x1 as usize            
+                }
+            };
+
+            offset_x += frame.width as u32;
+            offset_xy += frame.width as u32 * frame.height as u32;
+            i += 1;
+        }
+        offset_y += splitted_frames[(a_y * all_frames_x) as usize].height as u32;
+        offset_x = 0;
+    }
+
+
+    output
+}
+
 impl SplittedFrame {
     pub fn initialize_frames(width: i32, height: i32) -> anyhow::Result<Vec<SplittedFrame>> {
         let mut frames: Vec<SplittedFrame> = Vec::new();
@@ -135,6 +179,19 @@ impl SplittedFrame {
 
         Ok(final_data)
     }
+
+    pub fn fast_split(data: &[i8], cache: Vec<usize>) -> Vec<i8>{
+        let mut out = Vec::<i8>::with_capacity(data.len());
+        unsafe {
+            out.set_len(out.capacity())
+        } //Speed > mem safety
+          
+        for i in 0..data.len(){
+            out[cache[i]] = data[i]
+        }
+
+        out
+    } 
 }
 
 //    pub fn split_frames(data: Vec<i8>, mut frames: &mut Vec<SplittedFrame>, width: i32, height: i32) -> anyhow::Result<Vec<i8>>{
