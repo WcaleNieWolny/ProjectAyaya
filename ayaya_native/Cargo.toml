@@ -15,6 +15,9 @@ vulkano = { git = "https://github.com/vulkano-rs/vulkano", branch = "master" }
 bytemuck = "1.8.0"
 vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano", branch = "master" }
 
+[dev-dependencies]
+rand = "0.8.5"
+
 [lib]
 crate_type = ["cdylib"]
 
