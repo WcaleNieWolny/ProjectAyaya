@@ -25,7 +25,7 @@ use vulkano::sync::GpuFuture;
 use vulkano::{sync, VulkanLibrary};
 
 use crate::player::player_context::{PlayerContext, VideoData, VideoPlayer};
-use crate::splitting::{FRAME_SPLITTER_ALL_FRAMES_X, FRAME_SPLITTER_ALL_FRAMES_Y};
+use crate::splitting::{FRAME_SPLITTER_ALL_FRAMES_X, FRAME_SPLITTER_ALL_FRAMES_Y, self};
 use crate::{colorlib, ffmpeg_set_multithreading, SplittedFrame};
 
 use super::multi_video_player::MultiVideoPlayer;
@@ -372,35 +372,21 @@ impl VideoPlayer for GpuVideoPlayer {
             let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed) as u32;
             let all_frames_y = FRAME_SPLITTER_ALL_FRAMES_Y.load(Relaxed) as u32;
 
-            println!("DDD: {} {}", all_frames_x, all_frames_y);
-
-            let meta_buffer = CpuAccessibleBuffer::<GpuShaderMetadata>::from_data(
-                device.clone(),
-                BufferUsage {
-                    storage_buffer: true,
-                    ..BufferUsage::empty()
-                },
-                false,
-                GpuShaderMetadata {
-                    all_frames_x,
-                    all_frames_y,
-                }
-            ).unwrap();
-
-            let gpu_info = GpuSplittedFrameInfo::from_splitted_frames(&splitted_frames);
-            let gpu_info_temp_buffer = CpuAccessibleBuffer::<[GpuSplittedFrameInfo]>::from_iter(
+            let index_data = splitting::generate_index_cache(width as u32, height as u32, splitted_frames);
+            let index_len = index_data.len();
+            let index_temp_cache_buffer = CpuAccessibleBuffer::<[u32]>::from_iter(
                 device.clone(),
                 BufferUsage {
                     transfer_src: true,
                     ..BufferUsage::empty()
                 },
                 false,
-                gpu_info 
+                index_data 
             ).expect("Couldn't create gpu info buffer!");
 
-            let gpu_info_buffer = DeviceLocalBuffer::<[GpuSplittedFrameInfo]>::array(
+            let index_buffer = DeviceLocalBuffer::<[u32]>::array(
                 device.clone(),
-                ((all_frames_y * all_frames_x) as u64) as vulkano::DeviceSize,
+                (index_len as u64) as vulkano::DeviceSize,
                 BufferUsage {
                     storage_buffer: true,
                     transfer_dst: true,
@@ -430,10 +416,10 @@ impl VideoPlayer for GpuVideoPlayer {
                 ))
                 .expect("Couldn't copy cache buffer (2)")
                 .copy_buffer(CopyBufferInfo::buffers(
-                    gpu_info_temp_buffer.clone(),
-                    gpu_info_buffer.clone(),
+                    index_temp_cache_buffer.clone(),
+                    index_buffer.clone(),
                 ))
-                .expect("Couldn't copy cache buffer (2)");
+                .expect("Couldn't copy cache buffer (3)");
 
 
             let command_buffer = builder.build().unwrap();
@@ -461,8 +447,7 @@ impl VideoPlayer for GpuVideoPlayer {
 
             loop {
                 if frame_id == 64 {
-
-                    println!("GO GO GO!");
+                    println!("G!");
                     // let command_buffer = builder.build().unwrap();
 
                     // let future = sync::now(device.clone())
@@ -483,7 +468,6 @@ impl VideoPlayer for GpuVideoPlayer {
 
                     let now = std::time::Instant::now();
 
-                    println!("F>!");
                     let future = sync::now(device.clone())
                         .then_execute(queue.clone(), command_buffer)
                         .unwrap()
@@ -570,8 +554,7 @@ impl VideoPlayer for GpuVideoPlayer {
                         WriteDescriptorSet::buffer(0, output_data_buffer.clone()),
                         WriteDescriptorSet::buffer(1, frame_buffer.clone()),
                         WriteDescriptorSet::buffer(2, cache_buffer.clone()),
-                        WriteDescriptorSet::buffer(3, gpu_info_buffer.clone()),
-                        WriteDescriptorSet::buffer(4, meta_buffer.clone()),
+                        WriteDescriptorSet::buffer(3, index_buffer.clone()),
                     ], // 0 is the binding
                 )
                 .unwrap();
@@ -604,14 +587,7 @@ impl VideoPlayer for GpuVideoPlayer {
         let mut reciver = self.jvm_receiver.as_ref().unwrap();
         let mut reciver = reciver.blocking_lock();
 
-        return loop {
-            let frame = reciver.try_recv();
-            if frame.is_ok() {
-                break Ok(frame.unwrap());
-            } else {
-                thread::sleep(time::Duration::from_millis(1));
-            }
-        };
+        return Ok(reciver.blocking_recv().unwrap()); 
     }
 
     fn video_data(&self) -> anyhow::Result<VideoData> {
@@ -637,20 +613,6 @@ mod cs {
 #extension GL_EXT_shader_8bit_storage : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int8 : enable
 
-
-struct GpuSplittedFrameInfo
-{
-  uint width_start;
-  uint height_start;
-  uint width_end;
-  uint height_end;
-};
-
-struct GpuShaderMetadata{
-  uint all_frames_x;
-  uint all_frames_y;
-};
-
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 layout(set = 0, binding = 0) buffer Data {
         int8_t data[];
@@ -661,12 +623,9 @@ layout(set = 0, binding = 1) buffer Frame {
 layout(set = 0, binding = 2) buffer Cache {
     uint8_t data[];
 } cache;
-layout(set = 0, binding = 3) buffer GpuSplittedFrameInfoList {
-    GpuSplittedFrameInfo data[];
-} splitting;
-layout(set = 0, binding = 4) buffer Meta {
-    GpuShaderMetadata data;
-} meta;
+layout(set = 0, binding = 3) buffer IndexCache {
+    uint data[];
+} index;
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
@@ -679,28 +638,7 @@ void main() {
     uint8_t g = frame.data[(idy * width * 3) + (idx * 3) + 1];
     uint8_t b = frame.data[(idy * width * 3) + (idx * 3) + 2];
 
-    uint i = 0;
-    uint offset_xy = 0;
-
-    GpuShaderMetadata meta = meta.data;
-    for(int y=0;y<meta.all_frames_y;y++){
-        for(int x=0;x<meta.all_frames_x;x++){         
-            GpuSplittedFrameInfo info = splitting.data[i];
-            uint frame_height = info.height_end - info.height_start;
-            uint frame_width =  info.width_end - info.width_start;
-
-            if (info.width_start <= idx && info.width_end > idx && info.height_start <= idy && info.height_end > idy){
-                uint x1 = idx - info.width_start;
-                uint y1 = idy - info.height_start;
-
-                buf.data[offset_xy + (y1 * frame_width) + x1] = int8_t(cache.data[(r * 256 * 256) + (g * 256) + b]);
-                return;
-            } 
-            i++;
-            offset_xy = offset_xy + (frame_height * frame_width);
-        };
-    };
-
+    buf.data[index.data[(idy * width) + idx]] = int8_t(cache.data[(r * 256 * 256) + (g * 256) + b]);
     //buf.data[(idy * width) + idx] = int8_t(cache.data[(r * 256 * 256) + (g * 256) + b]);
 }
 

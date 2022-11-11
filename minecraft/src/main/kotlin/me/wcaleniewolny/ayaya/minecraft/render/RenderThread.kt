@@ -29,7 +29,9 @@ class RenderThread(
 
             displayService.displayFrame(frame)
 
+            val a = System.nanoTime()
             this.frame = NativeRenderControler.loadFrame(ptr)
+            println("${TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - a)} AA!")
 
             val took = (System.nanoTime() - start)
             val toWait = max(0, timeWindow - took)

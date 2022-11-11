@@ -35,6 +35,12 @@ processResources {
 
 loom{
     accessWidenerPath = file("src/main/resources/fastmaprenderer.accesswidener")
+
+    runs {
+        client {
+            property("io.netty.eventLoopThreads", "24")
+        }
+    }
 }
 
 def targetJavaVersion = 17

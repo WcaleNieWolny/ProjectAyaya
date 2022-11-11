@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "id": "FastMapRenderer",
+  "id": "fastmaprenderer",
   "version": "${version}",
   "name": "FastMapRenderer",
   "description": "",
   "authors": [],
   "contact": {},
   "license": "MIT",
-  "icon": "assets/FastMapRenderer/icon.png",
+  "icon": "assets/fastmaprenderer/icon.png",
   "environment": "*",
   "entrypoints": {
     "client": [

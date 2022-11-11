@@ -12,7 +12,7 @@ object PlaybackControllerFactory {
     fun create(
         filename: String,
     ): PlaybackController {
-        val ptr = NativeRenderControler.init(filename, NativeRenderType.GPU)
+        val ptr = NativeRenderControler.init(filename, NativeRenderType.MULTI_THREADED)
         val videoData = NativeRenderControler.getVideoData(ptr)
         println("DATA: $videoData")
 

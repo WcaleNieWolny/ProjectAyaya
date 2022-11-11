@@ -11,8 +11,8 @@ pub struct SplittedFrame {
 pub static FRAME_SPLITTER_ALL_FRAMES_X: AtomicI32 = AtomicI32::new(0);
 pub static FRAME_SPLITTER_ALL_FRAMES_Y: AtomicI32 = AtomicI32::new(0);
 
-pub fn generate_index_cache(width: u32, height: u32, splitted_frames: Vec<SplittedFrame>) -> Vec<usize>{
-    let mut output = Vec::<usize>::with_capacity(width as usize * height as usize);
+pub fn generate_index_cache(width: u32, height: u32, splitted_frames: Vec<SplittedFrame>) -> Vec<u32>{
+    let mut output = Vec::<u32>::with_capacity(width as usize * height as usize);
     output.resize(output.capacity(), 0);
 
     let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed) as u32;
@@ -39,7 +39,7 @@ pub fn generate_index_cache(width: u32, height: u32, splitted_frames: Vec<Splitt
                     let x1 = x - width_start;
                     let y1 = y - height_start;
 
-                    output[(y as usize * width as usize) + x as usize] = offset_xy as usize + (y1 as usize * frame_width as usize) as usize + x1 as usize            
+                    output[(y as usize * width as usize) + x as usize] = offset_xy as u32 + (y1 as u32 * frame_width as u32) as u32 + x1 as u32           
                 }
             };
 
@@ -180,14 +180,14 @@ impl SplittedFrame {
         Ok(final_data)
     }
 
-    pub fn fast_split(data: &[i8], cache: Vec<usize>) -> Vec<i8>{
+    pub fn fast_split(data: &[i8], cache: Vec<u32>) -> Vec<i8>{
         let mut out = Vec::<i8>::with_capacity(data.len());
         unsafe {
             out.set_len(out.capacity())
         } //Speed > mem safety
           
         for i in 0..data.len(){
-            out[cache[i]] = data[i]
+            out[cache[i] as usize] = data[i]
         }
 
         out

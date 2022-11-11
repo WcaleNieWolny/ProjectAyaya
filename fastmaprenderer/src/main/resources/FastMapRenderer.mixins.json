@@ -4,8 +4,17 @@
   "package": "me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "ClientConnectionMixin",
+    "MapStateMixin"
   ],
   "client": [
+    "ClientPlayNetworkHandlerAccessor",
+    "ClientPlayNetworkHandlerMixin",
+    "MapRendererInvoker",
+    "MapRendererMixin",
+    "MapTextureAccessor",
+    "MapTextureMixin",
+    "MinecraftClientAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

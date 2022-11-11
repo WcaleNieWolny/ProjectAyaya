@@ -59,7 +59,7 @@ impl MultiVideoPlayer {
 
 impl VideoPlayer for MultiVideoPlayer {
     fn create(file_name: String) -> anyhow::Result<PlayerContext> {
-        let thread_pool_size = 6;
+        let thread_pool_size = 24;
         let runtime = Builder::new_multi_thread()
             .worker_threads(thread_pool_size as usize)
             .thread_name("ProjectAyaya native worker thread")

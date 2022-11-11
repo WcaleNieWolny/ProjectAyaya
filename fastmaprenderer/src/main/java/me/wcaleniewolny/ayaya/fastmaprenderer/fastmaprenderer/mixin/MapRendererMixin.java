@@ -7,11 +7,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.MapRenderer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.map.MapState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MapRenderer.class)
@@ -45,4 +48,9 @@ public class MapRendererMixin {
         cir.setReturnValue(texture);
         cir.cancel();
     }
+
+//    @Inject(method = "draw", at = @At("HEAD"), cancellable = true)
+//    void draw(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int id, MapState state, boolean hidePlayerIcons, int light, CallbackInfo ci){
+//        ci.cancel();
+//    }
 }

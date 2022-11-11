@@ -8,6 +8,8 @@ import net.fabricmc.api.Environment;
 public class FastMapRendererClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
-
+        System.out.println("NETTY " + System.getProperty("io.netty.eventLoopThreads"));
+        System.setProperty("io.netty.eventLoopThreads", "24");
+        System.out.println("NETTY " + System.getProperty("io.netty.eventLoopThreads"));
     }
 }
