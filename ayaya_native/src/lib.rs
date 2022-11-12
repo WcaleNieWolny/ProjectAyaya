@@ -8,7 +8,6 @@ extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
-use crate::player::gpu_player::GpuVideoPlayer;
 use ffmpeg::codec::Capabilities;
 use ffmpeg::decoder::Decoder;
 use ffmpeg::format::input;
@@ -16,7 +15,7 @@ use ffmpeg::media::Type;
 use ffmpeg::threading::Config;
 use ffmpeg::threading::Type::{Frame, Slice};
 use jni::objects::*;
-use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
+use jni::sys::{jbyteArray, jlong, jobject, jsize};
 use jni::JNIEnv;
 
 use crate::player::multi_video_player::MultiVideoPlayer;
@@ -90,11 +89,6 @@ fn init(env: JNIEnv, file_name: JString, render_type: JObject) -> anyhow::Result
         1 => {
             let player_context = MultiVideoPlayer::create(file_name)
                 .expect("Couldn't create multi threaded player context");
-            Ok(PlayerContext::wrap_to_ptr(player_context))
-        }
-        2 => {
-            let player_context =
-                GpuVideoPlayer::create(file_name).expect("Couldn't create gpu player context");
             Ok(PlayerContext::wrap_to_ptr(player_context))
         }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({})", render_type))),

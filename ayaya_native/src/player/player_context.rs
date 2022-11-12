@@ -4,15 +4,13 @@ use ffmpeg::frame::Video;
 use ffmpeg::software::scaling::Context;
 use ffmpeg::{Error, Packet};
 
-use crate::player::gpu_player::GpuVideoPlayer;
 use crate::player::multi_video_player::MultiVideoPlayer;
-use crate::player::player_context::PlayerType::{Gpu, MultiThreaded, SingleThreaded};
+use crate::player::player_context::PlayerType::{MultiThreaded, SingleThreaded};
 use crate::player::single_video_player::SingleVideoPlayer;
 
 pub enum PlayerType {
     SingleThreaded,
-    MultiThreaded,
-    Gpu,
+    MultiThreaded
 }
 
 pub struct PlayerContext {
@@ -38,13 +36,6 @@ impl PlayerContext {
         Self {
             player_type: MultiThreaded,
             ptr: Box::into_raw(Box::new(multi_video_player)) as i64,
-        }
-    }
-
-    pub fn from_gpu_video_player(gpu_video_player: GpuVideoPlayer) -> Self {
-        Self {
-            player_type: Gpu,
-            ptr: Box::into_raw(Box::new(gpu_video_player)) as i64,
         }
     }
 
@@ -79,12 +70,6 @@ impl PlayerContext {
 
                 multi_video_player.load_frame()
             }
-            Gpu => {
-                let mut gpu_video_player = unsafe {
-                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut GpuVideoPlayer))
-                };
-                gpu_video_player.load_frame()
-            }
         }
     }
 
@@ -103,13 +88,6 @@ impl PlayerContext {
                 };
 
                 multi_video_player.video_data()
-            }
-            Gpu => {
-                let gpu_video_player = unsafe {
-                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut GpuVideoPlayer))
-                };
-
-                gpu_video_player.video_data()
             }
         }
     }
@@ -130,13 +108,6 @@ impl PlayerContext {
                 };
                 let single_video_player = ManuallyDrop::into_inner(single_video_player);
                 single_video_player.destroy()?;
-            }
-            Gpu => {
-                let gpu_video_player = unsafe {
-                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut GpuVideoPlayer))
-                };
-                let gpu_video_player = ManuallyDrop::into_inner(gpu_video_player);
-                gpu_video_player.destroy()?;
             }
         }
         Ok(())
