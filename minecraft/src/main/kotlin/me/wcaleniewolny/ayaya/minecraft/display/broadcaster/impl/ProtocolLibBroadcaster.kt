@@ -10,6 +10,10 @@ import org.bukkit.entity.Player
 
 class ProtocolLibBroadcaster : Broadcaster {
 
+    override fun init(players: List<Player>) {
+        //Empty on purpose
+    }
+
     override fun sendPackets(data: MutableList<SplittedFrame>, players: List<Player>) {
 
         for (i in 0 until data.size) {

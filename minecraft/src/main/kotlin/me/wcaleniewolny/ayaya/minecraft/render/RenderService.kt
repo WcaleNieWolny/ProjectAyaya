@@ -1,30 +1,12 @@
 package me.wcaleniewolny.ayaya.minecraft.render
 
-class RenderService(
-    private val renderThread: RenderThread
-) {
+import org.bukkit.plugin.java.JavaPlugin
 
-    private var initialized = false
+interface RenderService {
 
-    fun startRendering() {
-        if (!initialized) {
-            renderThread.renderFrames.set(true)
-        }
-        renderThread.name = "ProjectAyaya Render Thread"
-        renderThread.priority = Thread.MAX_PRIORITY
-        renderThread.start()
-        initialized = true
-    }
-
-    fun pauseRendering() {
-        if (!initialized) {
-            throw IllegalStateException("Cannot pause rendering due to render thread being not initialized")
-        }
-        renderThread.renderFrames.set(false)
-    }
-
-    fun killRendering() {
-
-    }
+    fun init(plugin: JavaPlugin)
+    fun startRendering()
+    fun pauseRendering()
+    fun killRendering()
 
 }

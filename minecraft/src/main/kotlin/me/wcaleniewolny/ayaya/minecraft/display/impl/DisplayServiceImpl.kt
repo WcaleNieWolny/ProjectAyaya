@@ -33,6 +33,10 @@ class DisplayServiceImpl(
 
     override fun init() {
         frames.addAll(FrameSplitter.initializeFrames(width, height)) //Initialize frames
+
+        val players = allPlayers()
+        broadcaster.init(players);
+
         broadcaster.blackoutFrames(frames, allPlayers())
         MapCleanerService.cleanMaps(0, frames.size)
         initialized = true

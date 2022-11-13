@@ -7,7 +7,12 @@ import net.minecraft.world.level.saveddata.maps.MapItemSavedData
 import org.bukkit.craftbukkit.v1_18_R2.entity.CraftPlayer
 import org.bukkit.entity.Player
 
-class NativeMinecraftBroadcaster : Broadcaster {
+class MinecraftNativeBroadcaster : Broadcaster {
+
+    override fun init(players: List<Player>) {
+        //Empty on purpose
+    }
+
     override fun sendPackets(data: MutableList<SplittedFrame>, players: List<Player>) {
         for (i in 0 until data.size) {
             val frame = data[i]

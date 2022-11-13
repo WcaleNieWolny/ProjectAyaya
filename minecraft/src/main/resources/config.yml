@@ -1,0 +1,4 @@
+# See config in GitHub wiki for more info
+mapServerLocalIp: localhost
+mapServerRemoteIp: localhost
+mapServerPort: 1965

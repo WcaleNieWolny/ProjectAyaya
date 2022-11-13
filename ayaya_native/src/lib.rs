@@ -17,6 +17,7 @@ use ffmpeg::threading::Type::{Frame, Slice};
 use jni::objects::*;
 use jni::sys::{jbyteArray, jlong, jobject, jsize};
 use jni::JNIEnv;
+use map_server::ServerOptions;
 
 use crate::player::multi_video_player::MultiVideoPlayer;
 use crate::player::player_context::{PlayerContext, VideoPlayer};
@@ -27,6 +28,7 @@ mod colorlib;
 mod player;
 mod splitting;
 mod test;
+mod map_server;
 
 fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
     let copy_input = input(&file_name).unwrap();
@@ -71,11 +73,30 @@ fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
 }
 
 //Init function
-fn init(env: JNIEnv, file_name: JString, render_type: JObject) -> anyhow::Result<jlong> {
+fn init(env: JNIEnv, file_name: JString, render_type: JObject, server_options: JObject) -> anyhow::Result<jlong> {
     let file_name: String = env
         .get_string(file_name)
         .expect("Couldn't get java string!")
         .into();
+
+    let use_server = env.call_method(server_options, "getUseServer", "()Z", &[])?;
+    let use_server = use_server.z()?;
+
+    let bind_ip = env.call_method(server_options, "getBindIp", "()Ljava/lang/String;", &[])?;
+    let bind_ip = bind_ip.l()?;
+    let bind_ip = env.get_string(bind_ip.into())?;
+    let bind_ip: String = bind_ip.into();
+
+    let port = env.call_method(server_options, "getPort", "()I", &[])?;
+    let port = port.i()?;
+
+    let server_options = ServerOptions {
+        use_server,
+        bind_ip,
+        port
+    };
+
+    println!("OPTIONS: {:?}", server_options);
 
     let render_type = env.call_method(render_type, "ordinal", "()I", &[])?;
     let render_type = render_type.i()?;
@@ -255,6 +276,7 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, des
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, jlong, {
     filename: JString,
     render_type: JObject,
+    server_options: JObject,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,

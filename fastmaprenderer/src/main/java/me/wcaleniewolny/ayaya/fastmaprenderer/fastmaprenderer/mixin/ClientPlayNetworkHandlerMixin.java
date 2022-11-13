@@ -23,26 +23,26 @@ public class ClientPlayNetworkHandlerMixin {
     @Inject(method = "onMapUpdate(Lnet/minecraft/network/packet/s2c/play/MapUpdateS2CPacket;)V", at = @At("HEAD"), cancellable = true)
     private void injected(MapUpdateS2CPacket packet, CallbackInfo ci) {
 
-        MinecraftClient client = ((ClientPlayNetworkHandlerAccessor)this).getClient();
-        // NOT NetworkThreadUtils.forceMainThread(packet, ((ClientPlayNetworkHandler)(Object)this), client);
-
-        //NOT Queue<Runnable> renderTaskQueue = ((MinecraftClientAccessor)client).getRenderTaskQueue();
-
-        MapRenderer mapRenderer = client.gameRenderer.getMapRenderer();
-        int i = packet.getId();
-        String string = FilledMapItem.getMapName(i);
-
-        if(client.world == null){
-            return;
-        }
-
-        MapState mapState = client.world.getMapState(string);
-        if (mapState == null) {
-            mapState = MapState.of(packet.getScale(), packet.isLocked(), client.world.getRegistryKey());
-            client.world.putMapState(string, mapState);
-        }
-
-        packet.apply(mapState);
+//        MinecraftClient client = ((ClientPlayNetworkHandlerAccessor)this).getClient();
+//        // NOT NetworkThreadUtils.forceMainThread(packet, ((ClientPlayNetworkHandler)(Object)this), client);
+//
+//        //NOT Queue<Runnable> renderTaskQueue = ((MinecraftClientAccessor)client).getRenderTaskQueue();
+//
+//        MapRenderer mapRenderer = client.gameRenderer.getMapRenderer();
+//        int i = packet.getId();
+//        String string = FilledMapItem.getMapName(i);
+//
+//        if(client.world == null){
+//            return;
+//        }
+//
+//        MapState mapState = client.world.getMapState(string);
+//        if (mapState == null) {
+//            mapState = MapState.of(packet.getScale(), packet.isLocked(), client.world.getRegistryKey());
+//            client.world.putMapState(string, mapState);
+//        }
+//
+//        packet.apply(mapState);
 
 
 //        MapRendererInvoker mapRendererInvoker = ((MapRendererInvoker) mapRenderer);
@@ -67,7 +67,7 @@ public class ClientPlayNetworkHandlerMixin {
 //        renderTaskQueue.add(nativeTexture::upload);
 
 
-        mapRenderer.updateTexture(i, mapState);
+        //mapRenderer.updateTexture(i, mapState);
 
         ci.cancel();
     }
