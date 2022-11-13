@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use ffmpeg::decoder::Video;
 use ffmpeg::format::context::Input;
 use ffmpeg::format::{input, Pixel};
@@ -7,6 +8,7 @@ use ffmpeg::Error;
 use ffmpeg::Error::Eof;
 
 use crate::colorlib::transform_frame_to_mc;
+use crate::map_server::ServerOptions;
 use crate::player::player_context::{
     receive_and_process_decoded_frames, PlayerContext, VideoData, VideoPlayer,
 };
@@ -24,7 +26,10 @@ pub struct SingleVideoPlayer {
 }
 
 impl VideoPlayer for SingleVideoPlayer {
-    fn create(file_name: String) -> anyhow::Result<PlayerContext> {
+    fn create(file_name: String, server_options: ServerOptions) -> anyhow::Result<PlayerContext> {
+        if server_options.use_server {
+            return Err(anyhow!("Single video player does not support map server"));
+        }
         ffmpeg::init()?;
 
         if let Ok(ictx) = input(&file_name) {

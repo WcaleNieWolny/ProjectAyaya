@@ -1,0 +1,12 @@
+#[derive(Debug, Clone)]
+pub struct ServerOptions {
+    pub use_server: bool,
+    pub bind_ip: String,
+    pub port: i32
+}
+
+pub struct MapServer();
+
+impl MapServerData {
+
+}

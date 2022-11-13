@@ -103,12 +103,12 @@ fn init(env: JNIEnv, file_name: JString, render_type: JObject, server_options: J
 
     return match render_type {
         0 => {
-            let player_context = SingleVideoPlayer::create(file_name)
+            let player_context = SingleVideoPlayer::create(file_name, server_options)
                 .expect("Couldn't create single threaded player context");
             Ok(PlayerContext::wrap_to_ptr(player_context))
         }
         1 => {
-            let player_context = MultiVideoPlayer::create(file_name)
+            let player_context = MultiVideoPlayer::create(file_name, server_options)
                 .expect("Couldn't create multi threaded player context");
             Ok(PlayerContext::wrap_to_ptr(player_context))
         }

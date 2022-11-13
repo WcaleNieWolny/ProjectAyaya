@@ -4,6 +4,7 @@ use ffmpeg::frame::Video;
 use ffmpeg::software::scaling::Context;
 use ffmpeg::{Error, Packet};
 
+use crate::map_server::ServerOptions;
 use crate::player::multi_video_player::MultiVideoPlayer;
 use crate::player::player_context::PlayerType::{MultiThreaded, SingleThreaded};
 use crate::player::single_video_player::SingleVideoPlayer;
@@ -144,7 +145,7 @@ pub fn receive_and_process_decoded_frames(
 }
 
 pub trait VideoPlayer {
-    fn create(file_name: String) -> anyhow::Result<PlayerContext>;
+    fn create(file_name: String, server_options: ServerOptions) -> anyhow::Result<PlayerContext>;
     fn init(&mut self) -> anyhow::Result<()>;
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>>;
     fn video_data(&self) -> anyhow::Result<VideoData>;

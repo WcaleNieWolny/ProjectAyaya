@@ -18,6 +18,7 @@ use tokio::runtime::{Builder, Runtime};
 use tokio::sync::oneshot;
 
 use crate::colorlib::transform_frame_to_mc;
+use crate::map_server::{ServerOptions, MapServerData, MapServer};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
 use crate::{ffmpeg_set_multithreading, PlayerContext, SplittedFrame, VideoPlayer};
 
@@ -30,6 +31,7 @@ pub struct MultiVideoPlayer {
     thread_pool_size: i32,
     file_name: String,
     receiver: Option<Arc<Receiver<Vec<i8>>>>,
+    map_server: MapServerData, 
     runtime: Arc<Runtime>,
 }
 
@@ -58,12 +60,13 @@ impl MultiVideoPlayer {
 }
 
 impl VideoPlayer for MultiVideoPlayer {
-    fn create(file_name: String) -> anyhow::Result<PlayerContext> {
+    fn create(file_name: String, map_server_options: ServerOptions) -> anyhow::Result<PlayerContext> {
         let thread_pool_size = 24;
         let runtime = Builder::new_multi_thread()
             .worker_threads(thread_pool_size as usize)
             .thread_name("ProjectAyaya native worker thread")
             .thread_stack_size(3840 as usize * 2160 as usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
+            .enable_io()
             .build()
             .expect("Couldn't create tokio runtime");
 
@@ -76,6 +79,7 @@ impl VideoPlayer for MultiVideoPlayer {
             thread_pool_size,
             file_name,
             receiver: None,
+            map_server: MapServer::new(&map_server_options), 
             runtime: Arc::new(runtime),
         };
 
@@ -94,6 +98,16 @@ impl VideoPlayer for MultiVideoPlayer {
         self.receiver = Some(Arc::new(global_rx));
 
         let handle = self.runtime.handle().clone();
+
+        match &self.map_server{
+            Some(server) => {
+                let server = server.clone();
+                handle.spawn(async move {
+                    server.init().await.expect("Couldn't setup map server'");
+                });
+            },
+            None => {}
+        }
 
         let file_name = self.file_name.clone();
         let thread_pool_size = self.thread_pool_size.clone() - 1;
