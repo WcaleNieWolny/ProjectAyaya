@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{sync::Arc, io::Write};
 
-use tokio::{net::TcpListener, io::AsyncReadExt};
+use flate2::{write::GzEncoder, Compression};
+use tokio::{net::TcpListener, io::{AsyncReadExt, AsyncWriteExt}};
 
 #[derive(Debug, Clone)]
 pub struct ServerOptions {
@@ -41,16 +42,29 @@ impl MapServer {
         //2. https://netty.io/4.0/api/io/netty/handler/codec/compression/ZlibDecoder.html
 
         loop {
-            let (mut socket, _addr) = listener.accept().await?;
-            
+            let (mut socket, addr) = listener.accept().await?;
+            socket.set_nodelay(true).unwrap();
+            println!("GOT CONNECTION FROM: {:?}", addr);
             tokio::spawn(async move {
                 loop {
                     let mut buffer = [0u8; 1024];
+                    let data = "Hello Map Server".as_bytes();
+                    buffer[..data.len()].copy_from_slice(data);
 
-                    let bytes_read = socket.read(&mut buffer).await.expect("Couldn't read");
-                    let string = String::from_utf8(buffer[..bytes_read].to_vec()).expect("Not utf8");
+                    //Main data
+                    let mut encoder_vec = Vec::with_capacity(2048);
+                    encoder_vec.write_u32(0).await.unwrap(); //Write len index to the vec
+                    let mut encoder = GzEncoder::new(encoder_vec,  Compression::default());
+                    encoder.write_all(data).expect("Compression failed");
+                    let mut buffer = encoder.finish().expect("Finishing compression failed");
 
-                    println!("DATA: {}, {}", bytes_read, string);
+                    //Write len
+                    let mut len_vec: Vec<u8> = Vec::with_capacity(4);
+                    len_vec.write_u32(buffer.len() as u32 - 4 as u32).await.unwrap();
+                    buffer[0..4].copy_from_slice(&len_vec);
+                    
+                    socket.write_all(&buffer).await.expect("Couldn't send data!'");
+                    break;
                 }
             });
         }

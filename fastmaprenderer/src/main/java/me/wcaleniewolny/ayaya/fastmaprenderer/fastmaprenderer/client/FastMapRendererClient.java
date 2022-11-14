@@ -1,6 +1,7 @@
 package me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client;
 
 import io.netty.buffer.Unpooled;
+import me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.netty.MapNettyClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -24,6 +25,9 @@ public class FastMapRendererClient implements ClientModInitializer {
             PacketByteBuf outputBuffer = new PacketByteBuf(Unpooled.buffer());
             outputBuffer.writeVarInt(1);
             ClientPlayNetworking.send(HANDSHAKE_CHANNEL, outputBuffer);
+
+            MapNettyClient nettyClient = new MapNettyClient();
+            nettyClient.run();
         });
     }
 }
