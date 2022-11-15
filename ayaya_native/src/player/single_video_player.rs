@@ -123,4 +123,8 @@ impl VideoPlayer for SingleVideoPlayer {
     fn destroy(self) -> anyhow::Result<()> {
         todo!()
     }
+
+    fn handle_jvm_msg(&self, _msg: super::player_context::NativeCommunication) -> anyhow::Result<()> {
+        return Err(anyhow!("Single threaded player does not support JVM -> Native msg"))
+    }
 }

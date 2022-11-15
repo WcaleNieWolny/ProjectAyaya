@@ -99,6 +99,28 @@ impl PlayerContext {
         }
     }
 
+    pub fn pass_jvm_msg(ptr: i64, msg: NativeCommunication) -> anyhow::Result<()>{
+        let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
+        match &player_context.player_type {
+            SingleThreaded => {
+                let single_video_player = unsafe {
+                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut SingleVideoPlayer))
+                };
+                let single_video_player = ManuallyDrop::into_inner(single_video_player);
+                single_video_player.handle_jvm_msg(msg)?;
+            }
+            MultiThreaded => {
+                let multi_video_player = unsafe {
+                    ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut MultiVideoPlayer))
+                };
+                let multi_video_player = ManuallyDrop::into_inner(multi_video_player);
+
+                multi_video_player.handle_jvm_msg(msg)?;
+            }
+        };
+        return Ok(());
+    }
+
     pub fn destroy(ptr: i64) -> anyhow::Result<()> {
         let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
         match &player_context.player_type {
@@ -155,5 +177,6 @@ pub trait VideoPlayer {
     fn init(&mut self) -> anyhow::Result<()>;
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>>;
     fn video_data(&self) -> anyhow::Result<VideoData>;
+    fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()>;
     fn destroy(self) -> anyhow::Result<()>; //Note: This should free any resources of the implementation. Also self is being moved to the destroy fn so it will be dropped without drop call
 }

@@ -136,8 +136,7 @@ fn recive_jvm_msg(env: JNIEnv, ptr: jlong, native_lib_communication: JObject) ->
         _ => return  Err(anyhow!("Invalid msg enum"))
     };
 
-    println!("MSG TYPE: {:?}", msg_type);
-
+    PlayerContext::pass_jvm_msg(ptr, msg_type)?;
     Ok(())
 }
 

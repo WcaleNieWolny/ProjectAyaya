@@ -1,7 +1,9 @@
-use std::{sync::{Arc, atomic::AtomicI64}, io::Write};
+use std::{sync::{Arc, atomic::AtomicI64, mpsc}, io::Write, cell::RefCell};
 
 use flate2::{write::GzEncoder, Compression};
-use tokio::{net::TcpListener, io::{AsyncReadExt, AsyncWriteExt}, sync::mpsc::Receiver};
+use tokio::{net::TcpListener, io::{AsyncReadExt, AsyncWriteExt}, sync::mpsc::{Receiver, Sender}};
+
+use crate::player::player_context::NativeCommunication;
 
 #[derive(Debug, Clone)]
 pub struct ServerOptions {
@@ -13,6 +15,8 @@ pub struct ServerOptions {
 pub struct MapServer{
     options: ServerOptions,
     frame_index: Arc<AtomicI64>,
+    command_sender: Sender<NativeCommunication>,
+    command_reciver: RefCell<Option<Receiver<NativeCommunication>>>,
 }
 
 pub type MapServerData = Option<Arc<MapServer>>;
@@ -20,9 +24,12 @@ pub type MapServerData = Option<Arc<MapServer>>;
 impl MapServer {
     pub fn new(options: &ServerOptions, frame_index: &Arc<AtomicI64>) -> MapServerData {
         return if options.use_server{
+            let (cmd_tx, cmd_rx) = tokio::sync::mpsc::channel(8);
             Some(Arc::new(MapServer{
                 options: options.clone(),
-                frame_index: frame_index.clone()
+                frame_index: frame_index.clone(),
+                command_sender: cmd_tx,
+                command_reciver: RefCell::new(Some(cmd_rx)),
             }))
         }else {
             None
@@ -43,7 +50,10 @@ impl MapServer {
         //1. https://netty.io/4.0/api/io/netty/handler/codec/LengthFieldBasedFrameDecoder.html (Short.MAX_VALUE, 0, 2, 0, 2)
         //2. https://netty.io/4.0/api/io/netty/handler/codec/compression/ZlibDecoder.html
 
-        
+        let msg_reciver = self.command_reciver.take().unwrap();
+        tokio::spawn(async move {
+
+       });
 
         loop {
             let (mut socket, addr) = listener.accept().await?;

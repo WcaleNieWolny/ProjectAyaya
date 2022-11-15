@@ -22,6 +22,8 @@ use crate::map_server::{ServerOptions, MapServerData, MapServer};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
 use crate::{ffmpeg_set_multithreading, PlayerContext, SplittedFrame, VideoPlayer};
 
+use super::player_context::NativeCommunication;
+
 pub struct MultiVideoPlayer {
     width: Option<i32>,
     height: Option<i32>,
@@ -335,6 +337,17 @@ impl VideoPlayer for MultiVideoPlayer {
         let runtime =
             Arc::try_unwrap(self.runtime).expect("Couldn't get ownership to async runtime");
         runtime.shutdown_background();
+        Ok(())
+    }
+
+    fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()> {
+        match &self.map_server {
+            Some(server) => {
+                let server = server.clone();
+                
+            }
+            None => return Err(anyhow!("Map server is not enabled!"))
+        }
         Ok(())
     }
 }
