@@ -1,7 +1,7 @@
-use std::{sync::Arc, io::Write};
+use std::{sync::{Arc, atomic::AtomicI64}, io::Write};
 
 use flate2::{write::GzEncoder, Compression};
-use tokio::{net::TcpListener, io::{AsyncReadExt, AsyncWriteExt}};
+use tokio::{net::TcpListener, io::{AsyncReadExt, AsyncWriteExt}, sync::mpsc::Receiver};
 
 #[derive(Debug, Clone)]
 pub struct ServerOptions {
@@ -11,23 +11,25 @@ pub struct ServerOptions {
 }
 
 pub struct MapServer{
-    options: ServerOptions
+    options: ServerOptions,
+    frame_index: Arc<AtomicI64>,
 }
 
 pub type MapServerData = Option<Arc<MapServer>>;
 
 impl MapServer {
-    pub fn new(options: &ServerOptions) -> MapServerData {
+    pub fn new(options: &ServerOptions, frame_index: &Arc<AtomicI64>) -> MapServerData {
         return if options.use_server{
             Some(Arc::new(MapServer{
-                options: options.clone()
+                options: options.clone(),
+                frame_index: frame_index.clone()
             }))
         }else {
             None
         }
     }
 
-    pub async fn init(&self) -> anyhow::Result<()>{
+    pub async fn init(&self, map_reciver: Arc<Receiver<Vec<i8>>>) -> anyhow::Result<()>{
         let bind = format!("{}:{}", &self.options.bind_ip, &self.options.port.to_string());
         println!("Binding map server on: {}", bind);
         let listener = TcpListener::bind(bind).await?;
@@ -40,6 +42,8 @@ impl MapServer {
         //Java:
         //1. https://netty.io/4.0/api/io/netty/handler/codec/LengthFieldBasedFrameDecoder.html (Short.MAX_VALUE, 0, 2, 0, 2)
         //2. https://netty.io/4.0/api/io/netty/handler/codec/compression/ZlibDecoder.html
+
+        
 
         loop {
             let (mut socket, addr) = listener.accept().await?;

@@ -8,6 +8,7 @@ extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
+use anyhow::anyhow;
 use ffmpeg::codec::Capabilities;
 use ffmpeg::decoder::Decoder;
 use ffmpeg::format::input;
@@ -18,6 +19,7 @@ use jni::objects::*;
 use jni::sys::{jbyteArray, jlong, jobject, jsize};
 use jni::JNIEnv;
 use map_server::ServerOptions;
+use player::player_context::NativeCommunication;
 
 use crate::player::multi_video_player::MultiVideoPlayer;
 use crate::player::player_context::{PlayerContext, VideoPlayer};
@@ -123,6 +125,20 @@ fn load_frame(env: JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
     env.set_byte_array_region(output, 0, &data.as_slice())?;
 
     Ok(output)
+}
+
+fn recive_jvm_msg(env: JNIEnv, ptr: jlong, native_lib_communication: JObject) -> anyhow::Result<()> {
+    let msg_type = env.call_method(native_lib_communication, "ordinal", "()I", &[])?;
+    let msg_type = msg_type.i()?;
+    let msg_type = match msg_type {
+        0 => NativeCommunication::StartRendering,
+        1 => NativeCommunication::StopRendering,
+        _ => return  Err(anyhow!("Invalid msg enum"))
+    };
+
+    println!("MSG TYPE: {:?}", msg_type);
+
+    Ok(())
 }
 
 //Destroy function must be called to drop video_player struct
@@ -280,4 +296,8 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, 
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,
+});
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_communicate, recive_jvm_msg, {
+    ptr: jlong,
+    native_lib_communication: JObject,
 });

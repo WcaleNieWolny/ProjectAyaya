@@ -25,6 +25,12 @@ pub struct VideoData {
     pub fps: i32,
 }
 
+#[derive(Debug)]
+pub enum NativeCommunication {
+    StartRendering,
+    StopRendering
+}
+
 impl PlayerContext {
     pub fn from_single_video_player(single_video_player: SingleVideoPlayer) -> Self {
         Self {

@@ -27,6 +27,12 @@ object NativeRenderControler {
      */
     external fun getVideoData(ptr: Long): VideoData
 
+    /**
+     * @param ptr Pointer acquired by calling init function
+     * @param message Message to send
+     */
+    external fun communicate(ptr: Long, message: NativeLibCommunication)
+
     external fun test(data: ByteArray, ptr: Long): ByteArray
 
     init {

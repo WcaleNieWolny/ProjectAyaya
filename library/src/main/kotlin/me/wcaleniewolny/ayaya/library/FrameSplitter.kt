@@ -39,6 +39,27 @@ object FrameSplitter {
         }
     }
 
+    fun getRederData(width: Int, height: Int): IntArray{
+
+        if (width % 2 != 0) {
+            throw IllegalArgumentException("asymmetrical width is not supported")
+        }
+        if (height % 2 != 0) {
+            throw IllegalArgumentException("asymmetrical height is not supported")
+        }
+
+        val framesX = width / 128.0
+        val framesY = height / 128.0
+
+        val xMargin = if (width % 128 == 0) 0 else 128 - (width - (framesX.toInt() * 128))
+        val yMargin = if (height % 128 == 0) 0 else 128 - (height - (framesY.toInt() * 128))
+
+        val allFramesX = ceil(framesX).toInt()
+        val allFramesY = ceil(framesY).toInt()
+
+        return intArrayOf(xMargin, yMargin, allFramesX, allFramesY)
+    }
+
     fun initializeFrames(width: Int, height: Int): List<SplittedFrame> {
         val frames = mutableListOf<SplittedFrame>()
 

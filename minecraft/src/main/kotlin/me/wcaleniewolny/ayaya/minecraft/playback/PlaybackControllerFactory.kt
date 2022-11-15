@@ -22,8 +22,9 @@ object PlaybackControllerFactory {
         filename: String,
         type: RenderServiceType
     ): PlaybackController {
+        val useServer = type == RenderServiceType.NATIVE
         val ptr = NativeRenderControler.init(filename, NativeRenderType.MULTI_THREADED, MapServerOptions(
-            true,
+            useServer,
             plugin.config.getString("mapServerLocalIp")!!,
             plugin.config.getInt("mapServerPort")
         ))
@@ -47,7 +48,9 @@ object PlaybackControllerFactory {
                 ptr
             )
         ) else NativeRenderServiceImpl(
-            plugin
+            plugin,
+            videoData,
+            ptr
         )
 
         service.init(plugin)

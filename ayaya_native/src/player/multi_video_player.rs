@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::sync::atomic::Ordering::Relaxed;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::mpsc::{Receiver, TrySendError};
-use std::sync::{mpsc, Arc};
-use std::thread::Thread;
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 use std::{thread, time};
 
+use anyhow::anyhow;
 use ffmpeg::decoder::Video;
 use ffmpeg::format::context::Input;
 use ffmpeg::format::{input, Pixel};
@@ -30,7 +30,7 @@ pub struct MultiVideoPlayer {
     splitter_frames: Vec<SplittedFrame>,
     thread_pool_size: i32,
     file_name: String,
-    receiver: Option<Arc<Receiver<Vec<i8>>>>,
+    receiver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<Vec<i8>>>>>,
     map_server: MapServerData, 
     runtime: Arc<Runtime>,
 }
@@ -39,7 +39,7 @@ struct FrameWithIdentifier {
     id: i64,
     data: Vec<i8>,
 }
-
+    
 impl MultiVideoPlayer {
     pub fn decode_frame(
         input: &mut Input,
@@ -70,16 +70,17 @@ impl VideoPlayer for MultiVideoPlayer {
             .build()
             .expect("Couldn't create tokio runtime");
 
+        let frame_index = Arc::new(AtomicI64::new(0));
         let mut multi_video_player = MultiVideoPlayer {
             width: None,
             height: None,
             fps: None,
-            frame_index: Arc::new(AtomicI64::new(0)),
+            frame_index: frame_index.clone(),
             splitter_frames: Vec::new(),
             thread_pool_size,
             file_name,
             receiver: None,
-            map_server: MapServer::new(&map_server_options), 
+            map_server: MapServer::new(&map_server_options, &frame_index), 
             runtime: Arc::new(runtime),
         };
 
@@ -91,22 +92,25 @@ impl VideoPlayer for MultiVideoPlayer {
     }
 
     fn init(&mut self) -> anyhow::Result<()> {
-        let (global_tx, global_rx) = mpsc::sync_channel::<Vec<i8>>(100);
+        let (global_tx, global_rx) = tokio::sync::mpsc::channel::<Vec<i8>>(100);
         let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
         let (frames_tx, frames_rx) = mpsc::sync_channel::<FrameWithIdentifier>(100);
-
-        self.receiver = Some(Arc::new(global_rx));
-
+       
         let handle = self.runtime.handle().clone();
 
-        match &self.map_server{
-            Some(server) => {
-                let server = server.clone();
-                handle.spawn(async move {
-                    server.init().await.expect("Couldn't setup map server'");
-                });
-            },
-            None => {}
+        if self.map_server.is_none() {
+            self.receiver = Some(Arc::new(Mutex::new(global_rx)));
+        }else {
+            let arc_reciver = Arc::new(global_rx);
+            match &self.map_server{
+                Some(server) => {
+                    let server = server.clone();
+                    handle.spawn(async move {
+                        server.init(arc_reciver).await.expect("Couldn't setup map server'");
+                    });
+                },
+                None => {}
+            }
         }
 
         let file_name = self.file_name.clone();
@@ -245,7 +249,7 @@ impl VideoPlayer for MultiVideoPlayer {
                 match cached_frame {
                     Some(cached_frame) => {
                         global_tx
-                            .send(cached_frame.data)
+                            .blocking_send(cached_frame.data)
                             .expect("Couldn't send cached global frame");
                         last_id = cached_frame.id;
                         continue;
@@ -257,7 +261,7 @@ impl VideoPlayer for MultiVideoPlayer {
 
                 if frame.id == last_id + 1 || frame.id == 0 {
                     global_tx
-                        .send(frame.data)
+                        .blocking_send(frame.data)
                         .expect("Couldn't send global frame");
                     last_id = frame.id;
                     continue;
@@ -283,11 +287,16 @@ impl VideoPlayer for MultiVideoPlayer {
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
+
+        if self.map_server.is_some() {
+            return Err(anyhow!("You cannot use JVM and native map server at the same time!"));
+        }
+
         let reciver = self.receiver.as_ref().unwrap();
+        let mut reciver = reciver.lock().expect("Couldn't lock JVM mutex");
 
         self.frame_index
             .store(self.frame_index.load(Relaxed) + 1, Relaxed);
-
         return loop {
             let frame = reciver.try_recv();
             if frame.is_ok() {

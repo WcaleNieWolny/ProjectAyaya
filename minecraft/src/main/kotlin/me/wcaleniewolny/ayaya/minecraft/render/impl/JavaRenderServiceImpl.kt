@@ -10,7 +10,7 @@ class JavaRenderServiceImpl(
 
     private var initialized = false
     override fun init(plugin: JavaPlugin) {
-        TODO("Not yet implemented")
+        //Do nothing
     }
 
     override fun startRendering() {
