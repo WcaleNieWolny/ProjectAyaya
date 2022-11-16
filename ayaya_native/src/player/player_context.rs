@@ -174,7 +174,6 @@ pub fn receive_and_process_decoded_frames(
 
 pub trait VideoPlayer {
     fn create(file_name: String, server_options: ServerOptions) -> anyhow::Result<PlayerContext>;
-    fn init(&mut self) -> anyhow::Result<()>;
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>>;
     fn video_data(&self) -> anyhow::Result<VideoData>;
     fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()>;

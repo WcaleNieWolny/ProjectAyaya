@@ -74,17 +74,10 @@ impl VideoPlayer for SingleVideoPlayer {
                 fps,
             };
 
-            SingleVideoPlayer::init(&mut single_video_player)?;
-
             return Ok(PlayerContext::from_single_video_player(single_video_player));
         }
 
         Err(anyhow::Error::new(Error::StreamNotFound))
-    }
-
-    fn init(&mut self) -> anyhow::Result<()> {
-        //Do nothing - we do not to initialize a single threaded video player (This fn is mainly for multi threaded player)
-        Ok(())
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {

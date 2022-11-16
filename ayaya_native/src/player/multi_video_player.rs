@@ -25,9 +25,9 @@ use crate::{ffmpeg_set_multithreading, PlayerContext, SplittedFrame, VideoPlayer
 use super::player_context::NativeCommunication;
 
 pub struct MultiVideoPlayer {
-    width: Option<i32>,
-    height: Option<i32>,
-    fps: Option<i32>,
+    width: i32,
+    height: i32,
+    fps: i32,
     pub frame_index: Arc<AtomicI64>,
     splitter_frames: Vec<SplittedFrame>,
     thread_pool_size: i32,
@@ -73,38 +73,32 @@ impl VideoPlayer for MultiVideoPlayer {
             .expect("Couldn't create tokio runtime");
 
         let frame_index = Arc::new(AtomicI64::new(0));
-        let mut multi_video_player = MultiVideoPlayer {
-            width: None,
-            height: None,
-            fps: None,
-            frame_index: frame_index.clone(),
-            splitter_frames: Vec::new(),
-            thread_pool_size,
-            file_name,
-            receiver: None,
-            map_server: MapServer::new(&map_server_options, &frame_index), 
-            runtime: Arc::new(runtime),
-        };
+        let map_server = MapServer::new(&map_server_options, &frame_index);
+//        let mut multi_video_player = MultiVideoPlayer {
+//            width: None,
+//            height: None,
+//            fps: None,
+//            frame_index: frame_index.clone(),
+//            splitter_frames: Vec::new(),
+//            thread_pool_size,
+//            file_name,
+//            receiver: None,
+//            map_server: MapServer::new(&map_server_options, &frame_index), 
+//            runtime: Arc::new(runtime),
+//        };
 
-        multi_video_player
-            .init()
-            .expect("Couldn't initialize multithreaded player");
-
-        Ok(PlayerContext::from_multi_video_player(multi_video_player))
-    }
-
-    fn init(&mut self) -> anyhow::Result<()> {
         let (global_tx, global_rx) = tokio::sync::mpsc::channel::<Vec<i8>>(100);
         let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
         let (frames_tx, frames_rx) = mpsc::sync_channel::<FrameWithIdentifier>(100);
        
-        let handle = self.runtime.handle().clone();
+        let handle = runtime.handle().clone();
+        let mut reciver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<Vec<i8>>>>> = None;
 
-        if self.map_server.is_none() {
-            self.receiver = Some(Arc::new(Mutex::new(global_rx)));
+        if map_server.is_none() {
+            reciver = Some(Arc::new(Mutex::new(global_rx)));
         }else {
             let arc_reciver = Arc::new(global_rx);
-            match &self.map_server{
+            match &map_server{
                 Some(server) => {
                     let server = server.clone();
                     handle.spawn(async move {
@@ -115,8 +109,7 @@ impl VideoPlayer for MultiVideoPlayer {
             }
         }
 
-        let file_name = self.file_name.clone();
-        let thread_pool_size = self.thread_pool_size.clone() - 1;
+        let thread_pool_size = thread_pool_size.clone() - 1;
 
         let (processing_sleep_tx, processing_sleep_rx) = mpsc::sync_channel::<bool>(3);
 
@@ -220,7 +213,7 @@ impl VideoPlayer for MultiVideoPlayer {
             }
         });
 
-        let frame_index = self.frame_index.clone();
+        let frame_index = frame_index.clone();
 
         thread::spawn(move || {
             let mut frame_hash_map: HashMap<u64, FrameWithIdentifier> = HashMap::new();
@@ -275,17 +268,23 @@ impl VideoPlayer for MultiVideoPlayer {
 
         let width = data_rx.recv().unwrap();
         let height = data_rx.recv().unwrap();
-
-        self.width = Some(width);
-        self.height = Some(height);
+        let fps = data_rx.recv().unwrap();
 
         let splitted_frames = SplittedFrame::initialize_frames(width, height)?;
-        self.splitter_frames
-            .extend_from_slice(splitted_frames.as_slice());
 
-        self.fps = Some(data_rx.recv().unwrap());
-
-        Ok(())
+        let mut multi_video_player = MultiVideoPlayer {
+            width,
+            height,
+            fps,
+            frame_index: frame_index.clone(),
+            splitter_frames: splitted_frames,
+            thread_pool_size,
+            file_name,
+            receiver: reciver,
+            map_server: MapServer::new(&map_server_options, &frame_index), 
+            runtime: Arc::new(runtime),
+        };
+        Ok(PlayerContext::from_multi_video_player(multi_video_player))
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
@@ -311,26 +310,11 @@ impl VideoPlayer for MultiVideoPlayer {
 
     fn video_data(&self) -> anyhow::Result<VideoData> {
         //let width = self.width.expect("Couldn't get multi video width");
-        let width = match self.width {
-            Some(width) => width,
-            None => {
-                return Err(anyhow::Error::msg("Couldn't get multi video width"));
-            }
-        };
-        let height = match self.height {
-            Some(height) => height,
-            None => {
-                return Err(anyhow::Error::msg("Couldn't get multi video height"));
-            }
-        };
-        let fps = match self.fps {
-            Some(fps) => fps,
-            None => {
-                return Err(anyhow::Error::msg("Couldn't get multi video fps"));
-            }
-        };
-
-        Ok(VideoData { width, height, fps })
+        Ok(VideoData {
+            width: self.width,
+            height: self.height,
+            fps: self.fps 
+        })
     }
 
     fn destroy(self) -> anyhow::Result<()> {
