@@ -12,9 +12,6 @@
   "entrypoints": {
     "client": [
       "me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.FastMapRendererClient"
-    ],
-    "main": [
-      "me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.FastMapRenderer"
     ]
   },
   "mixins": [

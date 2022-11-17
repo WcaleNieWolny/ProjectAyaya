@@ -33,8 +33,6 @@ object NativeRenderControler {
      */
     external fun communicate(ptr: Long, message: NativeLibCommunication)
 
-    external fun test(data: ByteArray, ptr: Long): ByteArray
-
     init {
         System.loadLibrary("ayaya_native")
     }

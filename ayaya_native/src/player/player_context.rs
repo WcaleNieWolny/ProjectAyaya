@@ -106,14 +106,12 @@ impl PlayerContext {
                 let single_video_player = unsafe {
                     ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut SingleVideoPlayer))
                 };
-                let single_video_player = ManuallyDrop::into_inner(single_video_player);
                 single_video_player.handle_jvm_msg(msg)?;
             }
             MultiThreaded => {
                 let multi_video_player = unsafe {
                     ManuallyDrop::new(Box::from_raw(player_context.ptr as *mut MultiVideoPlayer))
                 };
-                let multi_video_player = ManuallyDrop::into_inner(multi_video_player);
 
                 multi_video_player.handle_jvm_msg(msg)?;
             }

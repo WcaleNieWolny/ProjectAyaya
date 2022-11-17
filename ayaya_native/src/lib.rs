@@ -105,13 +105,11 @@ fn init(env: JNIEnv, file_name: JString, render_type: JObject, server_options: J
 
     return match render_type {
         0 => {
-            let player_context = SingleVideoPlayer::create(file_name, server_options)
-                .expect("Couldn't create single threaded player context");
+            let player_context = SingleVideoPlayer::create(file_name, server_options)?;
             Ok(PlayerContext::wrap_to_ptr(player_context))
         }
         1 => {
-            let player_context = MultiVideoPlayer::create(file_name, server_options)
-                .expect("Couldn't create multi threaded player context");
+            let player_context = MultiVideoPlayer::create(file_name, server_options)?;
             Ok(PlayerContext::wrap_to_ptr(player_context))
         }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({})", render_type))),
@@ -144,30 +142,6 @@ fn recive_jvm_msg(env: JNIEnv, ptr: jlong, native_lib_communication: JObject) ->
 fn destroy(_env: JNIEnv, ptr: jlong) -> anyhow::Result<()> {
     PlayerContext::destroy(ptr)?;
     Ok(())
-}
-
-fn test_splitting(env: JNIEnv, data: jbyteArray, ptr: jlong) -> anyhow::Result<jbyteArray> {
-    let len = env.get_array_length(data)?;
-    let mut vec = vec![0i8; len as usize];
-
-    env.get_byte_array_region(data, 0, vec.as_mut_slice())?;
-    let video_data = PlayerContext::video_data(ptr)?;
-
-    println!("SIZE: {}", vec.len());
-
-    let width = video_data.width;
-    let height = video_data.height;
-
-    let mut frames = SplittedFrame::initialize_frames(width, height)?;
-    println!("INIT F");
-    let data = SplittedFrame::split_frames(vec.as_slice(), &mut frames, width)?;
-
-    let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
-    env.set_byte_array_region(output, 0, &data.as_slice())?;
-
-    //let output = env.new_byte_array(1 as jsize)?;
-
-    Ok(output)
 }
 
 fn get_video_data(env: JNIEnv, ptr: jlong) -> anyhow::Result<jobject> {
@@ -278,10 +252,6 @@ macro_rules! jvm_impl {
 }
 
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getVideoData, get_video_data, jobject, {
-    ptr: jlong,
-});
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_test, test_splitting, jbyteArray, {
-    data: jbyteArray,
     ptr: jlong,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, destroy,

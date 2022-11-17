@@ -18,7 +18,7 @@ use tokio::runtime::{Builder, Runtime};
 use tokio::sync::oneshot;
 
 use crate::colorlib::transform_frame_to_mc;
-use crate::map_server::{ServerOptions, MapServerData, MapServer};
+use crate::map_server::{ServerOptions, MapServerData, MapServer, self};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
 use crate::{ffmpeg_set_multithreading, PlayerContext, SplittedFrame, VideoPlayer};
 
@@ -31,7 +31,6 @@ pub struct MultiVideoPlayer {
     pub frame_index: Arc<AtomicI64>,
     splitter_frames: Vec<SplittedFrame>,
     thread_pool_size: i32,
-    file_name: String,
     receiver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<Vec<i8>>>>>,
     map_server: MapServerData, 
     runtime: Arc<Runtime>,
@@ -72,8 +71,8 @@ impl VideoPlayer for MultiVideoPlayer {
             .build()
             .expect("Couldn't create tokio runtime");
 
+        let handle = runtime.handle().clone();
         let frame_index = Arc::new(AtomicI64::new(0));
-        let map_server = MapServer::new(&map_server_options, &frame_index);
 //        let mut multi_video_player = MultiVideoPlayer {
 //            width: None,
 //            height: None,
@@ -90,26 +89,27 @@ impl VideoPlayer for MultiVideoPlayer {
         let (global_tx, global_rx) = tokio::sync::mpsc::channel::<Vec<i8>>(100);
         let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
         let (frames_tx, frames_rx) = mpsc::sync_channel::<FrameWithIdentifier>(100);
-       
-        let handle = runtime.handle().clone();
+      
         let mut reciver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<Vec<i8>>>>> = None;
+        let (server_tx, server_rx) = oneshot::channel::<anyhow::Result<MapServerData>>();
 
-        if map_server.is_none() {
-            reciver = Some(Arc::new(Mutex::new(global_rx)));
-        }else {
-            let arc_reciver = Arc::new(global_rx);
-            match &map_server{
-                Some(server) => {
-                    let server = server.clone();
-                    handle.spawn(async move {
-                        server.init(arc_reciver).await.expect("Couldn't setup map server'");
-                    });
-                },
-                None => {}
-            }
-        }
+        match map_server_options.use_server {
+            true => {
+                let frame_index_clone = frame_index.clone();
+                handle.spawn(async move {
+                    let result = MapServer::create(&map_server_options.clone(), frame_index_clone, Arc::new(global_rx)).await;
+                    server_tx.send(result).expect("Cannot send map server creation result"); 
+                });
+            },
+            false => {
+                reciver = Some(Arc::new(Mutex::new(global_rx)));
+                server_tx.send(Ok(None)).unwrap();
+            },
+        };
 
+        let map_server = server_rx.blocking_recv()??;
         let thread_pool_size = thread_pool_size.clone() - 1;
+        let file_name_clone = file_name.clone();
 
         let (processing_sleep_tx, processing_sleep_rx) = mpsc::sync_channel::<bool>(3);
 
@@ -213,7 +213,7 @@ impl VideoPlayer for MultiVideoPlayer {
             }
         });
 
-        let frame_index = frame_index.clone();
+        let frame_index_clone = frame_index.clone();
 
         thread::spawn(move || {
             let mut frame_hash_map: HashMap<u64, FrameWithIdentifier> = HashMap::new();
@@ -272,16 +272,15 @@ impl VideoPlayer for MultiVideoPlayer {
 
         let splitted_frames = SplittedFrame::initialize_frames(width, height)?;
 
-        let mut multi_video_player = MultiVideoPlayer {
+        let multi_video_player = MultiVideoPlayer {
             width,
             height,
             fps,
-            frame_index: frame_index.clone(),
+            frame_index: frame_index_clone,
             splitter_frames: splitted_frames,
             thread_pool_size,
-            file_name,
             receiver: reciver,
-            map_server: MapServer::new(&map_server_options, &frame_index), 
+            map_server, 
             runtime: Arc::new(runtime),
         };
         Ok(PlayerContext::from_multi_video_player(multi_video_player))
@@ -328,7 +327,8 @@ impl VideoPlayer for MultiVideoPlayer {
         match &self.map_server {
             Some(server) => {
                 let server = server.clone();
-                
+                println!("PASSa");
+                server.send_message(msg)?; 
             }
             None => return Err(anyhow!("Map server is not enabled!"))
         }

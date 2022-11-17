@@ -54,7 +54,7 @@ class NativeRenderServiceImpl(
                     .map { it as Player }
             )
 
-            NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDER)
+            NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDERING)
         })
     }
 
