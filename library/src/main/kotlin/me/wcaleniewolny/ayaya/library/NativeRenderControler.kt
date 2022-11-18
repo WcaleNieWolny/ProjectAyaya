@@ -31,7 +31,7 @@ object NativeRenderControler {
      * @param ptr Pointer acquired by calling init function
      * @param message Message to send
      */
-    external fun communicate(ptr: Long, message: NativeLibCommunication)
+    external fun communicate(ptr: Long, message: NativeLibCommunication, additionalInfo: String)
 
     init {
         System.loadLibrary("ayaya_native")

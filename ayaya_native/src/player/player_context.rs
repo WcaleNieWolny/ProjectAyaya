@@ -25,9 +25,9 @@ pub struct VideoData {
     pub fps: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum NativeCommunication {
-    StartRendering,
+    StartRendering { fps: i32 },
     StopRendering
 }
 

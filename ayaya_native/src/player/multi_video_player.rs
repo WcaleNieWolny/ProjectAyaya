@@ -68,6 +68,7 @@ impl VideoPlayer for MultiVideoPlayer {
             .thread_name("ProjectAyaya native worker thread")
             .thread_stack_size(3840 as usize * 2160 as usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
             .enable_io()
+            .enable_time() //TODO: REMOVE!!!
             .build()
             .expect("Couldn't create tokio runtime");
 
@@ -97,7 +98,7 @@ impl VideoPlayer for MultiVideoPlayer {
             true => {
                 let frame_index_clone = frame_index.clone();
                 handle.spawn(async move {
-                    let result = MapServer::create(&map_server_options.clone(), frame_index_clone, Arc::new(global_rx)).await;
+                    let result = MapServer::create(&map_server_options.clone(), frame_index_clone, global_rx).await;
                     server_tx.send(result).expect("Cannot send map server creation result"); 
                 });
             },
@@ -327,7 +328,6 @@ impl VideoPlayer for MultiVideoPlayer {
         match &self.map_server {
             Some(server) => {
                 let server = server.clone();
-                println!("PASSa");
                 server.send_message(msg)?; 
             }
             None => return Err(anyhow!("Map server is not enabled!"))

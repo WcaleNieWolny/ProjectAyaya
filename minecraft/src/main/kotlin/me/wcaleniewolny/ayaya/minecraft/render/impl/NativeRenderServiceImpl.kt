@@ -14,6 +14,8 @@ import org.bukkit.plugin.messaging.PluginMessageListener
 import java.lang.Thread.sleep
 import java.nio.charset.StandardCharsets
 import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.roundToInt
 
 class NativeRenderServiceImpl(
     private val plugin: JavaPlugin,
@@ -25,7 +27,8 @@ class NativeRenderServiceImpl(
         const val PROTOCOL_VERSION = 0
     }
 
-    val responders = ArrayList<UUID>()
+    private val responders = ArrayList<UUID>()
+    private val handshakeNumber = AtomicInteger(0)
 
     override fun init(plugin: JavaPlugin) {
 
@@ -48,13 +51,26 @@ class NativeRenderServiceImpl(
                     player.sendMessage("You do not have FastMap mod installed! We will not display cinema for you!")
                 }
 
-            sendHandshakePackets(
-                players
-                    .filter { responders.contains(it.uniqueId) }
-                    .map { it as Player }
-            )
+            val players = players
+                .filter { responders.contains(it.uniqueId) }
+                .map { it as Player }
 
-            NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDERING)
+            val requiredHandshakes = (players.size.toDouble()).roundToInt()
+            println("REQUIRED HANDSHAKES: $requiredHandshakes")
+
+            sendHandshakePackets(players)
+
+            var timeout = 0
+            while (handshakeNumber.get() != requiredHandshakes){
+                if(timeout == 300){
+                    Bukkit.getLogger().warning("Couldn't start map render server! Only ${handshakeNumber.get()} responded but $requiredHandshakes were required!");
+                    return@Runnable
+                }
+                timeout++
+                sleep(5)
+            }
+
+            NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDERING, videoData.fps.toString())
         })
     }
 
@@ -114,7 +130,9 @@ class NativeRenderServiceImpl(
             "fastmap:handshake" -> {
                 if(status != 0){
                     Bukkit.getLogger().warning("User ${player.name} couldn't connect to map server. If this message scours multiple time it means the server is configured in a wrong way!")
+                    return
                 }
+                handshakeNumber.incrementAndGet()
             }
         }
     }
