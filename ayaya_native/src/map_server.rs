@@ -1,7 +1,7 @@
 use std::{sync::{Arc, atomic::AtomicI64, mpsc}, io::Write, cell::RefCell, fmt::Debug, mem::{transmute, self}, time::Duration};
 
 use anyhow::anyhow;
-use flate2::{write::GzEncoder, Compression};
+use flate2::{write::{GzEncoder, ZlibEncoder}, Compression};
 use tokio::{net::TcpListener, io::{AsyncReadExt, AsyncWriteExt}, sync::{mpsc::{Receiver, Sender}, oneshot, broadcast}, time::{sleep, self}};
 
 use crate::{player::player_context::NativeCommunication, splitting::SplittedFrame};
@@ -78,9 +78,11 @@ impl MapServer {
                     //let mut interval = time::interval(Duration::from_nanos(1000000000 as u64 / (fps as u64)));
                     let mut interval = time::interval(Duration::from_secs(1));
 
+                    let mut i = 0;
                     loop {
                         interval.tick().await;
-                        tcp_frame_tx.send(Arc::new(vec![0, 0, 0, 0, 0])).expect("Couldn't send tcp frame data'");
+                        tcp_frame_tx.send(Arc::new(data)).expect("Couldn't send tccp frame");
+                        //tcp_frame_tx.send(Arc::new(vec![0, 0, 0, 0, 0])).expect("Couldn't send tcp frame data'");
                         let temp_data = map_reciver.recv().await.expect("Couldn't recive frame from main map server loop"); 
                         data = Self::prepare_frame(temp_data, &mut data_size).await.expect("Couldn't preprare tcp frame");
 
@@ -111,11 +113,16 @@ impl MapServer {
                 socket.set_nodelay(true).unwrap();
                 println!("GOT CONNECTION FROM: {:?}", addr);
                 tokio::spawn(async move {
-                    loop {
-                        println!("PRE RefCell");
-                        let buffer = frame_rx.recv().await.expect("Couldn't recive tcp frame data");
-                        println!("POST REF");
-                        socket.write_all(&buffer).await.expect("Couldn't send data!'");
+                    'inner: loop {
+                        match frame_rx.recv().await{
+                            Ok(buffer) => {
+                                match socket.write_all(&buffer).await{
+                                    Ok(_) => {},
+                                    Err(_) => break 'inner,
+                                };
+                            },
+                            Err(_) => break 'inner,
+                        };
                     }
                 });
             }
@@ -123,7 +130,7 @@ impl MapServer {
         Ok(())
     }
 
-    async fn prepare_frame(mut data: Vec<i8>, data_size: &mut usize) -> anyhow::Result<Vec<u8>>{
+    async fn prepare_frame(data: Vec<i8>, data_size: &mut usize) -> anyhow::Result<Vec<u8>>{
         let encoder_capacity: usize = match data_size {
             0 => 2048,
             _ => *data_size
@@ -132,7 +139,7 @@ impl MapServer {
         //println!("Pre compression: {}", data.len());
         let mut encoder_vec = Vec::<u8>::with_capacity(encoder_capacity);
         encoder_vec.write_u32(0).await.unwrap(); //Future TCP frame length
-        let mut encoder = GzEncoder::new(encoder_vec,  Compression::default());
+        let mut encoder = ZlibEncoder::new(encoder_vec,  Compression::default());
        
         let mut data = mem::ManuallyDrop::new(data);
         let data = unsafe {

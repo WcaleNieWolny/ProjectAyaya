@@ -4,13 +4,11 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 
-public class NettyDataHandler extends SimpleChannelInboundHandler<ByteBuf> {
+public class NettyDataHandler extends SimpleChannelInboundHandler<byte[]> {
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) {
-        System.out.println("?!@");System.out.println("?!@");
-        int len = msg.readableBytes();
-        byte[] buffer = new byte[len];
-        msg.readBytes(buffer);
+    protected void channelRead0(ChannelHandlerContext ctx, byte[] msg) {
+        System.out.println("?!@");
+        int len = msg.length;
 
         System.out.println("LEN!: " + len);
     }

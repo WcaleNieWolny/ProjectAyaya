@@ -9,13 +9,12 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.network.MessageType;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.text.BaseText;
 import net.minecraft.text.LiteralText;
-import net.minecraft.text.StringVisitable;
 import net.minecraft.text.Style;
-import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
+import org.jetbrains.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
 public class FastMapRendererClient implements ClientModInitializer {
@@ -25,6 +24,9 @@ public class FastMapRendererClient implements ClientModInitializer {
     public static final Identifier ACKNOWLEDGEMENT_CHANNEL = new Identifier(NAMESPACE, "acknowledgement");
 
     public static final int PROTOCOL_VERSION = 0;
+
+    @Nullable
+    private MapNettyClient mapNettyClient;
 
     @Override
     public void onInitializeClient() {
@@ -55,21 +57,29 @@ public class FastMapRendererClient implements ClientModInitializer {
             int yMargin = buf.readVarInt();
             int allFramesX = buf.readVarInt();
             int allFramesY = buf.readVarInt();
+            int finalLength = buf.readVarInt();
 
-            RenderMetadata metadata = new RenderMetadata(xMargin, yMargin, allFramesX, allFramesY);
+            RenderMetadata metadata = new RenderMetadata(xMargin, yMargin, allFramesX, allFramesY, finalLength);
             System.out.println(metadata);
 
             new Thread(() -> {
                 try {
                     MapNettyClient nettyClient = new MapNettyClient(string, port, metadata);
                     nettyClient.run();
+                    mapNettyClient = nettyClient;
                     sendStatusPacket(0, HANDSHAKE_CHANNEL);
                 }catch (Exception exception){
                     exception.printStackTrace();
                     sendStatusPacket(1, HANDSHAKE_CHANNEL);
                 }
             }).start();
+        });
 
+        ClientDisconnectCallback.EVENT.register(() -> {
+            if(mapNettyClient != null){
+                mapNettyClient.close();
+            }
+            return ActionResult.PASS;
         });
     }
 
@@ -84,6 +94,8 @@ public class FastMapRendererClient implements ClientModInitializer {
         LiteralText text = new LiteralText(msg);
         text.setStyle(style);
 
-        client.inGameHud.addChatMessage(MessageType.SYSTEM, text, client.player.getUuid());
+        if (client.player != null) {
+            client.inGameHud.addChatMessage(MessageType.SYSTEM, text, client.player.getUuid());
+        }
     }
 }

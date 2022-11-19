@@ -8,10 +8,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-import io.netty.handler.codec.compression.JdkZlibDecoder;
-import io.netty.handler.codec.compression.ZlibWrapper;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
 import me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.RenderMetadata;
 
 public class MapNettyClient {
@@ -39,7 +35,8 @@ public class MapNettyClient {
                     protected void initChannel(Channel socketChannel) {
                         ChannelPipeline pipeline = socketChannel.pipeline();
                         pipeline.addLast("framer", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
-                        pipeline.addLast("decompression", new JdkZlibDecoder(ZlibWrapper.GZIP));
+                        pipeline.addLast("decompression", new CompressionDecoder(metadata.finalLength()));
+                        //pipeline.addLast("decompression", new JdkZlibDecoder(ZlibWrapper.ZLIB));
                         pipeline.addLast("handler", new NettyDataHandler());
                     }
                 });
@@ -47,6 +44,14 @@ public class MapNettyClient {
 
         if (!channel.isActive()){
             throw new ChannelException();
+        }
+    }
+
+    public void close(){
+        try {
+            this.channel.close().sync();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 }

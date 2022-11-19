@@ -39,7 +39,7 @@ object FrameSplitter {
         }
     }
 
-    fun getRederData(width: Int, height: Int): IntArray{
+    fun getRenderData(width: Int, height: Int): IntArray{
 
         if (width % 2 != 0) {
             throw IllegalArgumentException("asymmetrical width is not supported")
@@ -56,8 +56,9 @@ object FrameSplitter {
 
         val allFramesX = ceil(framesX).toInt()
         val allFramesY = ceil(framesY).toInt()
+        val finalLength = allFramesY * allFramesX * 128 * 128; //TODO: Make it more efficient in rust
 
-        return intArrayOf(xMargin, yMargin, allFramesX, allFramesY)
+        return intArrayOf(xMargin, yMargin, allFramesX, allFramesY, finalLength)
     }
 
     fun initializeFrames(width: Int, height: Int): List<SplittedFrame> {
@@ -114,7 +115,7 @@ object FrameSplitter {
     }
 
     @Throws(IllegalArgumentException::class)
-    fun legacy_splitFrames(data: ByteArray, frames: List<SplittedFrame>, width: Int, height: Int) {
+    fun legacySplitframes(data: ByteArray, frames: List<SplittedFrame>, width: Int, height: Int) {
 
         if (allFramesX * allFramesY != frames.size) {
             throw IllegalArgumentException("Frame list size does not match required lenght (${allFramesX * allFramesY})")

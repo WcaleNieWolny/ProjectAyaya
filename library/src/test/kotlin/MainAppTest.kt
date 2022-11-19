@@ -57,7 +57,7 @@ internal class MainAppTest {
         val legacySplit = FrameSplitter.initializeFrames(w, h)
 
         FrameSplitter.splitFrames(nativeSplit, split, w);
-        FrameSplitter.legacy_splitFrames(frame, legacySplit, w, h)
+        FrameSplitter.legacySplitframes(frame, legacySplit, w, h)
 
         val i = 10
 

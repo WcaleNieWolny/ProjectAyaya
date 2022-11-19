@@ -95,7 +95,7 @@ class NativeRenderServiceImpl(
 
     private fun sendHandshakePackets(players: List<Player>){
 
-        val data = FrameSplitter.getRederData(videoData.width, videoData.height)
+        val data = FrameSplitter.getRenderData(videoData.width, videoData.height)
 
         val ip = plugin.config.getString("mapServerRemoteIp")!!
         val buffer = FriendlyByteBuf(Unpooled.buffer())
