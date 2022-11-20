@@ -50,7 +50,8 @@ object PlaybackControllerFactory {
         ) else NativeRenderServiceImpl(
             plugin,
             videoData,
-            ptr
+            MinecraftNativeBroadcaster(),
+            ptr,
         )
 
         service.init(plugin)

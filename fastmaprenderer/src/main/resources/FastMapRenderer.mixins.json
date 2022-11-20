@@ -9,11 +9,9 @@
   ],
   "client": [
     "ClientPlayNetworkHandlerAccessor",
-    "ClientPlayNetworkHandlerMixin",
     "MapRendererInvoker",
     "MapRendererMixin",
     "MapTextureAccessor",
-    "MapTextureMixin",
     "MinecraftClientAccessor"
   ],
   "injectors": {

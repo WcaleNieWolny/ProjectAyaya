@@ -1,8 +1,8 @@
-use std::{sync::{Arc, atomic::AtomicI64, mpsc}, io::Write, cell::RefCell, fmt::Debug, mem::{transmute, self}, time::Duration};
+use std::{sync::{Arc, atomic::{AtomicI64, Ordering}, mpsc}, io::Write, cell::RefCell, fmt::Debug, mem::{transmute, self}, time::Duration};
 
 use anyhow::anyhow;
 use flate2::{write::{GzEncoder, ZlibEncoder}, Compression};
-use tokio::{net::TcpListener, io::{AsyncReadExt, AsyncWriteExt}, sync::{mpsc::{Receiver, Sender}, oneshot, broadcast}, time::{sleep, self}};
+use tokio::{net::{TcpListener, TcpSocket, TcpStream}, io::{AsyncReadExt, AsyncWriteExt}, sync::{mpsc::{Receiver, Sender}, oneshot, broadcast::{self, error::TryRecvError}, watch, self}, time::{sleep, self, Instant}};
 
 use crate::{player::player_context::NativeCommunication, splitting::SplittedFrame};
 
@@ -51,6 +51,7 @@ impl MapServer {
         let bind = format!("{}:{}", &self.options.bind_ip, &self.options.port.to_string());
         println!("Binding map server on: {}", bind);
         let listener = TcpListener::bind(bind).await?;
+        let frame_index = self.frame_index.clone();
 
         //Note
         //1. encode packet data (https://crates.io/crates/libflate or https://github.com/rust-lang/flate2-rs#Backends) USE ZLIB
@@ -61,7 +62,7 @@ impl MapServer {
         //1. https://netty.io/4.0/api/io/netty/handler/codec/LengthFieldBasedFrameDecoder.html (Short.MAX_VALUE, 0, 2, 0, 2)
         //2. https://netty.io/4.0/api/io/netty/handler/codec/compression/ZlibDecoder.html
 
-        let (tcp_frame_tx, tcp_frame_rx) = broadcast::channel::<Arc<Vec<u8>>>(4);
+        let (tcp_frame_tx, mut tcp_frame_rx) = sync::mpsc::channel::<Arc<Vec<u8>>>(256);
 
         tokio::spawn(async move {
             let msg = cmd_reciver.recv().await.expect("Couldn't recive NativeCommunication send_message");
@@ -72,19 +73,27 @@ impl MapServer {
 
                     let mut data_size = 0;
                     let data = map_reciver.recv().await.expect("Couldn't recive first frame"); 
+
                     let mut data = Self::prepare_frame(data, &mut data_size).await.expect("Couldn't preprare tcp frame");
 
                     //1000000000 nanoseconds = 1 second. Rust feature for that is unsable
-                    //let mut interval = time::interval(Duration::from_nanos(1000000000 as u64 / (fps as u64)));
-                    let mut interval = time::interval(Duration::from_secs(1));
+                    let dur = Duration::from_millis(1000 as u64 / (fps as u64));
+                    println!("DURATION: {:?}", dur);
+                    let mut interval = time::interval(dur);
+                    //let mut interval = time::interval(Duration::from_secs(1));
 
-                    let mut i = 0;
                     loop {
                         interval.tick().await;
-                        tcp_frame_tx.send(Arc::new(data)).expect("Couldn't send tccp frame");
+                        //println!("TICK! ({:?}))", Instant::now().duration_since(time));
+                        tcp_frame_tx.send(Arc::new(data)).await.expect("Couldn't send tccp frame");
                         //tcp_frame_tx.send(Arc::new(vec![0, 0, 0, 0, 0])).expect("Couldn't send tcp frame data'");
-                        let temp_data = map_reciver.recv().await.expect("Couldn't recive frame from main map server loop"); 
+                        let temp_data = map_reciver.recv().await.expect("Couldn't recive frame from main map server loop");
+
+                        let time = tokio::time::Instant::now();
                         data = Self::prepare_frame(temp_data, &mut data_size).await.expect("Couldn't preprare tcp frame");
+                        println!("Time! ({:?}))", Instant::now().duration_since(time));
+
+                        frame_index.fetch_add(1, Ordering::Relaxed);
 
                         match cmd_reciver.try_recv(){
                             Ok(_msg) => {
@@ -108,27 +117,32 @@ impl MapServer {
         tokio::spawn(async move {
 
             loop {
-                let mut frame_rx = tcp_frame_rx.resubscribe();
                 let (mut socket, addr) = listener.accept().await.expect("Couldn't accept server connection!'");
                 socket.set_nodelay(true).unwrap();
                 println!("GOT CONNECTION FROM: {:?}", addr);
-                tokio::spawn(async move {
-                    'inner: loop {
-                        match frame_rx.recv().await{
-                            Ok(buffer) => {
-                                match socket.write_all(&buffer).await{
-                                    Ok(_) => {},
-                                    Err(_) => break 'inner,
-                                };
-                            },
-                            Err(_) => break 'inner,
-                        };
-                    }
-                });
-            }
+
+                'tcp: loop {
+                    let data = match tcp_frame_rx.recv().await {
+                        Some(data) => data,
+                        None => {
+                            println!("ERR@");
+                            break 'tcp;
+                        },
+                    };
+
+                    match socket.write_all(&data).await{
+                            Ok(_) => {},
+                            Err(err) => {
+                                println!("ERR@: {:?}", err);
+                                break 'tcp;
+                            }
+                        }
+                    };
+                };
         });
         Ok(())
     }
+
 
     async fn prepare_frame(data: Vec<i8>, data_size: &mut usize) -> anyhow::Result<Vec<u8>>{
         let encoder_capacity: usize = match data_size {
@@ -139,7 +153,7 @@ impl MapServer {
         //println!("Pre compression: {}", data.len());
         let mut encoder_vec = Vec::<u8>::with_capacity(encoder_capacity);
         encoder_vec.write_u32(0).await.unwrap(); //Future TCP frame length
-        let mut encoder = ZlibEncoder::new(encoder_vec,  Compression::default());
+        let mut encoder = ZlibEncoder::new(encoder_vec,  Compression::new(1));
        
         let mut data = mem::ManuallyDrop::new(data);
         let data = unsafe {

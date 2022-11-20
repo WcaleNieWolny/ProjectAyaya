@@ -16,8 +16,7 @@ public class MapStateMixin {
         MapState.UpdateData data = ((MapState.UpdateData)(Object)this);
         System.arraycopy(data.colors, 0, mapState.colors, data.startZ * data.width + data.startX, data.width * data.height);
 
-        int i = data.width-1;
-        int j = data.height-1;
+
         //mapState.setColor(data.startX + i, data.startZ + j, data.colors[i + j * data.width]);
         ci.cancel();
     }

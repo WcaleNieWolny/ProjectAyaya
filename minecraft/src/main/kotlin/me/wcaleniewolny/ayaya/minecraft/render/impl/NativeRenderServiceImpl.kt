@@ -5,6 +5,7 @@ import me.wcaleniewolny.ayaya.library.FrameSplitter
 import me.wcaleniewolny.ayaya.library.NativeLibCommunication
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.library.VideoData
+import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.Broadcaster
 import me.wcaleniewolny.ayaya.minecraft.render.RenderService
 import net.minecraft.network.FriendlyByteBuf
 import org.bukkit.Bukkit
@@ -20,6 +21,7 @@ import kotlin.math.roundToInt
 class NativeRenderServiceImpl(
     private val plugin: JavaPlugin,
     private val videoData: VideoData,
+    private val broadcaster: Broadcaster,
     private val ptr: Long
 ) : RenderService, PluginMessageListener {
 
@@ -59,6 +61,9 @@ class NativeRenderServiceImpl(
             println("REQUIRED HANDSHAKES: $requiredHandshakes")
 
             sendHandshakePackets(players)
+
+            broadcaster.init(players)
+            broadcaster.blackoutFrames(FrameSplitter.initializeFrames(videoData.width, videoData.height).toMutableList(), players);
 
             var timeout = 0
             while (handshakeNumber.get() != requiredHandshakes){
@@ -111,6 +116,7 @@ class NativeRenderServiceImpl(
         data.forEach {
             buffer.writeVarInt(it)
         }
+        buffer.writeVarInt(0); //Starting map id data (will get refactored later)
 
         players.forEach {
             it.sendPluginMessage(plugin, "fastmap:handshake", buffer.array())

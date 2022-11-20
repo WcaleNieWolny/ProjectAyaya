@@ -1,12 +1,15 @@
 package me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client;
 
 import io.netty.buffer.Unpooled;
+import java.util.ArrayList;
 import me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.netty.MapNettyClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.item.FilledMapItem;
+import net.minecraft.item.map.MapState;
 import net.minecraft.network.MessageType;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.LiteralText;
@@ -58,13 +61,14 @@ public class FastMapRendererClient implements ClientModInitializer {
             int allFramesX = buf.readVarInt();
             int allFramesY = buf.readVarInt();
             int finalLength = buf.readVarInt();
+            int startMapId = buf.readVarInt();
 
-            RenderMetadata metadata = new RenderMetadata(xMargin, yMargin, allFramesX, allFramesY, finalLength);
+            RenderMetadata metadata = new RenderMetadata(xMargin, yMargin, allFramesX, allFramesY, finalLength, startMapId);
             System.out.println(metadata);
 
             new Thread(() -> {
                 try {
-                    MapNettyClient nettyClient = new MapNettyClient(string, port, metadata);
+                    MapNettyClient nettyClient = new MapNettyClient(string, port, metadata, getMapStates(metadata));
                     nettyClient.run();
                     mapNettyClient = nettyClient;
                     sendStatusPacket(0, HANDSHAKE_CHANNEL);
@@ -97,5 +101,24 @@ public class FastMapRendererClient implements ClientModInitializer {
         if (client.player != null) {
             client.inGameHud.addChatMessage(MessageType.SYSTEM, text, client.player.getUuid());
         }
+    }
+
+    private ArrayList<MapState> getMapStates(RenderMetadata metadata){
+        ArrayList<MapState> maps = new ArrayList<>();
+        for (int i = 0; i < (metadata.allFramesX() * metadata.allFramesY()); i++) {
+            maps.add(getMapState(metadata.startMapId() + i));
+        }
+        return maps;
+    }
+
+    private MapState getMapState(int id){
+        String string = FilledMapItem.getMapName(id);
+        MinecraftClient client = MinecraftClient.getInstance();
+        MapState mapState = client.world.getMapState(string);
+        if (mapState == null) {
+            mapState = MapState.of((byte) 0, true, client.world.getRegistryKey());
+            client.world.putMapState(string, mapState);
+        }
+        return mapState;
     }
 }

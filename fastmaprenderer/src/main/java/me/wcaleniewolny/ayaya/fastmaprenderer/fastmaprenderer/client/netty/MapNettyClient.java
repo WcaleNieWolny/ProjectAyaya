@@ -8,7 +8,9 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import java.util.ArrayList;
 import me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.RenderMetadata;
+import net.minecraft.item.map.MapState;
 
 public class MapNettyClient {
 
@@ -16,11 +18,13 @@ public class MapNettyClient {
     private String ip;
     private int port;
     private RenderMetadata metadata;
+    private final ArrayList<MapState> mapStates;
 
-    public MapNettyClient(String ip, int port, RenderMetadata metadata) {
+    public MapNettyClient(String ip, int port, RenderMetadata metadata, ArrayList<MapState> mapStates) {
         this.ip = ip;
         this.port = port;
         this.metadata = metadata;
+        this.mapStates = mapStates;
     }
 
     public void run() throws InterruptedException, ChannelException {
@@ -37,7 +41,7 @@ public class MapNettyClient {
                         pipeline.addLast("framer", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
                         pipeline.addLast("decompression", new CompressionDecoder(metadata.finalLength()));
                         //pipeline.addLast("decompression", new JdkZlibDecoder(ZlibWrapper.ZLIB));
-                        pipeline.addLast("handler", new NettyDataHandler());
+                        pipeline.addLast("handler", new NettyDataHandler(mapStates, metadata));
                     }
                 });
         this.channel = bootstrap.connect(ip, port).sync().channel(); //TODO constructor
