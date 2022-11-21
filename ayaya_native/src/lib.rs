@@ -27,10 +27,9 @@ use crate::player::single_video_player::SingleVideoPlayer;
 use crate::splitting::SplittedFrame;
 
 mod colorlib;
+mod map_server;
 mod player;
 mod splitting;
-mod test;
-mod map_server;
 
 fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
     let copy_input = input(&file_name).unwrap();
@@ -39,7 +38,6 @@ fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
         .best(Type::Video)
         .ok_or(ffmpeg::Error::StreamNotFound)
         .expect("Couldn't find video stream");
-
 
     let copy_context_decoder =
         ffmpeg::codec::context::Context::from_parameters(copy_input.parameters()).unwrap();
@@ -75,10 +73,13 @@ fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
 }
 
 //Init function
-fn init(env: JNIEnv, file_name: JString, render_type: JObject, server_options: JObject) -> anyhow::Result<jlong> {
-    let file_name: String = env
-        .get_string(file_name)?
-        .into();
+fn init(
+    env: JNIEnv,
+    file_name: JString,
+    render_type: JObject,
+    server_options: JObject,
+) -> anyhow::Result<jlong> {
+    let file_name: String = env.get_string(file_name)?.into();
 
     let use_server = env.call_method(server_options, "getUseServer", "()Z", &[])?;
     let use_server = use_server.z()?;
@@ -94,7 +95,7 @@ fn init(env: JNIEnv, file_name: JString, render_type: JObject, server_options: J
     let server_options = ServerOptions {
         use_server,
         bind_ip,
-        port
+        port,
     };
 
     println!("OPTIONS: {:?}", server_options);
@@ -124,22 +125,24 @@ fn load_frame(env: JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
     Ok(output)
 }
 
-fn recive_jvm_msg(env: JNIEnv, ptr: jlong, native_lib_communication: JObject, info: JString) -> anyhow::Result<()> {
+fn recive_jvm_msg(
+    env: JNIEnv,
+    ptr: jlong,
+    native_lib_communication: JObject,
+    info: JString,
+) -> anyhow::Result<()> {
     let msg_type = env.call_method(native_lib_communication, "ordinal", "()I", &[])?;
     let msg_type = msg_type.i()?;
 
-    let info_string: String = env
-        .get_string(info)?
-        .into();
-
+    let info_string: String = env.get_string(info)?.into();
 
     let msg_type = match msg_type {
         0 => {
             let fps = info_string.parse::<i32>()?;
             NativeCommunication::StartRendering { fps }
-        },
+        }
         1 => NativeCommunication::StopRendering,
-        _ => return  Err(anyhow!("Invalid msg enum"))
+        _ => return Err(anyhow!("Invalid msg enum")),
     };
 
     PlayerContext::pass_jvm_msg(ptr, msg_type)?;

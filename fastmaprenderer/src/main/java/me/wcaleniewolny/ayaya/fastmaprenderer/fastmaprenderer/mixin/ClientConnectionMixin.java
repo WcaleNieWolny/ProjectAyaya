@@ -1,17 +1,12 @@
 package me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.mixin;
 
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
-import io.netty.util.concurrent.DefaultEventExecutorGroup;
-import io.netty.util.concurrent.EventExecutorGroup;
 import me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.ClientDisconnectCallback;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.util.ActionResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientConnection.class)
@@ -26,10 +21,10 @@ public class ClientConnectionMixin {
 //    }
 
     @Inject(method = "channelInactive", at = @At("TAIL"), cancellable = true)
-    private void onDisconnect(ChannelHandlerContext context, CallbackInfo info){
+    private void onDisconnect(ChannelHandlerContext context, CallbackInfo info) {
         ActionResult result = ClientDisconnectCallback.EVENT.invoker().interact();
 
-        if(result == ActionResult.FAIL) {
+        if (result == ActionResult.FAIL) {
             info.cancel();
         }
     }

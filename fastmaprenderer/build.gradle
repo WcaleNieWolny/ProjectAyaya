@@ -33,7 +33,7 @@ processResources {
     }
 }
 
-loom{
+loom {
     accessWidenerPath = file("src/main/resources/fastmaprenderer.accesswidener")
 
     runs {

@@ -10,7 +10,7 @@ public interface ClientDisconnectCallback {
                 for (ClientDisconnectCallback listener : listeners) {
                     ActionResult result = listener.interact();
 
-                    if(result != ActionResult.PASS) {
+                    if (result != ActionResult.PASS) {
                         return result;
                     }
                 }

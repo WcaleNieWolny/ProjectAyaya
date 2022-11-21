@@ -14,11 +14,11 @@ import net.minecraft.item.map.MapState;
 
 public class MapNettyClient {
 
+    private final ArrayList<MapState> mapStates;
     private Channel channel;
     private String ip;
     private int port;
     private RenderMetadata metadata;
-    private final ArrayList<MapState> mapStates;
 
     public MapNettyClient(String ip, int port, RenderMetadata metadata, ArrayList<MapState> mapStates) {
         this.ip = ip;
@@ -46,12 +46,12 @@ public class MapNettyClient {
                 });
         this.channel = bootstrap.connect(ip, port).sync().channel(); //TODO constructor
 
-        if (!channel.isActive()){
+        if (!channel.isActive()) {
             throw new ChannelException();
         }
     }
 
-    public void close(){
+    public void close() {
         try {
             this.channel.close().sync();
         } catch (InterruptedException e) {

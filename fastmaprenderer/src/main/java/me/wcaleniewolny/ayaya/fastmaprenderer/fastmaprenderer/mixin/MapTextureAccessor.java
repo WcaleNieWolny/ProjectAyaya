@@ -11,6 +11,12 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 @Mixin(targets = "net.minecraft.client.render.MapRenderer$MapTexture")
 public interface MapTextureAccessor {
 
+    @Invoker("<init>")
+    public static MapRenderer.MapTexture callInit(MapRenderer renderer, int i, MapState state) {
+
+        throw new AssertionError();
+    }
+
     @Accessor
     NativeImageBackedTexture getTexture();
 
@@ -20,9 +26,5 @@ public interface MapTextureAccessor {
     @Accessor("renderLayer")
     RenderLayer getRenderLayer();
 
-    @Invoker("<init>")
-    public static MapRenderer.MapTexture callInit(MapRenderer renderer, int i, MapState state){
-
-        throw new AssertionError();
-    };
+    ;
 }

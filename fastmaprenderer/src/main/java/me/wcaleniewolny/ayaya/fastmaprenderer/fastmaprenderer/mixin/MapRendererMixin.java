@@ -7,14 +7,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.MapRenderer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.map.MapState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MapRenderer.class)
@@ -23,18 +20,18 @@ public class MapRendererMixin {
     private final ConcurrentHashMap<Integer, MapRenderer.MapTexture> syncTextureMap = new ConcurrentHashMap<Integer, MapRenderer.MapTexture>();
 
     @Inject(method = "getMapTexture", at = @At("HEAD"), cancellable = true)
-    private void injected(int id, MapState state, CallbackInfoReturnable<MapRenderer.MapTexture> cir){
+    private void injected(int id, MapState state, CallbackInfoReturnable<MapRenderer.MapTexture> cir) {
         MapRenderer.MapTexture texture = syncTextureMap.get(id);
-        if(texture == null){
-            if(RenderSystem.isOnRenderThread()){
-                texture = MapTextureAccessor.callInit((MapRenderer)(Object)(this), id, state);
+        if (texture == null) {
+            if (RenderSystem.isOnRenderThread()) {
+                texture = MapTextureAccessor.callInit((MapRenderer) (Object) (this), id, state);
                 syncTextureMap.put(id, texture);
-            }else {
+            } else {
                 CompletableFuture<MapRenderer.MapTexture> future = new CompletableFuture<>();
 
                 Queue<Runnable> renderTaskQueue = ((MinecraftClientAccessor) MinecraftClient.getInstance()).getRenderTaskQueue();
 
-                renderTaskQueue.add(() -> future.complete(MapTextureAccessor.callInit((MapRenderer)(Object)(this), id, state)));
+                renderTaskQueue.add(() -> future.complete(MapTextureAccessor.callInit((MapRenderer) (Object) (this), id, state)));
 
                 try {
                     texture = future.get();

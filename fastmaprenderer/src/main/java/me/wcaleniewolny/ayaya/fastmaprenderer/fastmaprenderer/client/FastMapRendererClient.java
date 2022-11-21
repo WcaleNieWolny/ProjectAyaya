@@ -31,6 +31,16 @@ public class FastMapRendererClient implements ClientModInitializer {
     @Nullable
     private MapNettyClient mapNettyClient;
 
+    private static void sendColorMessage(String msg, Formatting color, MinecraftClient client) {
+        Style style = Style.EMPTY.withColor(color);
+        LiteralText text = new LiteralText(msg);
+        text.setStyle(style);
+
+        if (client.player != null) {
+            client.inGameHud.addChatMessage(MessageType.SYSTEM, text, client.player.getUuid());
+        }
+    }
+
     @Override
     public void onInitializeClient() {
 
@@ -72,7 +82,7 @@ public class FastMapRendererClient implements ClientModInitializer {
                     nettyClient.run();
                     mapNettyClient = nettyClient;
                     sendStatusPacket(0, HANDSHAKE_CHANNEL);
-                }catch (Exception exception){
+                } catch (Exception exception) {
                     exception.printStackTrace();
                     sendStatusPacket(1, HANDSHAKE_CHANNEL);
                 }
@@ -80,30 +90,20 @@ public class FastMapRendererClient implements ClientModInitializer {
         });
 
         ClientDisconnectCallback.EVENT.register(() -> {
-            if(mapNettyClient != null){
+            if (mapNettyClient != null) {
                 mapNettyClient.close();
             }
             return ActionResult.PASS;
         });
     }
 
-    private void sendStatusPacket(int status, Identifier channel){
+    private void sendStatusPacket(int status, Identifier channel) {
         PacketByteBuf outputBuffer = new PacketByteBuf(Unpooled.buffer());
         outputBuffer.writeVarInt(status);
         ClientPlayNetworking.send(channel, outputBuffer);
     }
 
-    private static void sendColorMessage(String msg, Formatting color, MinecraftClient client){
-        Style style =  Style.EMPTY.withColor(color);
-        LiteralText text = new LiteralText(msg);
-        text.setStyle(style);
-
-        if (client.player != null) {
-            client.inGameHud.addChatMessage(MessageType.SYSTEM, text, client.player.getUuid());
-        }
-    }
-
-    private ArrayList<MapState> getMapStates(RenderMetadata metadata){
+    private ArrayList<MapState> getMapStates(RenderMetadata metadata) {
         ArrayList<MapState> maps = new ArrayList<>();
         for (int i = 0; i < (metadata.allFramesX() * metadata.allFramesY()); i++) {
             maps.add(getMapState(metadata.startMapId() + i));
@@ -111,7 +111,7 @@ public class FastMapRendererClient implements ClientModInitializer {
         return maps;
     }
 
-    private MapState getMapState(int id){
+    private MapState getMapState(int id) {
         String string = FilledMapItem.getMapName(id);
         MinecraftClient client = MinecraftClient.getInstance();
         MapState mapState = client.world.getMapState(string);

@@ -36,14 +36,14 @@ public class NettyDataHandler extends SimpleChannelInboundHandler<byte[]> {
                 MapState state = MinecraftClient.getInstance().world.getMapState(FilledMapItem.getMapName(i));
                 //MapState state = mapStates.get(i);
 
-                int xFrameMargin = (x == 0)  ? (metadata.xMargin() / 2) : 0;
+                int xFrameMargin = (x == 0) ? (metadata.xMargin() / 2) : 0;
                 int yFrameMargin = (y == 0) ? (metadata.yMargin() / 2) : 0;
 
-                int frameWidth = (x != metadata.allFramesX() - 1) ?  128 - xFrameMargin : 128 - (metadata.xMargin() / 2);
+                int frameWidth = (x != metadata.allFramesX() - 1) ? 128 - xFrameMargin : 128 - (metadata.xMargin() / 2);
                 int frameHeight = (y != (metadata.allFramesY() - 1)) ? 128 - yFrameMargin : 128 - (metadata.yMargin() / 2);
                 int len = frameWidth * frameHeight;
 
-                System.out.println("LEN: " + xFrameMargin + " " + yFrameMargin + " " + frameWidth + " " + frameHeight + " [" + (yFrameMargin * frameWidth + xFrameMargin));
+                //System.out.println("LEN: " + xFrameMargin + " " + yFrameMargin + " " + frameWidth + " " + frameHeight + " [" + (yFrameMargin * frameWidth + xFrameMargin));
                 //yFrameMargin * frameWidth + xFrameMargin
                 System.arraycopy(msg, offset, state.colors, yFrameMargin * frameWidth + xFrameMargin, len);
                 //System.arraycopy(data.colors, 0, mapState.colors, data.startZ * data.width + data.startX, data.width * data.height);

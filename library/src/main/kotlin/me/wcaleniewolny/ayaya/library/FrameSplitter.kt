@@ -39,7 +39,7 @@ object FrameSplitter {
         }
     }
 
-    fun getRenderData(width: Int, height: Int): IntArray{
+    fun getRenderData(width: Int, height: Int): IntArray {
 
         if (width % 2 != 0) {
             throw IllegalArgumentException("asymmetrical width is not supported")

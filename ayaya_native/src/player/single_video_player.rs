@@ -63,7 +63,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 Flags::BILINEAR,
             )?;
 
-            let mut single_video_player = Self {
+            let single_video_player = Self {
                 video_stream_index,
                 scaler,
                 input: ictx,
@@ -117,7 +117,12 @@ impl VideoPlayer for SingleVideoPlayer {
         todo!()
     }
 
-    fn handle_jvm_msg(&self, _msg: super::player_context::NativeCommunication) -> anyhow::Result<()> {
-        return Err(anyhow!("Single threaded player does not support JVM -> Native msg"))
+    fn handle_jvm_msg(
+        &self,
+        _msg: super::player_context::NativeCommunication,
+    ) -> anyhow::Result<()> {
+        return Err(anyhow!(
+            "Single threaded player does not support JVM -> Native msg"
+        ));
     }
 }

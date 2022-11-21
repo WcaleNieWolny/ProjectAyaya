@@ -1,26 +1,19 @@
 package me.wcaleniewolny.ayaya.minecraft
 
-import io.netty.buffer.Unpooled
 import me.wcaleniewolny.ayaya.minecraft.map.MapScreen
 import me.wcaleniewolny.ayaya.minecraft.playback.PlaybackControllerFactory
 import me.wcaleniewolny.ayaya.minecraft.playback.RenderServiceType
-import net.minecraft.network.FriendlyByteBuf
 import org.bukkit.Bukkit
 import org.bukkit.block.BlockFace
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
-import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
-import java.nio.charset.StandardCharsets
 
 class MapMinecraftClient : CommandExecutor, JavaPlugin() {
 
     private val fileName = "/home/wolny/Downloads/4k_test.mp4"
-
-    //private val fileName = "/home/wolny/Downloads/4k_test.mp4"
-    //private val fileName = "/home/wolny/rick-hd.webm"
     private val playbackController = PlaybackControllerFactory.create(this, fileName, RenderServiceType.NATIVE)
 
     override fun onEnable() {
@@ -38,8 +31,6 @@ class MapMinecraftClient : CommandExecutor, JavaPlugin() {
             }
             2 -> {
                 val screen = MapScreen(
-//                    Vector(-13, 82, 36),
-//                    Vector(-13, 66, 65),
                     Vector(-13, 74, 18),
                     Vector(-13, 66, 32),
                     BlockFace.WEST,

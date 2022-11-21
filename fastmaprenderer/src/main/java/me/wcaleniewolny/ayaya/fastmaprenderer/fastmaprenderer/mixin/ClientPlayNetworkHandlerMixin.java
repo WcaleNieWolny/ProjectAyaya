@@ -1,16 +1,6 @@
 package me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.mixin;
 
-import java.util.Objects;
-import java.util.Queue;
-import net.minecraft.block.MapColor;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.render.MapRenderer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.FilledMapItem;
-import net.minecraft.item.map.MapState;
 import net.minecraft.network.packet.s2c.play.MapUpdateS2CPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

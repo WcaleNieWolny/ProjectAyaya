@@ -1,20 +1,36 @@
-use std::{sync::{Arc, atomic::{AtomicI64, Ordering}, mpsc}, io::Write, cell::RefCell, fmt::Debug, mem::{transmute, self}, time::Duration};
+use std::{
+    fmt::Debug,
+    io::Write,
+    mem,
+    sync::{
+        atomic::{AtomicI64, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
-use anyhow::anyhow;
-use flate2::{write::{GzEncoder, ZlibEncoder}, Compression};
-use tokio::{net::{TcpListener, TcpSocket, TcpStream}, io::{AsyncReadExt, AsyncWriteExt}, sync::{mpsc::{Receiver, Sender}, oneshot, broadcast::{self, error::TryRecvError}, watch, self}, time::{sleep, self, Instant}};
+use flate2::{write::ZlibEncoder, Compression};
+use tokio::{
+    io::AsyncWriteExt,
+    net::TcpListener,
+    sync::{
+        broadcast,
+        mpsc::{Receiver, Sender},
+    },
+    time,
+};
 
-use crate::{player::player_context::NativeCommunication, splitting::SplittedFrame};
+use crate::player::player_context::NativeCommunication;
 
 #[derive(Debug, Clone)]
 pub struct ServerOptions {
     pub use_server: bool,
     pub bind_ip: String,
-    pub port: i32
+    pub port: i32,
 }
 
 #[derive(Debug)]
-pub struct MapServer{
+pub struct MapServer {
     options: ServerOptions,
     frame_index: Arc<AtomicI64>,
     command_sender: Sender<NativeCommunication>,
@@ -26,12 +42,11 @@ impl MapServer {
     pub async fn create(
         options: &ServerOptions,
         frame_index: Arc<AtomicI64>,
-        map_reciver: Receiver<Vec<i8>>
+        map_reciver: Receiver<Vec<i8>>,
     ) -> anyhow::Result<MapServerData> {
-
         let (cmd_tx, cmd_rx) = tokio::sync::mpsc::channel(8);
 
-        let server = Arc::new(MapServer{
+        let server = Arc::new(MapServer {
             options: options.clone(),
             frame_index: frame_index,
             command_sender: cmd_tx,
@@ -39,16 +54,19 @@ impl MapServer {
 
         server.init(map_reciver, cmd_rx).await?;
 
-        Ok(Some(server)) 
+        Ok(Some(server))
     }
 
     async fn init(
         &self,
         mut map_reciver: Receiver<Vec<i8>>,
-        mut cmd_reciver: Receiver<NativeCommunication>
-    ) -> anyhow::Result<()>{
-
-        let bind = format!("{}:{}", &self.options.bind_ip, &self.options.port.to_string());
+        mut cmd_reciver: Receiver<NativeCommunication>,
+    ) -> anyhow::Result<()> {
+        let bind = format!(
+            "{}:{}",
+            &self.options.bind_ip,
+            &self.options.port.to_string()
+        );
         println!("Binding map server on: {}", bind);
         let listener = TcpListener::bind(bind).await?;
         let frame_index = self.frame_index.clone();
@@ -62,99 +80,107 @@ impl MapServer {
         //1. https://netty.io/4.0/api/io/netty/handler/codec/LengthFieldBasedFrameDecoder.html (Short.MAX_VALUE, 0, 2, 0, 2)
         //2. https://netty.io/4.0/api/io/netty/handler/codec/compression/ZlibDecoder.html
 
-        let (tcp_frame_tx, mut tcp_frame_rx) = sync::mpsc::channel::<Arc<Vec<u8>>>(256);
+        let (tcp_frame_tx, tcp_frame_rx) = broadcast::channel::<Arc<Vec<u8>>>(64);
 
         tokio::spawn(async move {
-            let msg = cmd_reciver.recv().await.expect("Couldn't recive NativeCommunication send_message");
+            let msg = cmd_reciver
+                .recv()
+                .await
+                .expect("Couldn't recive NativeCommunication send_message");
             println!("GOT: {:?}", msg);
 
             match msg {
                 NativeCommunication::StartRendering { fps } => {
-
                     let mut data_size = 0;
-                    let data = map_reciver.recv().await.expect("Couldn't recive first frame"); 
+                    let data = map_reciver
+                        .recv()
+                        .await
+                        .expect("Couldn't recive first frame");
 
-                    let mut data = Self::prepare_frame(data, &mut data_size).await.expect("Couldn't preprare tcp frame");
+                    let mut data = Self::prepare_frame(data, &mut data_size)
+                        .await
+                        .expect("Couldn't preprare tcp frame");
 
                     //1000000000 nanoseconds = 1 second. Rust feature for that is unsable
                     let dur = Duration::from_millis(1000 as u64 / (fps as u64));
                     println!("DURATION: {:?}", dur);
                     let mut interval = time::interval(dur);
-                    //let mut interval = time::interval(Duration::from_secs(1));
+                    interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
                     loop {
                         interval.tick().await;
-                        //println!("TICK! ({:?}))", Instant::now().duration_since(time));
-                        tcp_frame_tx.send(Arc::new(data)).await.expect("Couldn't send tccp frame");
-                        //tcp_frame_tx.send(Arc::new(vec![0, 0, 0, 0, 0])).expect("Couldn't send tcp frame data'");
-                        let temp_data = map_reciver.recv().await.expect("Couldn't recive frame from main map server loop");
+                        tcp_frame_tx
+                            .send(Arc::new(data))
+                            .expect("Couldn't send tcp frame");
 
-                        let time = tokio::time::Instant::now();
-                        data = Self::prepare_frame(temp_data, &mut data_size).await.expect("Couldn't preprare tcp frame");
-                        println!("Time! ({:?}))", Instant::now().duration_since(time));
-
+                        let temp_data = map_reciver
+                            .recv()
+                            .await
+                            .expect("Couldn't recive frame from main map server loop");
                         frame_index.fetch_add(1, Ordering::Relaxed);
 
-                        match cmd_reciver.try_recv(){
+                        data = Self::prepare_frame(temp_data, &mut data_size)
+                            .await
+                            .expect("Couldn't prepare tcp frame");
+
+                        match cmd_reciver.try_recv() {
                             Ok(_msg) => {
                                 //TODO: verification
                                 println!("BRE");
                                 break;
-                            } ,
-                            Err(_) => { },
+                            }
+                            Err(_) => {}
                         };
                     }
-
-
-
-                },
+                }
                 _ => {
                     println!("[FastMapServer] You cannot stop a non working render thread! MapServer will exit!");
                 }
             };
-        }); 
+        });
 
         tokio::spawn(async move {
-
             loop {
-                let (mut socket, addr) = listener.accept().await.expect("Couldn't accept server connection!'");
+                let (mut socket, addr) = listener
+                    .accept()
+                    .await
+                    .expect("Couldn't accept server connection!'");
                 socket.set_nodelay(true).unwrap();
                 println!("GOT CONNECTION FROM: {:?}", addr);
 
-                'tcp: loop {
-                    let data = match tcp_frame_rx.recv().await {
-                        Some(data) => data,
-                        None => {
-                            println!("ERR@");
-                            break 'tcp;
-                        },
-                    };
+                let mut frame_rx = tcp_frame_rx.resubscribe();
 
-                    match socket.write_all(&data).await{
-                            Ok(_) => {},
-                            Err(err) => {
-                                println!("ERR@: {:?}", err);
-                                break 'tcp;
-                            }
+                'tcp: loop {
+                    let data = match frame_rx.recv().await {
+                        Ok(data) => data,
+                        Err(_) => {
+                            break 'tcp;
                         }
                     };
-                };
+
+                    match socket.write_all(&data).await {
+                        Ok(_) => {}
+                        Err(_) => {
+                            break 'tcp;
+                        }
+                    }
+                }
+            }
         });
         Ok(())
     }
 
-
-    async fn prepare_frame(data: Vec<i8>, data_size: &mut usize) -> anyhow::Result<Vec<u8>>{
+    async fn prepare_frame(data: Vec<i8>, data_size: &mut usize) -> anyhow::Result<Vec<u8>> {
         let encoder_capacity: usize = match data_size {
             0 => 2048,
-            _ => *data_size
+            _ => *data_size,
         };
 
         //println!("Pre compression: {}", data.len());
         let mut encoder_vec = Vec::<u8>::with_capacity(encoder_capacity);
         encoder_vec.write_u32(0).await.unwrap(); //Future TCP frame length
-        let mut encoder = ZlibEncoder::new(encoder_vec,  Compression::new(1));
-       
+        let mut encoder = ZlibEncoder::new(encoder_vec, Compression::new(1));
+
         let mut data = mem::ManuallyDrop::new(data);
         let data = unsafe {
             let data_ptr = data.as_mut_ptr() as *mut u8;
@@ -168,7 +194,10 @@ impl MapServer {
 
         //Write len
         let mut len_vec: Vec<u8> = Vec::with_capacity(4);
-        len_vec.write_u32(buffer.len() as u32 - 4 as u32).await.unwrap();
+        len_vec
+            .write_u32(buffer.len() as u32 - 4 as u32)
+            .await
+            .unwrap();
         buffer[0..4].copy_from_slice(&len_vec);
 
         let len = buffer.len();
@@ -177,7 +206,7 @@ impl MapServer {
         Ok(buffer)
     }
 
-    pub fn send_message(&self, message: NativeCommunication) -> anyhow::Result<()>{
+    pub fn send_message(&self, message: NativeCommunication) -> anyhow::Result<()> {
         self.command_sender.blocking_send(message)?;
         Ok(())
     }

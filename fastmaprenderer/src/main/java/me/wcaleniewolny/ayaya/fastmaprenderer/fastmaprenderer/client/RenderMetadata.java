@@ -8,6 +8,15 @@ public class RenderMetadata {
     private final int finalLength;
     private final int startMapId;
 
+    public RenderMetadata(int xMargin, int yMargin, int allFramesX, int allFramesY, int finalLength, int startMapId) {
+        this.xMargin = xMargin;
+        this.yMargin = yMargin;
+        this.allFramesX = allFramesX;
+        this.allFramesY = allFramesY;
+        this.finalLength = finalLength;
+        this.startMapId = startMapId;
+    }
+
     public int xMargin() {
         return xMargin;
     }
@@ -42,14 +51,5 @@ public class RenderMetadata {
                 ", finalLength=" + finalLength +
                 ", startMapId=" + startMapId +
                 '}';
-    }
-
-    public RenderMetadata(int xMargin, int yMargin, int allFramesX, int allFramesY, int finalLength, int startMapId) {
-        this.xMargin = xMargin;
-        this.yMargin = yMargin;
-        this.allFramesX = allFramesX;
-        this.allFramesY = allFramesY;
-        this.finalLength = finalLength;
-        this.startMapId = startMapId;
     }
 }

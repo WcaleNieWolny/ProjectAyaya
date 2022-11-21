@@ -3,8 +3,6 @@ package me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.netty;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.Inflater;
 
@@ -23,18 +21,18 @@ public class CompressionDecoder extends ByteToMessageDecoder {
 
         System.out.println("PRE COMPRESSION: " + in.readableBytes());
 
-        if(in.readableBytes() == 0){
+        if (in.readableBytes() == 0) {
             return;
         }
 
         Inflater inflater = new Inflater();
         byte[] input;
 
-        if(in.hasArray()){
+        if (in.hasArray()) {
             input = in.array();
-        }else {
+        } else {
             input = new byte[in.readableBytes()];
-            in.readBytes(input,0, in.readableBytes());
+            in.readBytes(input, 0, in.readableBytes());
         }
 
         inflater.setInput(input);

@@ -11,7 +11,7 @@ use crate::player::single_video_player::SingleVideoPlayer;
 
 pub enum PlayerType {
     SingleThreaded,
-    MultiThreaded
+    MultiThreaded,
 }
 
 pub struct PlayerContext {
@@ -28,7 +28,7 @@ pub struct VideoData {
 #[derive(Debug, PartialEq)]
 pub enum NativeCommunication {
     StartRendering { fps: i32 },
-    StopRendering
+    StopRendering,
 }
 
 impl PlayerContext {
@@ -99,7 +99,7 @@ impl PlayerContext {
         }
     }
 
-    pub fn pass_jvm_msg(ptr: i64, msg: NativeCommunication) -> anyhow::Result<()>{
+    pub fn pass_jvm_msg(ptr: i64, msg: NativeCommunication) -> anyhow::Result<()> {
         let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
         match &player_context.player_type {
             SingleThreaded => {

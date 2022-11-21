@@ -63,12 +63,15 @@ class NativeRenderServiceImpl(
             sendHandshakePackets(players)
 
             broadcaster.init(players)
-            broadcaster.blackoutFrames(FrameSplitter.initializeFrames(videoData.width, videoData.height).toMutableList(), players);
+            broadcaster.blackoutFrames(
+                FrameSplitter.initializeFrames(videoData.width, videoData.height).toMutableList(), players
+            );
 
             var timeout = 0
-            while (handshakeNumber.get() != requiredHandshakes){
-                if(timeout == 300){
-                    Bukkit.getLogger().warning("Couldn't start map render server! Only ${handshakeNumber.get()} responded but $requiredHandshakes were required!");
+            while (handshakeNumber.get() != requiredHandshakes) {
+                if (timeout == 300) {
+                    Bukkit.getLogger()
+                        .warning("Couldn't start map render server! Only ${handshakeNumber.get()} responded but $requiredHandshakes were required!");
                     return@Runnable
                 }
                 timeout++
@@ -87,7 +90,7 @@ class NativeRenderServiceImpl(
         TODO("Not yet implemented")
     }
 
-    private fun sendAcknowledgementPackets(){
+    private fun sendAcknowledgementPackets() {
         val players = Bukkit.getOnlinePlayers()
 
         val buffer = FriendlyByteBuf(Unpooled.buffer())
@@ -98,7 +101,7 @@ class NativeRenderServiceImpl(
         }
     }
 
-    private fun sendHandshakePackets(players: List<Player>){
+    private fun sendHandshakePackets(players: List<Player>) {
 
         val data = FrameSplitter.getRenderData(videoData.width, videoData.height)
 
@@ -129,13 +132,14 @@ class NativeRenderServiceImpl(
 
         when (channel) {
             "fastmap:acknowledgement" -> {
-                if (!responders.contains(player.uniqueId)){
+                if (!responders.contains(player.uniqueId)) {
                     responders.add(player.uniqueId)
                 }
             }
             "fastmap:handshake" -> {
-                if(status != 0){
-                    Bukkit.getLogger().warning("User ${player.name} couldn't connect to map server. If this message scours multiple time it means the server is configured in a wrong way!")
+                if (status != 0) {
+                    Bukkit.getLogger()
+                        .warning("User ${player.name} couldn't connect to map server. If this message scours multiple time it means the server is configured in a wrong way!")
                     return
                 }
                 handshakeNumber.incrementAndGet()
