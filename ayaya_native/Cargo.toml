@@ -13,6 +13,7 @@ tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 flate2 = { version = "1.0.17", features = ["zlib-ng"], default-features = false }
 bytes = "1"
+libc = "0.2"
 
 [dev-dependencies]
 rand = "0.8.5"
