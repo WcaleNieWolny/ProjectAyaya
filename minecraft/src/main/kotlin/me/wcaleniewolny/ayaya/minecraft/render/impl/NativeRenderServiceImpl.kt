@@ -15,6 +15,7 @@ import org.bukkit.plugin.messaging.PluginMessageListener
 import java.lang.Thread.sleep
 import java.nio.charset.StandardCharsets
 import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
@@ -31,6 +32,8 @@ class NativeRenderServiceImpl(
 
     private val responders = ArrayList<UUID>()
     private val handshakeNumber = AtomicInteger(0)
+    private var isInitialized = false;
+    private var isRunning = AtomicBoolean(false);
 
     override fun init(plugin: JavaPlugin) {
 
@@ -79,11 +82,22 @@ class NativeRenderServiceImpl(
             }
 
             NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDERING, videoData.fps.toString())
+            isRunning.set(true)
+            isInitialized = true
         })
     }
 
     override fun pauseRendering() {
-        TODO("Not yet implemented")
+        if(!isInitialized){
+            throw IllegalStateException("Render is not initialized!")
+        }
+        if(isRunning.get()){
+            NativeRenderControler.communicate(ptr, NativeLibCommunication.STOP_RENDERING, "");
+            isRunning.set(false)
+        }else{
+            NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDERING, videoData.fps.toString())
+            isRunning.set(true)
+        }
     }
 
     override fun killRendering() {
