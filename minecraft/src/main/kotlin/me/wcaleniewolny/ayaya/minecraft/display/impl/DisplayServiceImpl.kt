@@ -38,7 +38,7 @@ class DisplayServiceImpl(
         broadcaster.init(players);
 
         broadcaster.blackoutFrames(frames, allPlayers())
-        MapCleanerService.cleanMaps(0, frames.size)
+        //MapCleanerService.cleanMaps(0, frames.size)
         initialized = true
     }
 }

@@ -45,7 +45,7 @@ class MapScreen(
                 val newFrame = world.spawnEntity(location, EntityType.ITEM_FRAME) as ItemFrame
                 newFrame.isInvulnerable = true
                 newFrame.setFacingDirection(blockFace, true)
-                newFrame.setItem(MapCleanerService.generateMapItem(i))
+                newFrame.setItem(MapCleanerService.generateMapItem(i, world))
                 i++
                 newFrame
             }

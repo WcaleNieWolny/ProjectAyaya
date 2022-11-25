@@ -2,6 +2,7 @@ package me.wcaleniewolny.ayaya.minecraft.screen
 
 import me.wcaleniewolny.ayaya.minecraft.extenstion.forEachIn
 import me.wcaleniewolny.ayaya.minecraft.map.MapCleanerService
+import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
@@ -55,6 +56,9 @@ class ScreenController(private val plugin: JavaPlugin) {
         screenYaml.save(screenFile)
 
         screens.add(Screen(name, x1, y1, z1, x2, y2, z2, getMapFace(Vector(x1, y1, z1), Vector(x2, y2, z2))))
+
+        val world = Bukkit.getWorlds()[0]
+        buildScreen(world, Vector(x1, y1, z1), Vector(x2, y2, z2), getMapFace(Vector(x1, y1, z1), Vector(x2, y2, z2)));
     }
 
     fun getScreens(): List<Screen>{
@@ -96,7 +100,7 @@ class ScreenController(private val plugin: JavaPlugin) {
                 val newFrame = world.spawnEntity(location, EntityType.ITEM_FRAME) as ItemFrame
                 newFrame.isInvulnerable = true
                 newFrame.setFacingDirection(blockFace, true)
-                newFrame.setItem(MapCleanerService.generateMapItem(i))
+                newFrame.setItem(MapCleanerService.generateMapItem(500 + i, world))
                 i++
                 newFrame
             }
