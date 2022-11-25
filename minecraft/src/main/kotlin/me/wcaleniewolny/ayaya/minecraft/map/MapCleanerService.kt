@@ -1,10 +1,14 @@
 package me.wcaleniewolny.ayaya.minecraft.map
 
-import org.bukkit.Bukkit
+import net.minecraft.resources.ResourceKey
+import net.minecraft.world.level.saveddata.maps.MapItemSavedData
 import org.bukkit.Material
+import org.bukkit.World
+import org.bukkit.craftbukkit.v1_18_R2.CraftWorld
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.MapMeta
 import org.bukkit.map.MapView
+
 
 object MapCleanerService {
     fun cleanMaps(startID: Int, len: Int) {
@@ -17,22 +21,16 @@ object MapCleanerService {
         }
     }
 
-    private fun getBukkitMapView(id: Int): MapView {
-        var map = Bukkit.getMap(id)
-
-        if (map == null) {
-            var depth = 0;
-            while (Bukkit.createMap(Bukkit.getWorlds()[0]).id != id) {
-                depth++
-
-                if (depth == 100) {
-                    throw RuntimeException("Project Ayaya may or may not just created 100 useless map ids. Something went wrong, we are sorry")
-                }
-            }
-            map = Bukkit.getMap(id)!!
-        }
-
-        return map
+    private fun getBukkitMapView(world: World, id: Int): MapView {
+//        val ws = (world as CraftWorld).handle
+//        ws.setMapData("map_$id", MapItemSavedData.createFresh(
+//            0.0,
+//            0.0,
+//            0,
+//            false,
+//            false,
+//            ResourceKey.create(ws.world.resou)
+//        ))
     }
 
     fun generateMapItem(id: Int): ItemStack {

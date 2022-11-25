@@ -152,6 +152,7 @@ class NativeRenderServiceImpl(
             }
             "fastmap:handshake" -> {
                 if (status != 0) {
+                    Bukkit.getPluginManager()
                     Bukkit.getLogger()
                         .warning("User ${player.name} couldn't connect to map server. If this message scours multiple time it means the server is configured in a wrong way!")
                     return

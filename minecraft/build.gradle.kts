@@ -11,7 +11,7 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
     maven { url = uri("https://repo.papermc.io/repository/maven-public/") }
-    //maven { url = uri("https://repo.dmulloy2.net/repository/public/") }
+    maven { url = uri("https://repo.aikar.co/content/groups/aikar/") }
 }
 
 dependencies {
@@ -22,6 +22,8 @@ dependencies {
     //compileOnly(group = "com.comphenix.protocol", name = "ProtocolLib", version = "4.7.0")
     implementation(kotlin("stdlib"))
     implementation(project(":library"))
+    implementation("co.aikar:acf-paper:0.5.1-SNAPSHOT")
+    implementation("net.kyori:adventure-text-minimessage:4.11.0-SNAPSHOT")
 }
 
 tasks.getByName<Test>("test") {
@@ -35,6 +37,7 @@ tasks.getByName("assemble").dependsOn(tasks.reobfJar)
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 
 compileKotlin.kotlinOptions {
+    javaParameters = true
     jvmTarget = "17"
 }
 
@@ -42,6 +45,12 @@ val runServer = tasks.runServer
 runServer {
     minecraftVersion("1.18.2")
     jvmArgs = listOf("-Xmx20480M", "-Djava.library.path=${rootProject.rootDir.path}/ayaya_native/target/release")
+}
+
+val shadowJar = tasks.shadowJar
+shadowJar {
+    relocate("co.aikar.commands", "me.wcaleniewolny.ayaya.minecraft.acf")
+    relocate("co.aikar.locales", "me.wcaleniewolny.ayaya.minecraft.locales")
 }
 
 val pluginName = "ProjectAyaya"
@@ -58,11 +67,6 @@ spigot {
         create("ayaya.use") {
             description = "Allow usage of /ayaya command"
             defaults = "op"
-        }
-    }
-    commands {
-        create("test") {
-            description = "Test command"
         }
     }
 }

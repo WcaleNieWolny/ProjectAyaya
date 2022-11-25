@@ -2,3 +2,16 @@
 mapServerLocalIp: localhost
 mapServerRemoteIp: localhost
 mapServerPort: 1965
+
+videoPlayHelp: /video play [screen_id] [video] - plays file from plugins/ProjectAyaya/video to selected screen
+videoPauseHelp: /video pause [screen_id] - pauses playback at screen with selected id
+videoKillHelp: /video kill [screen_id] - kill playback at screen with selected id
+videoScreenCreateHelp: /video screen create [name] [x1] [y1] [z1] [x2] [y2] [z2]
+screenCreationFailed: <red>Couldn't create screen! Make sure that screen with that name DOES not exists!
+screenCreationSuccess: <green>Screen created!
+screenInvalidCoordinate: <red>Z or X coordinate is not the same!
+screenLookupEmpty: <red>Screen with this name does not exists!
+screenLookupName: "<green>Screen name: $"
+screenLookupWidth: "<green>Screen width: $"
+screenLookupHeight: "<green>Screen height: $"
+screenLookupFacing: "<green>Screen facing: $"

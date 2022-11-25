@@ -8,8 +8,6 @@ extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
-use std::thread;
-
 use anyhow::anyhow;
 use ffmpeg::codec::Capabilities;
 use ffmpeg::decoder::Decoder;
@@ -74,12 +72,6 @@ fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
     copy_video.send_eof().expect("Couldn't close cloned codec");
 }
 
-#[cfg(target_os = "linux")]
-extern "C" fn handle_interrupt(sig: libc::c_int) { 
-    println!("Rust code paniced!");
-    loop {}
-}
-
 //Init function
 fn init(
     env: JNIEnv,
@@ -87,18 +79,6 @@ fn init(
     render_type: JObject,
     server_options: JObject,
 ) -> anyhow::Result<jlong> {
-
-    //Dirty hack to prevent JVM from crashing when panic
-    if cfg!(target_os = "linux") {
-        unsafe { 
-            libc::signal(libc::SIGABRT, handle_interrupt as libc::sighandler_t);
-        }
-    }
-
-    thread::spawn(|| {
-        panic!("AAA");
-    });
-
     let file_name: String = env.get_string(file_name)?.into();
 
     let use_server = env.call_method(server_options, "getUseServer", "()Z", &[])?;
@@ -281,6 +261,9 @@ macro_rules! jvm_impl {
         }
     };
 }
+
+
+
 
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getVideoData, get_video_data, jobject, {
     ptr: jlong,
