@@ -9,6 +9,7 @@ extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
 use anyhow::anyhow;
+use ffmpeg::Error;
 use ffmpeg::codec::Capabilities;
 use ffmpeg::decoder::Decoder;
 use ffmpeg::format::input;
@@ -16,7 +17,7 @@ use ffmpeg::media::Type;
 use ffmpeg::threading::Config;
 use ffmpeg::threading::Type::{Frame, Slice};
 use jni::objects::*;
-use jni::sys::{jbyteArray, jlong, jobject, jsize};
+use jni::sys::{jbyteArray, jlong, jobject, jsize, jboolean, jint};
 use jni::JNIEnv;
 use map_server::ServerOptions;
 use player::player_context::NativeCommunication;
@@ -70,6 +71,42 @@ fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
     }
 
     copy_video.send_eof().expect("Couldn't close cloned codec");
+}
+
+fn verify_capabilities(
+    env: JNIEnv,
+    file_name: JString,
+    width: jint,
+    height: jint
+) -> anyhow::Result<jboolean>{
+    let file_name: String = env.get_string(file_name)?.into();
+
+    ffmpeg::init()?;
+    if let Ok(ictx) = input(&file_name) {
+        let input = ictx
+            .streams()
+            .best(Type::Video)
+            .ok_or(Error::StreamNotFound)?;
+
+        let context_decoder =
+            ffmpeg::codec::context::Context::from_parameters(input.parameters())?;
+
+        let decoder = context_decoder.decoder();
+        let decoder = decoder.video()?;
+
+        let v_width = decoder.width();
+        let v_height = decoder.height();
+
+        if v_width % 2 != 0 || v_height % 2 != 0{
+            return Ok(false.into())
+        }
+
+        if v_width > width as u32 || v_height > height as u32 {
+            return Ok(false.into())
+        }
+        return Ok(true.into())
+    };
+    Err(anyhow!("Coudln't create ffmpeg decoder!"))
 }
 
 //Init function
@@ -284,4 +321,9 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_communicate,
     ptr: jlong,
     native_lib_communication: JObject,
     info: JString,
+});
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreenCapabilities, verify_capabilities, jboolean, {
+    file_name: JString,
+    width: jint,
+    height: jint,
 });

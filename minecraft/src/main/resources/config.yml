@@ -1,4 +1,5 @@
 # See config in GitHub wiki for more info
+allowMapServer: false
 mapServerLocalIp: localhost
 mapServerRemoteIp: localhost
 mapServerPort: 1965
@@ -11,7 +12,12 @@ screenCreationFailed: <red>Couldn't create screen! Make sure that screen with th
 screenCreationSuccess: <green>Screen created!
 screenInvalidCoordinate: <red>Z or X coordinate is not the same!
 screenLookupEmpty: <red>Screen with this name does not exists!
-screenLookupName: "<green>Screen name: $"
-screenLookupWidth: "<green>Screen width: $"
-screenLookupHeight: "<green>Screen height: $"
-screenLookupFacing: "<green>Screen facing: $"
+screenIllegalFacing: <red>You cannot create a screen with this facing!
+screenLookupName: "<green>Screen name:<white> $"
+screenLookupWidth: "<green>Screen width:<white> $"
+screenLookupHeight: "<green>Screen height:<white> $"
+screenLookupFacing: "<green>Screen facing:<white> $"
+fileDoesNotExist: <red>This file does not exist!
+pathTraversalAttempt: <red>Hey! Very smart of you, but that is illegal!
+videoVerificationFailed: <red>Couldn't play this video on this screen. It is likely that the screen is to small or the selected video width or height is not divisible by 2
+mapServerPlaybackNotAllowed: <red>Map server playback is disabled in the config!

@@ -1,11 +1,11 @@
-package me.wcaleniewolny.ayaya.minecraft.playback
+package me.wcaleniewolny.ayaya.minecraft.render
 
 import me.wcaleniewolny.ayaya.library.MapServerOptions
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.library.NativeRenderType
+import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.MinecraftNativeBroadcaster
 import me.wcaleniewolny.ayaya.minecraft.display.impl.DisplayServiceImpl
-import me.wcaleniewolny.ayaya.minecraft.render.RenderThread
 import me.wcaleniewolny.ayaya.minecraft.render.impl.JavaRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.NativeRenderServiceImpl
 import org.bukkit.plugin.java.JavaPlugin
@@ -15,16 +15,20 @@ enum class RenderServiceType {
     JAVA
 }
 
-object PlaybackControllerFactory {
+object RenderServiceFactory {
 
     fun create(
         plugin: JavaPlugin,
         filename: String,
-        type: RenderServiceType
-    ): PlaybackController {
-        val useServer = type == RenderServiceType.NATIVE
+        startID: Int,
+        useServer: Boolean,
+        service_type: RenderServiceType,
+        videoPlayType: VideoPlayType
+    ): RenderService {
         val ptr = NativeRenderControler.init(
-            filename, NativeRenderType.MULTI_THREADED, MapServerOptions(
+            filename,
+            videoPlayType.toNativeRenderType(),
+            MapServerOptions(
                 useServer,
                 plugin.config.getString("mapServerLocalIp")!!,
                 plugin.config.getInt("mapServerPort")
@@ -36,14 +40,13 @@ object PlaybackControllerFactory {
         val width = videoData.width
         val height = videoData.height
 
-        //val fps = videoData.fps
         val fps = videoData.fps
 
-        val service = if (type == RenderServiceType.JAVA) JavaRenderServiceImpl(
+        val service = if (service_type == RenderServiceType.JAVA) JavaRenderServiceImpl(
             RenderThread(
                 DisplayServiceImpl(
                     //ProtocolLibBroadcaster(),
-                    MinecraftNativeBroadcaster(),
+                    MinecraftNativeBroadcaster(startID),
                     width, height
                 ),
                 fps,
@@ -52,14 +55,12 @@ object PlaybackControllerFactory {
         ) else NativeRenderServiceImpl(
             plugin,
             videoData,
-            MinecraftNativeBroadcaster(),
+            MinecraftNativeBroadcaster(startID),
             ptr,
         )
 
         service.init(plugin)
 
-        return PlaybackController(
-            service
-        )
+        return service
     }
 }

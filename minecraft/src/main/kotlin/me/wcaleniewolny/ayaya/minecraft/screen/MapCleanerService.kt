@@ -1,6 +1,5 @@
-package me.wcaleniewolny.ayaya.minecraft.map
+package me.wcaleniewolny.ayaya.minecraft.screen
 
-import net.minecraft.resources.ResourceKey
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData
 import org.bukkit.Bukkit
 import org.bukkit.Material
@@ -12,6 +11,9 @@ import org.bukkit.map.MapView
 
 
 object MapCleanerService {
+
+    //Note: We do not need this method, however I will keep it there if I use protocollib in the future
+    //NMS does not initialize the map like bukkit does
     fun cleanMaps(world: World, startID: Int, len: Int) {
         for (i in startID until len) {
             val map = getBukkitMapView(world, i)

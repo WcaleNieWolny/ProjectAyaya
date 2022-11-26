@@ -1,12 +1,17 @@
 package me.wcaleniewolny.ayaya.minecraft.screen
 
+import me.wcaleniewolny.ayaya.library.NativeRenderControler
+import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
 import me.wcaleniewolny.ayaya.minecraft.extenstion.forEachIn
-import me.wcaleniewolny.ayaya.minecraft.map.MapCleanerService
+import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceFactory
+import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceType
+import me.wcaleniewolny.ayaya.minecraft.sendColoredMessage
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.BlockFace
+import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.ItemFrame
@@ -22,10 +27,12 @@ class ScreenController(private val plugin: JavaPlugin) {
     private val screens = mutableListOf<Screen>()
 
     fun init(){
-        println(dir.listFiles().map { it.name })
+        println(dir.listFiles()?.map { it.name })
 
-        dir.listFiles().forEach {file ->
+        dir.listFiles()?.forEach { file ->
             val screenYaml = YamlConfiguration.loadConfiguration(file)
+            val startID = screenYaml.getInt("id")
+            val facing = ScreenFacing.valueOf(screenYaml.getString("facing")!!)
             val x1 = screenYaml.getInt("x1")
             val y1 = screenYaml.getInt("y1")
             val z1 = screenYaml.getInt("z1")
@@ -33,19 +40,25 @@ class ScreenController(private val plugin: JavaPlugin) {
             val y2 = screenYaml.getInt("y2")
             val z2 = screenYaml.getInt("z2")
 
-            screens.add(Screen(file.nameWithoutExtension, x1, y1, z1, x2, y2, z2, getMapFace(Vector(x1, y1, z1), Vector(x2, y2, z2))))
+            screens.add(Screen(startID, file.nameWithoutExtension, facing.toBlockFace(), x1, y1, z1, x2, y2, z2))
         }
     }
 
-    fun createScreen(name: String, x1: Int, y1: Int, z1: Int, x2: Int, y2: Int, z2: Int){
+    fun createScreen(name: String, facing: ScreenFacing, x1: Int, y1: Int, z1: Int, x2: Int, y2: Int, z2: Int){
         val screenFile = File(dir, "${name}.yml")
 
         if (screenFile.exists()){
             throw IllegalStateException("Screen with name $name exists")
         }
 
+        val face = facing.toBlockFace()
+        val world = Bukkit.getWorlds()[0] //Hope it is the overworld
+        val startID = buildScreen(world, Vector(x1, y1, z1), Vector(x2, y2, z2), face)
+
         val screenYaml = YamlConfiguration.loadConfiguration(screenFile)
 
+        screenYaml.set("id", startID)
+        screenYaml.set("facing", facing.toString())
         screenYaml.set("x1", x1)
         screenYaml.set("y1", y1)
         screenYaml.set("z1", z1)
@@ -55,31 +68,44 @@ class ScreenController(private val plugin: JavaPlugin) {
 
         screenYaml.save(screenFile)
 
-        screens.add(Screen(name, x1, y1, z1, x2, y2, z2, getMapFace(Vector(x1, y1, z1), Vector(x2, y2, z2))))
+        screens.add(Screen(startID, name, face, x1, y1, z1, x2, y2, z2))
 
-        val world = Bukkit.getWorlds()[0]
-        buildScreen(world, Vector(x1, y1, z1), Vector(x2, y2, z2), getMapFace(Vector(x1, y1, z1), Vector(x2, y2, z2)));
+    }
+
+    fun startPlayback(
+        videoPlayType: VideoPlayType,
+        file: File,
+        sender: CommandSender,
+        screen: Screen
+    ) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+            val verify = NativeRenderControler.verifyScreenCapabilities(file.absolutePath, screen.width, screen.height)
+            if(!verify){
+                sender.sendColoredMessage(plugin.config.getString("videoVerificationFailed")!!)
+                return@Runnable
+            }
+
+            val useMapServer = videoPlayType == VideoPlayType.MAP_SERVER
+            val renderService = RenderServiceFactory.create(
+                plugin,
+                file.absolutePath,
+                screen.startID,
+                useMapServer,
+                if (useMapServer) RenderServiceType.NATIVE else RenderServiceType.JAVA,
+                videoPlayType
+            )
+
+            screen.renderService = Optional.of(renderService)
+            renderService.startRendering()
+        })
     }
 
     fun getScreens(): List<Screen>{
         //Make immutable
-       return screens
+        return screens
     }
 
-    private fun getMapFace(loc1: Vector, loc2: Vector): BlockFace {
-        if (loc1.x > loc2.x) {
-            return BlockFace.NORTH
-        } else if (loc1.x < loc2.x) {
-            return BlockFace.SOUTH
-        } else if (loc1.z > loc2.z) {
-            return BlockFace.EAST
-        } else if (loc1.z < loc2.z) {
-            return BlockFace.WEST
-        }
-        return BlockFace.NORTH
-    }
-
-    fun buildScreen(world: World, loc1: Vector, loc2: Vector, blockFace: BlockFace) {
+    private fun buildScreen(world: World, loc1: Vector, loc2: Vector, blockFace: BlockFace): Int {
         world.forEachIn(loc1, loc2) {
             it.type = Material.SEA_LANTERN
         }
@@ -90,22 +116,25 @@ class ScreenController(private val plugin: JavaPlugin) {
         cloneLoc1.add(blockFace.direction)
         cloneLoc2.add(blockFace.direction)
 
-        var i = 0
+        val preMap = Bukkit.createMap(world)
+
+        var i = preMap.id + 1
 
         world.forEachIn(cloneLoc1, cloneLoc2) {
             it.type = Material.AIR
 
             val location = it.location
-            val frame = getFrameAt(location).orElseGet {
+            getFrameAt(location).orElseGet {
                 val newFrame = world.spawnEntity(location, EntityType.ITEM_FRAME) as ItemFrame
                 newFrame.isInvulnerable = true
                 newFrame.setFacingDirection(blockFace, true)
-                newFrame.setItem(MapCleanerService.generateMapItem(500 + i, world))
+                newFrame.setItem(MapCleanerService.generateMapItem(i, world))
                 i++
                 newFrame
             }
         }
 
+        return preMap.id + 1
     }
 
     private fun getFrameAt(loc: Location): Optional<ItemFrame> {
@@ -117,4 +146,5 @@ class ScreenController(private val plugin: JavaPlugin) {
         }
         return Optional.empty()
     }
+
 }

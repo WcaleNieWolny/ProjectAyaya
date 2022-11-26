@@ -4,7 +4,6 @@ import me.wcaleniewolny.ayaya.library.FrameSplitter
 import me.wcaleniewolny.ayaya.library.SplittedFrame
 import me.wcaleniewolny.ayaya.minecraft.display.DisplayService
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.Broadcaster
-import me.wcaleniewolny.ayaya.minecraft.map.MapCleanerService
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 

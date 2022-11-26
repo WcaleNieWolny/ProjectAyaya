@@ -163,8 +163,6 @@ impl VideoPlayer for MultiVideoPlayer {
                 loop {
                     match processing_sleep_rx.try_recv() {
                         Ok(_) => {
-                            println!("Entering sleeping phase!");
-
                             while processing_sleep_rx.try_recv().is_err() {
                                 thread::sleep(Duration::from_millis(100))
                             }
@@ -227,14 +225,7 @@ impl VideoPlayer for MultiVideoPlayer {
                     processing_sleep_tx
                         .send(true)
                         .expect("Couldnt send sleep request");
-                    println!(
-                        "SLEEP ({} - {}) REQUEST: {}",
-                        last_id,
-                        frame_index.load(Relaxed),
-                        last_id - frame_index.load(Relaxed)
-                    );
-
-                    while last_id - frame_index.load(Relaxed) > 80 {
+                     while last_id - frame_index.load(Relaxed) > 80 {
                         thread::sleep(Duration::from_millis(50))
                     }
                     processing_sleep_tx

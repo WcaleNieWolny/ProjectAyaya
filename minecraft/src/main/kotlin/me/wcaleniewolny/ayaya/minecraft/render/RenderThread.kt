@@ -17,45 +17,40 @@ class RenderThread(
     private var frame: ByteArray = ByteArray(0)
     private val timeWindow = oneFrameTimeWindow()
 
+    private val debug = false
+
     override fun run() {
         displayService.init()
         renderLoop()
     }
 
     private fun renderLoop() {
+
         while (true) {
             val start = System.nanoTime();
             val frame = if (frame.isNotEmpty()) frame else NativeRenderControler.loadFrame(ptr)
 
             displayService.displayFrame(frame)
 
-            val a = System.nanoTime()
             this.frame = NativeRenderControler.loadFrame(ptr)
-            println("${TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - a)} AA!")
 
             val took = (System.nanoTime() - start)
             val toWait = max(0, timeWindow - took)
             val toWaitMilis = TimeUnit.NANOSECONDS.toMillis(toWait)
             if (toWait > 0) {
-                sleep(toWaitMilis)
+                sleep(toWaitMilis, (toWait - (toWaitMilis * 1000000)).toInt())
             }
 
-            println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
+            if(debug){
+                println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
+            }
+
 
             while (!renderFrames.get()) {
                 sleep(50)
             }
         }
     }
-
-//    private fun renderLoop() {
-//        while (!renderFrames.get()) {
-//            sleep(50)
-//        }
-//
-//        this.frame = NativeRenderControler.loadFrame(ptr)
-//        displayService.displayFrame(this.frame)
-//    }
 
     private fun oneFrameTimeWindow(): Long {
         return TimeUnit.SECONDS.toNanos(1) / fps

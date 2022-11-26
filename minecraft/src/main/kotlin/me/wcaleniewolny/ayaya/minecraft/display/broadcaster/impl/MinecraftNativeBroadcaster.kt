@@ -7,7 +7,9 @@ import net.minecraft.world.level.saveddata.maps.MapItemSavedData
 import org.bukkit.craftbukkit.v1_18_R2.entity.CraftPlayer
 import org.bukkit.entity.Player
 
-class MinecraftNativeBroadcaster : Broadcaster {
+class MinecraftNativeBroadcaster(
+    private val startID: Int
+) : Broadcaster {
 
     override fun init(players: List<Player>) {
         //Empty on purpose
@@ -19,7 +21,7 @@ class MinecraftNativeBroadcaster : Broadcaster {
 
             //TODO: Do not have static map ID
             val mapPacket = makeMapPacket(
-                i,
+                startID + i,
                 frame.startX,
                 frame.startY,
                 frame.width,

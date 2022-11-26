@@ -30,6 +30,14 @@ class VideoCommandCompletion(
             return@registerAsyncCompletion screenController.getScreens().map { it.name }
         }
 
+        manager.commandCompletions.registerAsyncCompletion("screenFacing"){
+            return@registerAsyncCompletion mutableListOf("north", "east", "south", "west")
+        }
+
+        manager.commandCompletions.registerAsyncCompletion("videoPlayType"){
+            return@registerAsyncCompletion mutableListOf("single", "multi", "map_server")
+        }
+
     }
 
 }
