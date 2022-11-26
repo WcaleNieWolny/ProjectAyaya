@@ -18,8 +18,7 @@ class MinecraftNativeBroadcaster(
     override fun sendPackets(data: MutableList<SplittedFrame>, players: List<Player>) {
         for (i in 0 until data.size) {
             val frame = data[i]
-
-            //TODO: Do not have static map ID
+            
             val mapPacket = makeMapPacket(
                 startID + i,
                 frame.startX,

@@ -31,7 +31,7 @@ class VideoCommand(
 
     @Subcommand("play")
     @Syntax("[screen_id] [play_type] [video]")
-    @CommandCompletion("@screens @videoPlayType @video")
+    @CommandCompletion("@screens @videoPlayType @video @nothing")
     @Description("Starts video playback")
     fun onPlay(
         sender: CommandSender,
@@ -49,6 +49,7 @@ class VideoCommand(
         val file = File(File(plugin.dataFolder, "video"), video)
 
         //Prevent path traversal
+        //Thanks CDFN (https://github.com/CDFN) for this idea!
         if(!file.normalize().path.startsWith(File(plugin.dataFolder, "video").normalize().path)){
             sender.sendColoredMessage(fileConfiguration.getString("pathTraversalAttempt")!!)
             return
@@ -106,7 +107,7 @@ class VideoCommand(
 
     @Subcommand("screen info")
     @Syntax("[name]")
-    @CommandCompletion("@screens")
+    @CommandCompletion("@screens @nothing")
     @Description("Get info about screen")
     fun onScreenInfo(sender: CommandSender, @Values("@screens") name: String){
         val screens = screenController.getScreens().filter { it.name == name }
@@ -120,8 +121,6 @@ class VideoCommand(
         sender.sendColoredMessage(fileConfiguration.getString("screenLookupWidth")!!.replace("$", screen.width.toString()))
         sender.sendColoredMessage(fileConfiguration.getString("screenLookupHeight")!!.replace("$", screen.height.toString()))
         sender.sendColoredMessage(fileConfiguration.getString("screenLookupFacing")!!.replace("$", screen.mapFace.toString()))
-
-        //screenLookupHeight: "<green>Screen height: $"
     }
 
 }
