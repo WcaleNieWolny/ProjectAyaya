@@ -56,6 +56,7 @@ object RenderServiceFactory {
             plugin,
             videoData,
             MinecraftNativeBroadcaster(startID),
+            startID,
             ptr,
         )
 

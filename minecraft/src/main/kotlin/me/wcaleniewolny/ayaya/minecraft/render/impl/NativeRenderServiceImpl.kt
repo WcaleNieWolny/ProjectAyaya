@@ -23,6 +23,7 @@ class NativeRenderServiceImpl(
     private val plugin: JavaPlugin,
     private val videoData: VideoData,
     private val broadcaster: Broadcaster,
+    private val startID: Int,
     private val ptr: Long
 ) : RenderService, PluginMessageListener {
 
@@ -133,7 +134,7 @@ class NativeRenderServiceImpl(
         data.forEach {
             buffer.writeVarInt(it)
         }
-        buffer.writeVarInt(0); //Starting map id data (will get refactored later)
+        buffer.writeVarInt(startID); //Starting map id data (will get refactored later)
 
         players.forEach {
             it.sendPluginMessage(plugin, "fastmap:handshake", buffer.array())

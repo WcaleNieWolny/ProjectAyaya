@@ -33,7 +33,7 @@ public class NettyDataHandler extends SimpleChannelInboundHandler<byte[]> {
         int offset = 0;
         for (int y = 0; y < metadata.allFramesY(); y++) {
             for (int x = 0; x < metadata.allFramesX(); x++) {
-                MapState state = MinecraftClient.getInstance().world.getMapState(FilledMapItem.getMapName(i));
+                MapState state = mapStates.get(i);
                 //MapState state = mapStates.get(i);
 
                 int xFrameMargin = (x == 0) ? (metadata.xMargin() / 2) : 0;
@@ -48,15 +48,13 @@ public class NettyDataHandler extends SimpleChannelInboundHandler<byte[]> {
                 System.arraycopy(msg, offset, state.colors, yFrameMargin * frameWidth + xFrameMargin, len);
                 //System.arraycopy(data.colors, 0, mapState.colors, data.startZ * data.width + data.startX, data.width * data.height);
                 //data.startZ * data.width + data.startX
-                mapRenderer.updateTexture(i, state);
+                mapRenderer.updateTexture(metadata.startMapId() + i, state);
 
                 i++;
                 offset += len;
-
-
             }
         }
-
+        mapRenderer.clearStateTextures();
     }
 
     @Override

@@ -18,7 +18,7 @@ class MinecraftNativeBroadcaster(
     override fun sendPackets(data: MutableList<SplittedFrame>, players: List<Player>) {
         for (i in 0 until data.size) {
             val frame = data[i]
-            
+
             val mapPacket = makeMapPacket(
                 startID + i,
                 frame.startX,
@@ -38,7 +38,7 @@ class MinecraftNativeBroadcaster(
     override fun blackoutFrames(data: MutableList<SplittedFrame>, players: List<Player>) {
         for (i in 0 until data.size) {
             val mapPacket = makeMapPacket(
-                i,
+                startID + i,
                 0,
                 0,
                 128,

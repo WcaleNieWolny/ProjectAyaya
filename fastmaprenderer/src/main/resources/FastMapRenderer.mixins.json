@@ -12,6 +12,7 @@
     "MapRendererInvoker",
     "MapRendererMixin",
     "MapTextureAccessor",
+    "MapTextureMixin",
     "MinecraftClientAccessor"
   ],
   "injectors": {

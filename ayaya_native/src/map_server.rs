@@ -80,7 +80,7 @@ impl MapServer {
         //1. https://netty.io/4.0/api/io/netty/handler/codec/LengthFieldBasedFrameDecoder.html (Short.MAX_VALUE, 0, 2, 0, 2)
         //2. https://netty.io/4.0/api/io/netty/handler/codec/compression/ZlibDecoder.html
 
-        let (tcp_frame_tx, tcp_frame_rx) = broadcast::channel::<Arc<Vec<u8>>>(64);
+        let (tcp_frame_tx, tcp_frame_rx) = broadcast::channel::<Arc<Vec<u8>>>(512);
 
         tokio::spawn(async move {
             let msg = cmd_reciver
