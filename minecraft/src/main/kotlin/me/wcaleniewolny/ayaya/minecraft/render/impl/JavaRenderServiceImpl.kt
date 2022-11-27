@@ -1,5 +1,7 @@
 package me.wcaleniewolny.ayaya.minecraft.render.impl
 
+import me.wcaleniewolny.ayaya.library.NativeLibCommunication
+import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.render.RenderService
 import me.wcaleniewolny.ayaya.minecraft.render.RenderThread
 import org.bukkit.plugin.java.JavaPlugin
@@ -27,7 +29,13 @@ class JavaRenderServiceImpl(
         if (!initialized) {
             throw IllegalStateException("Cannot pause rendering due to render thread being not initialized")
         }
-        renderThread.renderFrames.set(false)
+
+        val isRunning = renderThread.renderFrames
+        if(isRunning.get()){
+            isRunning.set(false)
+        }else{
+            isRunning.set(true)
+        }
     }
 
     override fun killRendering() {

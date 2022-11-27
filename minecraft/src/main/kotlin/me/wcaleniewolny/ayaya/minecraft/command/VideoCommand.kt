@@ -2,6 +2,7 @@ package me.wcaleniewolny.ayaya.minecraft.command;
 
 import co.aikar.commands.BaseCommand
 import co.aikar.commands.annotation.*
+import me.wcaleniewolny.ayaya.minecraft.screen.Screen
 import me.wcaleniewolny.ayaya.minecraft.screen.ScreenController
 import me.wcaleniewolny.ayaya.minecraft.screen.ScreenFacing
 import me.wcaleniewolny.ayaya.minecraft.sendColoredMessage
@@ -9,6 +10,7 @@ import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
+import java.util.Optional
 import kotlin.math.max
 import kotlin.math.min
 
@@ -39,12 +41,11 @@ class VideoCommand(
         @Values("@videoPlayType") playType: String,
         @Values("@video") video: String)
     {
-        sender.sendMessage("$screenId, $video")
-        val screens = screenController.getScreens().filter { it.name == screenId }
-        if(screens.isEmpty()){
-            sender.sendColoredMessage(fileConfiguration.getString("screenLookupEmpty")!!)
+        val screenOptional = lookupScreen(sender, screenId)
+        if(screenOptional.isEmpty){
             return
         }
+        val screen = screenOptional.get()
 
         val file = File(File(plugin.dataFolder, "video"), video)
 
@@ -67,8 +68,34 @@ class VideoCommand(
         }
         //val allowMapServer = plugin.config.getBoolean("allowMapServer")
 
-        screenController.startPlayback(videoPlayType, file, sender, screens[0])
+        screenController.startPlayback(videoPlayType, file, sender, screen)
     }
+
+    @Subcommand("pause")
+    @Syntax("[screen_id]")
+    @CommandCompletion("@screens @nothing")
+    @Description("Pause video playback")
+    fun onVideoPause(
+        sender: CommandSender,
+        @Values("@screens") screenId: String,
+    ){
+        val screenOptional = lookupScreen(sender, screenId)
+        if(screenOptional.isEmpty){
+            return
+        }
+        val screen = screenOptional.get()
+
+        val renderServiceOptional = screen.renderService
+        if(renderServiceOptional.isEmpty){
+            sender.sendColoredMessage(fileConfiguration.getString("unableToPausePlayback")!!)
+            return
+        }
+
+        val renderService = renderServiceOptional.get()
+        renderService.pauseRendering()
+    }
+
+
 
     @Subcommand("screen create")
     @Syntax("[name] [facing] [x1] [y1] [z1] [x2] [y2] [z2]")
@@ -109,18 +136,27 @@ class VideoCommand(
     @Syntax("[name]")
     @CommandCompletion("@screens @nothing")
     @Description("Get info about screen")
-    fun onScreenInfo(sender: CommandSender, @Values("@screens") name: String){
-        val screens = screenController.getScreens().filter { it.name == name }
-        if(screens.isEmpty()){
-            sender.sendColoredMessage(fileConfiguration.getString("screenLookupEmpty")!!)
+    fun onScreenInfo(sender: CommandSender, @Values("@screens") screenId: String){
+        val screenOptional = lookupScreen(sender, screenId)
+        if(screenOptional.isEmpty){
             return
         }
+        val screen = screenOptional.get()
 
-        val screen = screens[0]
         sender.sendColoredMessage(fileConfiguration.getString("screenLookupName")!!.replace("$", name))
         sender.sendColoredMessage(fileConfiguration.getString("screenLookupWidth")!!.replace("$", screen.width.toString()))
         sender.sendColoredMessage(fileConfiguration.getString("screenLookupHeight")!!.replace("$", screen.height.toString()))
         sender.sendColoredMessage(fileConfiguration.getString("screenLookupFacing")!!.replace("$", screen.mapFace.toString()))
+    }
+
+    private fun lookupScreen(sender: CommandSender, id: String): java.util.Optional<Screen>{
+        val screens = screenController.getScreens().filter { it.name == id }
+        if (screens.isEmpty()) {
+            sender.sendColoredMessage(fileConfiguration.getString("screenLookupEmpty")!!)
+            return Optional.empty()
+        }
+
+        return Optional.of(screens[0])
     }
 
 }
