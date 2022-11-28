@@ -9,15 +9,15 @@ extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;
 
 use anyhow::anyhow;
-use ffmpeg::Error;
 use ffmpeg::codec::Capabilities;
 use ffmpeg::decoder::Decoder;
 use ffmpeg::format::input;
 use ffmpeg::media::Type;
 use ffmpeg::threading::Config;
 use ffmpeg::threading::Type::{Frame, Slice};
+use ffmpeg::Error;
 use jni::objects::*;
-use jni::sys::{jbyteArray, jlong, jobject, jsize, jboolean, jint};
+use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
 use jni::JNIEnv;
 use map_server::ServerOptions;
 use player::player_context::NativeCommunication;
@@ -77,8 +77,8 @@ fn verify_capabilities(
     env: JNIEnv,
     file_name: JString,
     width: jint,
-    height: jint
-) -> anyhow::Result<jboolean>{
+    height: jint,
+) -> anyhow::Result<jboolean> {
     let file_name: String = env.get_string(file_name)?.into();
 
     ffmpeg::init()?;
@@ -88,8 +88,7 @@ fn verify_capabilities(
             .best(Type::Video)
             .ok_or(Error::StreamNotFound)?;
 
-        let context_decoder =
-            ffmpeg::codec::context::Context::from_parameters(input.parameters())?;
+        let context_decoder = ffmpeg::codec::context::Context::from_parameters(input.parameters())?;
 
         let decoder = context_decoder.decoder();
         let decoder = decoder.video()?;
@@ -97,14 +96,14 @@ fn verify_capabilities(
         let v_width = decoder.width();
         let v_height = decoder.height();
 
-        if v_width % 2 != 0 || v_height % 2 != 0{
-            return Ok(false.into())
+        if v_width % 2 != 0 || v_height % 2 != 0 {
+            return Ok(false.into());
         }
 
         if v_width > width as u32 || v_height > height as u32 {
-            return Ok(false.into())
+            return Ok(false.into());
         }
-        return Ok(true.into())
+        return Ok(true.into());
     };
     Err(anyhow!("Coudln't create ffmpeg decoder!"))
 }
@@ -134,8 +133,6 @@ fn init(
         bind_ip,
         port,
     };
-
-    println!("OPTIONS: {:?}", server_options);
 
     let render_type = env.call_method(render_type, "ordinal", "()I", &[])?;
     let render_type = render_type.i()?;
@@ -298,9 +295,6 @@ macro_rules! jvm_impl {
         }
     };
 }
-
-
-
 
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getVideoData, get_video_data, jobject, {
     ptr: jlong,

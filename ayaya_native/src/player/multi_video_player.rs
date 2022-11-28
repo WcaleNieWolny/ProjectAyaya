@@ -31,6 +31,7 @@ pub struct MultiVideoPlayer {
     pub frame_index: Arc<AtomicI64>,
     receiver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<Vec<i8>>>>>,
     map_server: MapServerData,
+    stop_tx: oneshot::Sender<bool>,
     runtime: Arc<Runtime>,
 }
 
@@ -119,6 +120,7 @@ impl VideoPlayer for MultiVideoPlayer {
         let map_server = server_rx.blocking_recv()??;
         let (processing_sleep_tx, processing_sleep_rx) = mpsc::sync_channel::<bool>(3);
 
+        let (stop_tx, mut stop_rx) = oneshot::channel::<bool>();
         thread::spawn(move || {
             if let Ok(mut ictx) = input(&file_name) {
                 let input = ictx
@@ -160,14 +162,21 @@ impl VideoPlayer for MultiVideoPlayer {
 
                 let mut frame_id: i64 = 0;
 
-                loop {
+                'main: loop {
                     match processing_sleep_rx.try_recv() {
                         Ok(_) => {
                             while processing_sleep_rx.try_recv().is_err() {
-                                thread::sleep(Duration::from_millis(100))
+                                thread::sleep(Duration::from_millis(50));
+                                if stop_rx.try_recv().is_ok() {
+                                    break 'main;
+                                }
                             }
                         }
                         _ => {}
+                    }
+
+                    if stop_rx.try_recv().is_ok() {
+                        break 'main;
                     }
 
                     let frame = MultiVideoPlayer::decode_frame(
@@ -225,7 +234,7 @@ impl VideoPlayer for MultiVideoPlayer {
                     processing_sleep_tx
                         .send(true)
                         .expect("Couldnt send sleep request");
-                     while last_id - frame_index.load(Relaxed) > 80 {
+                    while last_id - frame_index.load(Relaxed) > 80 {
                         thread::sleep(Duration::from_millis(50))
                     }
                     processing_sleep_tx
@@ -271,6 +280,7 @@ impl VideoPlayer for MultiVideoPlayer {
             frame_index: frame_index_clone,
             receiver: reciver,
             map_server,
+            stop_tx,
             runtime: Arc::new(runtime),
         };
         Ok(PlayerContext::from_multi_video_player(multi_video_player))
@@ -308,6 +318,15 @@ impl VideoPlayer for MultiVideoPlayer {
     }
 
     fn destroy(self) -> anyhow::Result<()> {
+        match self.stop_tx.send(true) {
+            Ok(_) => {}
+            Err(_) => {
+                return Err(anyhow!(
+                    "Couldn't send stop tx signal! Unable to destroy native resources"
+                ))
+            }
+        }
+
         let runtime =
             Arc::try_unwrap(self.runtime).expect("Couldn't get ownership to async runtime");
         runtime.shutdown_background();

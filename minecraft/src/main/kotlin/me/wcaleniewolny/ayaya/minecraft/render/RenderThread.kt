@@ -10,7 +10,7 @@ import kotlin.math.max
 class RenderThread(
     private val displayService: DisplayService,
     private val fps: Int,
-    private val ptr: Long
+    val ptr: Long
 ) : Thread() {
 
     val renderFrames = AtomicBoolean(false)
@@ -41,7 +41,7 @@ class RenderThread(
                 sleep(toWaitMilis, (toWait - (toWaitMilis * 1000000)).toInt())
             }
 
-            if(debug){
+            if (debug) {
                 println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
             }
 

@@ -89,20 +89,21 @@ class NativeRenderServiceImpl(
     }
 
     override fun pauseRendering() {
-        if(!isInitialized){
+        if (!isInitialized) {
             throw IllegalStateException("Render is not initialized!")
         }
-        if(isRunning.get()){
-            NativeRenderControler.communicate(ptr, NativeLibCommunication.STOP_RENDERING, "");
+        if (isRunning.get()) {
+            NativeRenderControler.communicate(ptr, NativeLibCommunication.STOP_RENDERING, "")
             isRunning.set(false)
-        }else{
+        } else {
             NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDERING, videoData.fps.toString())
             isRunning.set(true)
         }
     }
 
     override fun killRendering() {
-        TODO("Not yet implemented")
+        NativeRenderControler.communicate(ptr, NativeLibCommunication.STOP_RENDERING, "")
+        NativeRenderControler.destroy(ptr)
     }
 
     private fun sendAcknowledgementPackets() {

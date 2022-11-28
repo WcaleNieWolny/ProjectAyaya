@@ -16,9 +16,9 @@ public class MapNettyClient {
 
     private final ArrayList<MapState> mapStates;
     private Channel channel;
-    private String ip;
-    private int port;
-    private RenderMetadata metadata;
+    private final String ip;
+    private final int port;
+    private final RenderMetadata metadata;
 
     public MapNettyClient(String ip, int port, RenderMetadata metadata, ArrayList<MapState> mapStates) {
         this.ip = ip;

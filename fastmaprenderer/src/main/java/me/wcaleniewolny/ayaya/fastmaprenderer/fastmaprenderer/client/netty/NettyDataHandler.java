@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import me.wcaleniewolny.ayaya.fastmaprenderer.fastmaprenderer.client.RenderMetadata;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.MapRenderer;
-import net.minecraft.item.FilledMapItem;
 import net.minecraft.item.map.MapState;
 
 public class NettyDataHandler extends SimpleChannelInboundHandler<byte[]> {
@@ -65,6 +64,6 @@ public class NettyDataHandler extends SimpleChannelInboundHandler<byte[]> {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("In act");
+        System.out.println("[MapServer] map server connection closed!");
     }
 }

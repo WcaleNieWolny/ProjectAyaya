@@ -1,6 +1,5 @@
 package me.wcaleniewolny.ayaya.minecraft.render.impl
 
-import me.wcaleniewolny.ayaya.library.NativeLibCommunication
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.render.RenderService
 import me.wcaleniewolny.ayaya.minecraft.render.RenderThread
@@ -31,15 +30,18 @@ class JavaRenderServiceImpl(
         }
 
         val isRunning = renderThread.renderFrames
-        if(isRunning.get()){
+        if (isRunning.get()) {
             isRunning.set(false)
-        }else{
+        } else {
             isRunning.set(true)
         }
     }
 
     override fun killRendering() {
-
+        //Potential race condition
+        //If we destroy native resources in the time when render thread is  getting a frame we have a SEGFAULT
+        renderThread.renderFrames.set(false)
+        NativeRenderControler.destroy(renderThread.ptr)
     }
 
 }

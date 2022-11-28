@@ -2,7 +2,6 @@ package me.wcaleniewolny.ayaya.minecraft.render
 
 import me.wcaleniewolny.ayaya.library.MapServerOptions
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
-import me.wcaleniewolny.ayaya.library.NativeRenderType
 import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.MinecraftNativeBroadcaster
 import me.wcaleniewolny.ayaya.minecraft.display.impl.DisplayServiceImpl
@@ -35,7 +34,6 @@ object RenderServiceFactory {
             )
         )
         val videoData = NativeRenderControler.getVideoData(ptr)
-        println("DATA: $videoData")
 
         val width = videoData.width
         val height = videoData.height

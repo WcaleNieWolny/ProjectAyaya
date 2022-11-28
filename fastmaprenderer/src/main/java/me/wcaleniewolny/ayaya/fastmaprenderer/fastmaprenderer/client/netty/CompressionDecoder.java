@@ -9,7 +9,7 @@ import java.util.zip.Inflater;
 public class CompressionDecoder extends ByteToMessageDecoder {
 
     private final int frameLength;
-    private byte[] buffer;
+    private final byte[] buffer;
 
     public CompressionDecoder(int frameLength) {
         this.frameLength = frameLength;
@@ -18,8 +18,6 @@ public class CompressionDecoder extends ByteToMessageDecoder {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-
-        System.out.println("PRE COMPRESSION: " + in.readableBytes());
 
         if (in.readableBytes() == 0) {
             return;

@@ -125,25 +125,28 @@ impl MapServer {
                         match cmd_reciver.try_recv() {
                             Ok(msg) => {
                                 if let NativeCommunication::StopRendering = msg {
-                                    match cmd_reciver.recv().await{
-                                        Some(msg) => {
-                                            match msg {
-                                                NativeCommunication::StartRendering { fps } => {
-                                                    let dur = Duration::from_millis(1000 as u64 / (fps as u64));
-                                                    interval = time::interval(dur);
-                                                    continue;
-                                                },
-                                                NativeCommunication::StopRendering => {
-                                                    panic!("Invalid message! (Expected StartRendering, got: {:?})", msg);
-                                                },
+                                    match cmd_reciver.recv().await {
+                                        Some(msg) => match msg {
+                                            NativeCommunication::StartRendering { fps } => {
+                                                let dur = Duration::from_millis(
+                                                    1000 as u64 / (fps as u64),
+                                                );
+                                                interval = time::interval(dur);
+                                                continue;
                                             }
-                                        }
+                                            NativeCommunication::StopRendering => {
+                                                panic!("Invalid message! (Expected StartRendering, got: {:?})", msg);
+                                            }
+                                        },
                                         None => {
                                             println!("Couldn't recive JVM msg");
                                         }
                                     }
-                                }else {
-                                    panic!("Invalid message! (Expected StopRendering, got: {:?})", msg);
+                                } else {
+                                    panic!(
+                                        "Invalid message! (Expected StopRendering, got: {:?})",
+                                        msg
+                                    );
                                 }
                                 break;
                             }

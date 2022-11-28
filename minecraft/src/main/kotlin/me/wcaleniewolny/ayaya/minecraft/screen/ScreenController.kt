@@ -26,7 +26,7 @@ class ScreenController(private val plugin: JavaPlugin) {
     private val dir = File(plugin.dataFolder, "screens")
     private val screens = mutableListOf<Screen>()
 
-    fun init(){
+    fun init() {
         println(dir.listFiles()?.map { it.name })
 
         dir.listFiles()?.forEach { file ->
@@ -44,10 +44,10 @@ class ScreenController(private val plugin: JavaPlugin) {
         }
     }
 
-    fun createScreen(name: String, facing: ScreenFacing, x1: Int, y1: Int, z1: Int, x2: Int, y2: Int, z2: Int){
+    fun createScreen(name: String, facing: ScreenFacing, x1: Int, y1: Int, z1: Int, x2: Int, y2: Int, z2: Int) {
         val screenFile = File(dir, "${name}.yml")
 
-        if (screenFile.exists()){
+        if (screenFile.exists()) {
             throw IllegalStateException("Screen with name $name exists")
         }
 
@@ -80,7 +80,7 @@ class ScreenController(private val plugin: JavaPlugin) {
     ) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             val verify = NativeRenderControler.verifyScreenCapabilities(file.absolutePath, screen.width, screen.height)
-            if(!verify){
+            if (!verify) {
                 sender.sendColoredMessage(plugin.config.getString("videoVerificationFailed")!!)
                 return@Runnable
             }
@@ -97,10 +97,22 @@ class ScreenController(private val plugin: JavaPlugin) {
 
             screen.renderService = Optional.of(renderService)
             renderService.startRendering()
+            sender.sendColoredMessage(plugin.config.getString("videoVerificationFailed")!!)
         })
     }
 
-    fun getScreens(): List<Screen>{
+    fun killPlayback(screen: Screen) {
+        val renderServiceOptional = screen.renderService
+        if (renderServiceOptional.isEmpty) {
+            return
+        }
+
+        val renderService = renderServiceOptional.get()
+        renderService.killRendering()
+        screen.renderService = Optional.empty()
+    }
+
+    fun getScreens(): List<Screen> {
         //Make immutable
         return screens
     }

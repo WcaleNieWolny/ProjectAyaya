@@ -32,6 +32,6 @@ class MapMinecraftClient : JavaPlugin() {
     }
 }
 
-fun CommandSender.sendColoredMessage(msg: String){
+fun CommandSender.sendColoredMessage(msg: String) {
     sendMessage(MiniMessage.miniMessage().deserialize(msg))
 }

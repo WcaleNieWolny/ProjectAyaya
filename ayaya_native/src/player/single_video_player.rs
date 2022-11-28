@@ -114,7 +114,7 @@ impl VideoPlayer for SingleVideoPlayer {
     }
 
     fn destroy(self) -> anyhow::Result<()> {
-        todo!()
+        Ok(()) //Nothing to do
     }
 
     fn handle_jvm_msg(

@@ -74,7 +74,6 @@ public class FastMapRendererClient implements ClientModInitializer {
             int startMapId = buf.readVarInt();
 
             RenderMetadata metadata = new RenderMetadata(xMargin, yMargin, allFramesX, allFramesY, finalLength, startMapId);
-            System.out.println(metadata);
 
             new Thread(() -> {
                 try {

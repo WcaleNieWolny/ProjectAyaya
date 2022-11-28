@@ -9,5 +9,5 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface MapRendererInvoker {
 
     @Invoker("getMapTexture")
-    public MapRenderer.MapTexture invokeGetMapTexture(int id, MapState state);
+    MapRenderer.MapTexture invokeGetMapTexture(int id, MapState state);
 }

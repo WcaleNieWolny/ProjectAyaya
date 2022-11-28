@@ -7,8 +7,8 @@ enum class VideoPlayType {
     MULTI,
     MAP_SERVER;
 
-    fun toNativeRenderType(): NativeRenderType{
-        return when(this){
+    fun toNativeRenderType(): NativeRenderType {
+        return when (this) {
             SINGLE -> NativeRenderType.SINGLE_THREADED
             MULTI -> NativeRenderType.MULTI_THREADED
             MAP_SERVER -> NativeRenderType.MULTI_THREADED

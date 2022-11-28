@@ -7,7 +7,7 @@ mapServerPort: 1965
 videoPlayHelp: /video play [screen_id] [video] - plays file from plugins/ProjectAyaya/video to selected screen
 videoPauseHelp: /video pause [screen_id] - pauses playback at screen with selected id
 videoKillHelp: /video kill [screen_id] - kill playback at screen with selected id
-videoScreenCreateHelp: /video screen create [name] [x1] [y1] [z1] [x2] [y2] [z2]
+videoScreenCreateHelp: /video screen create [name] [facing] [x1] [y1] [z1] [x2] [y2] [z2]
 screenCreationFailed: <red>Couldn't create screen! Make sure that screen with that name DOES not exists!
 screenCreationSuccess: <green>Screen created!
 screenInvalidCoordinate: <red>Z or X coordinate is not the same!
@@ -22,3 +22,4 @@ pathTraversalAttempt: <red>Hey! Very smart of you, but that is illegal!
 videoVerificationFailed: <red>Couldn't play this video on this screen. It is likely that the screen is to small or the selected video width or height is not divisible by 2
 mapServerPlaybackNotAllowed: <red>Map server playback is disabled in the config!
 unableToPausePlayback: <red>This screen is not playing any video!
+success: <green>Success!

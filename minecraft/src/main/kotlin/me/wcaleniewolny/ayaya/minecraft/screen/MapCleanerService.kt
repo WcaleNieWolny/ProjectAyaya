@@ -26,20 +26,22 @@ object MapCleanerService {
 
     private fun getBukkitMapView(world: World, id: Int): MapView {
         val map = Bukkit.getMap(id)
-        if(map != null){
+        if (map != null) {
             return map
         }
 
         val ws = (world as CraftWorld).handle
 
-        ws.setMapData("map_$id", MapItemSavedData.createFresh(
-            0.0,
-            0.0,
-            0,
-            false,
-            false,
-            ws.dimension()
-        ));
+        ws.setMapData(
+            "map_$id", MapItemSavedData.createFresh(
+                0.0,
+                0.0,
+                0,
+                false,
+                false,
+                ws.dimension()
+            )
+        );
 
         return Bukkit.getMap(id)!!
     }

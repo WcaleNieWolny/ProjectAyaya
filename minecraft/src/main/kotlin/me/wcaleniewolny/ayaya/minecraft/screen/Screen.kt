@@ -2,7 +2,7 @@ package me.wcaleniewolny.ayaya.minecraft.screen
 
 import me.wcaleniewolny.ayaya.minecraft.render.RenderService
 import org.bukkit.block.BlockFace
-import java.util.Optional
+import java.util.*
 
 data class Screen(
     val startID: Int,
@@ -17,16 +17,16 @@ data class Screen(
     val width: Int = if (x1 == x2) (z2 - z1 + 1) * 128 else (x2 - x1 + 1) * 128,
     val height: Int = (y1 - y2 + 1) * 128,
     var renderService: Optional<RenderService> = Optional.empty(),
-    )
+)
 
-enum class ScreenFacing{
+enum class ScreenFacing {
     NORTH,
     EAST,
     SOUTH,
     WEST;
 
-    fun toBlockFace(): BlockFace{
-        return when(this){
+    fun toBlockFace(): BlockFace {
+        return when (this) {
             NORTH -> BlockFace.NORTH
             EAST -> BlockFace.EAST
             SOUTH -> BlockFace.SOUTH

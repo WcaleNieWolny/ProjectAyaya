@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface MapTextureAccessor {
 
     @Invoker("<init>")
-    public static MapRenderer.MapTexture callInit(MapRenderer renderer, int i, MapState state) {
+    static MapRenderer.MapTexture callInit(MapRenderer renderer, int i, MapState state) {
 
         throw new AssertionError();
     }
@@ -21,10 +21,9 @@ public interface MapTextureAccessor {
     NativeImageBackedTexture getTexture();
 
     @Accessor("texture")
-    public void setTexture(NativeImageBackedTexture texture);
+    void setTexture(NativeImageBackedTexture texture);
 
     @Accessor("renderLayer")
     RenderLayer getRenderLayer();
 
-    ;
 }

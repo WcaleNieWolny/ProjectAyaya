@@ -9,9 +9,9 @@ class VideoCommandCompletion(
     private val screenController: ScreenController
 ) {
 
-    fun init(plugin: JavaPlugin, manager: PaperCommandManager){
+    fun init(plugin: JavaPlugin, manager: PaperCommandManager) {
         val dir = File(plugin.dataFolder, "video")
-        if(!dir.exists()){
+        if (!dir.exists()) {
             dir.mkdirs()
         }
 
@@ -26,15 +26,15 @@ class VideoCommandCompletion(
             return@registerAsyncCompletion mutableListOf("${lookingAt.x} ${lookingAt.y} ${lookingAt.z}")
         }
 
-        manager.commandCompletions.registerAsyncCompletion("screens"){
+        manager.commandCompletions.registerAsyncCompletion("screens") {
             return@registerAsyncCompletion screenController.getScreens().map { it.name }
         }
 
-        manager.commandCompletions.registerAsyncCompletion("screenFacing"){
+        manager.commandCompletions.registerAsyncCompletion("screenFacing") {
             return@registerAsyncCompletion mutableListOf("north", "east", "south", "west")
         }
 
-        manager.commandCompletions.registerAsyncCompletion("videoPlayType"){
+        manager.commandCompletions.registerAsyncCompletion("videoPlayType") {
             return@registerAsyncCompletion mutableListOf("single", "multi", "map_server")
         }
 

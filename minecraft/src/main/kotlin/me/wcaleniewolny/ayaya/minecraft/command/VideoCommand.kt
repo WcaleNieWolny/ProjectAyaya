@@ -24,7 +24,7 @@ class VideoCommand(
     @Default
     @Subcommand("help")
     @Description("Display help")
-    fun onHelp(sender: CommandSender){
+    fun onHelp(sender: CommandSender) {
         sender.sendColoredMessage(fileConfiguration.getString("videoPlayHelp")!!)
         sender.sendColoredMessage(fileConfiguration.getString("videoPauseHelp")!!)
         sender.sendColoredMessage(fileConfiguration.getString("videoKillHelp")!!)
@@ -39,10 +39,10 @@ class VideoCommand(
         sender: CommandSender,
         @Values("@screens") screenId: String,
         @Values("@videoPlayType") playType: String,
-        @Values("@video") video: String)
-    {
+        @Values("@video") video: String
+    ) {
         val screenOptional = lookupScreen(sender, screenId)
-        if(screenOptional.isEmpty){
+        if (screenOptional.isEmpty) {
             return
         }
         val screen = screenOptional.get()
@@ -51,24 +51,25 @@ class VideoCommand(
 
         //Prevent path traversal
         //Thanks CDFN (https://github.com/CDFN) for this idea!
-        if(!file.normalize().path.startsWith(File(plugin.dataFolder, "video").normalize().path)){
+        if (!file.normalize().path.startsWith(File(plugin.dataFolder, "video").normalize().path)) {
             sender.sendColoredMessage(fileConfiguration.getString("pathTraversalAttempt")!!)
             return
         }
 
-        if(!file.exists()){
+        if (!file.exists()) {
             sender.sendColoredMessage(fileConfiguration.getString("fileDoesNotExist")!!)
             return
         }
 
         val videoPlayType = VideoPlayType.valueOf(playType.uppercase())
-        if(videoPlayType == VideoPlayType.MAP_SERVER && !plugin.config.getBoolean("allowMapServer")) {
+        if (videoPlayType == VideoPlayType.MAP_SERVER && !plugin.config.getBoolean("allowMapServer")) {
             sender.sendColoredMessage(fileConfiguration.getString("mapServerPlaybackNotAllowed")!!)
             return
         }
         //val allowMapServer = plugin.config.getBoolean("allowMapServer")
 
         screenController.startPlayback(videoPlayType, file, sender, screen)
+        sender.sendColoredMessage(fileConfiguration.getString("success")!!)
     }
 
     @Subcommand("pause")
@@ -78,44 +79,78 @@ class VideoCommand(
     fun onVideoPause(
         sender: CommandSender,
         @Values("@screens") screenId: String,
-    ){
+    ) {
         val screenOptional = lookupScreen(sender, screenId)
-        if(screenOptional.isEmpty){
+        if (screenOptional.isEmpty) {
             return
         }
         val screen = screenOptional.get()
 
         val renderServiceOptional = screen.renderService
-        if(renderServiceOptional.isEmpty){
+        if (renderServiceOptional.isEmpty) {
             sender.sendColoredMessage(fileConfiguration.getString("unableToPausePlayback")!!)
             return
         }
 
         val renderService = renderServiceOptional.get()
         renderService.pauseRendering()
+        sender.sendColoredMessage(fileConfiguration.getString("success")!!)
     }
 
+    @Subcommand("kill")
+    @Syntax("[screen_id]")
+    @CommandCompletion("@screens @nothing")
+    @Description("Kill video playback")
+    fun onVideoKill(
+        sender: CommandSender,
+        @Values("@screens") screenId: String,
+    ) {
+        val screenOptional = lookupScreen(sender, screenId)
+        if (screenOptional.isEmpty) {
+            return
+        }
+
+        val screen = screenOptional.get()
+        val renderServiceOptional = screen.renderService
+        if (renderServiceOptional.isEmpty) {
+            sender.sendColoredMessage(fileConfiguration.getString("unableToPausePlayback")!!)
+            return
+        }
+
+        screenController.killPlayback(screen)
+        sender.sendColoredMessage(fileConfiguration.getString("success")!!)
+    }
 
 
     @Subcommand("screen create")
     @Syntax("[name] [facing] [x1] [y1] [z1] [x2] [y2] [z2]")
     @CommandCompletion("@nothing @screenFacing @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @nothing")
     @Description("Create video screen")
-    fun onScreenCreate(sender: CommandSender, name: String, screenFacing: ScreenFacing, x1: Int, y1: Int, z1: Int, x2: Int, y2: Int, z2: Int){
+    fun onScreenCreate(
+        sender: CommandSender,
+        name: String,
+        screenFacing: ScreenFacing,
+        x1: Int,
+        y1: Int,
+        z1: Int,
+        x2: Int,
+        y2: Int,
+        z2: Int
+    ) {
         sender.sendMessage("N: $name, 1: $x1, $y1, $z1, 2: $x2, $y2, $z2")
 
-        if(z1 != z2 && x1 != x2){
+        if (z1 != z2 && x1 != x2) {
             sender.sendColoredMessage(fileConfiguration.getString("screenInvalidCoordinate")!!)
             return
         }
 
 
-        if(z1 == z2 && screenFacing != ScreenFacing.NORTH && screenFacing != ScreenFacing.SOUTH){
+        if (z1 == z2 && screenFacing != ScreenFacing.NORTH && screenFacing != ScreenFacing.SOUTH) {
             sender.sendColoredMessage(fileConfiguration.getString("screenIllegalFacing")!!)
             return
         }
 
-        if(x1 == x2 && screenFacing != ScreenFacing.WEST && screenFacing != ScreenFacing.EAST){
+        if (x1 == x2 && screenFacing != ScreenFacing.WEST && screenFacing != ScreenFacing.EAST) {
             sender.sendColoredMessage(fileConfiguration.getString("screenIllegalFacing")!!)
             return
         }
@@ -126,7 +161,7 @@ class VideoCommand(
             )
             sender.sendColoredMessage(fileConfiguration.getString("screenCreationSuccess")!!)
 
-        }catch (e: Exception){
+        } catch (e: Exception) {
             sender.sendColoredMessage(fileConfiguration.getString("screenCreationFailed")!!)
         }
 
@@ -136,20 +171,26 @@ class VideoCommand(
     @Syntax("[name]")
     @CommandCompletion("@screens @nothing")
     @Description("Get info about screen")
-    fun onScreenInfo(sender: CommandSender, @Values("@screens") screenId: String){
+    fun onScreenInfo(sender: CommandSender, @Values("@screens") screenId: String) {
         val screenOptional = lookupScreen(sender, screenId)
-        if(screenOptional.isEmpty){
+        if (screenOptional.isEmpty) {
             return
         }
         val screen = screenOptional.get()
 
         sender.sendColoredMessage(fileConfiguration.getString("screenLookupName")!!.replace("$", name))
-        sender.sendColoredMessage(fileConfiguration.getString("screenLookupWidth")!!.replace("$", screen.width.toString()))
-        sender.sendColoredMessage(fileConfiguration.getString("screenLookupHeight")!!.replace("$", screen.height.toString()))
-        sender.sendColoredMessage(fileConfiguration.getString("screenLookupFacing")!!.replace("$", screen.mapFace.toString()))
+        sender.sendColoredMessage(
+            fileConfiguration.getString("screenLookupWidth")!!.replace("$", screen.width.toString())
+        )
+        sender.sendColoredMessage(
+            fileConfiguration.getString("screenLookupHeight")!!.replace("$", screen.height.toString())
+        )
+        sender.sendColoredMessage(
+            fileConfiguration.getString("screenLookupFacing")!!.replace("$", screen.mapFace.toString())
+        )
     }
 
-    private fun lookupScreen(sender: CommandSender, id: String): java.util.Optional<Screen>{
+    private fun lookupScreen(sender: CommandSender, id: String): java.util.Optional<Screen> {
         val screens = screenController.getScreens().filter { it.name == id }
         if (screens.isEmpty()) {
             sender.sendColoredMessage(fileConfiguration.getString("screenLookupEmpty")!!)
