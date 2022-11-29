@@ -23,9 +23,6 @@ jobs:
           target: x86_64-unknown-linux-gnu
           override: true
           components: rustfmt, clippy
-    - name: update ubuntu system
-      run: |
-        sudo apt update -y && sudo apt upgrade -y
     - name: download ffmpeg
       run: |
         sudo apt install -y libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev
@@ -46,7 +43,7 @@ jobs:
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "nightly"
+        automatic_release_tag: "nightly-${{ GITHUB_SHA }}"
         prerelease: true
         title: "Development Build (${{ github.event.head_commit.message }})"
         files: |
