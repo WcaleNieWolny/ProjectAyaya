@@ -28,8 +28,7 @@ jobs:
         sudo apt update -y && sudo apt upgrade -y
     - name: download ffmpeg
       run: |
-        sudo apt install ffmpeg -y
-        sudo apt install libavutil-dev -y
+        sudo apt install -y clang libavcodec-dev libavformat-dev libavutil-dev pkg-config
     - name: run cargo fmt
       working-directory: ./ayaya_native
       run: |
