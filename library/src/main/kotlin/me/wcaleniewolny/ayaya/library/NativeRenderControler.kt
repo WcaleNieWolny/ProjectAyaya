@@ -47,8 +47,4 @@ object NativeRenderControler {
      * @throws java.lang.RuntimeException if rust panics during native call
      */
     external fun communicate(ptr: Long, message: NativeLibCommunication, additionalInfo: String)
-
-    init {
-        System.loadLibrary("ayaya_native")
-    }
 }
