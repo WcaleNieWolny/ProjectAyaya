@@ -42,3 +42,12 @@ jobs:
         cargo fmt --all -- --check
     - name: compile application
       run: make compile
+    - name: push release
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "nightly"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          minecraft/build/libs/minecraft-1.0-SNAPSHOT-dev-all.jar
