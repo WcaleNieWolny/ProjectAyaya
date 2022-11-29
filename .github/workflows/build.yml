@@ -29,7 +29,7 @@ jobs:
     - name: download ffmpeg
       run: |
         sudo apt install ffmpeg -y
-        sudo apt install libav-tools -y
+        sudo apt install libavutil-dev -y
     - name: run cargo fmt
       working-directory: ./ayaya_native
       run: |
