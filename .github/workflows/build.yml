@@ -24,11 +24,9 @@ jobs:
           override: true
           components: rustfmt, clippy
     - name: run cargo fmt
-      uses: actions-rs/cargo@v1
       working-directory: ./ayaya_native
-      with:
-        command: fmt
-        args: --all -- --check
+      run: |
+        cargo fmt --all -- --check
     - name: install java
       uses: actions/setup-java@v3
       with:
