@@ -25,8 +25,8 @@ jobs:
           components: rustfmt, clippy
     - name: run cargo fmt
       uses: actions-rs/cargo@v1
+      working-directory: ./ayaya_native
       with:
-        working-directory: ./ayaya_native
         command: fmt
         args: --all -- --check
     - name: install java
