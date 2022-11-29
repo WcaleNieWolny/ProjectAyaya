@@ -25,10 +25,10 @@ jobs:
           components: rustfmt, clippy
     - name: update ubuntu system
       run: |
-        apt update -y && sudo apt upgrade -y
+        sudo apt update -y && sudo apt upgrade -y
     - name: download ffmpeg
       run: |
-        apt install ffmpeg -y
+        sudo apt install ffmpeg -y
     - name: run cargo fmt
       working-directory: ./ayaya_native
       run: |
