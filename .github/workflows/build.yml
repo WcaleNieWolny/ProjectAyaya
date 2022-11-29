@@ -48,6 +48,6 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "nightly"
         prerelease: true
-        title: "Development Build"
+        title: "Development Build (${{ github.event.head_commit.message }})"
         files: |
           minecraft/build/libs/minecraft-1.0-SNAPSHOT-dev-all.jar
