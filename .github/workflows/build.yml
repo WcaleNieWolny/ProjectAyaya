@@ -41,8 +41,13 @@ jobs:
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "nightly-${{github.sha}}"
+        automatic_release_tag: "nightly"
         prerelease: true
-        title: "Development Build (${{ github.event.head_commit.message }})"
+        title: "Latest Development Build"
         files: |
           minecraft/build/libs/minecraft-1.0-SNAPSHOT-dev-all.jar
+    - name: upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: AyayaNativeSpigotPlugin.jar
+        path: minecraft/build/libs/minecraft-1.0-SNAPSHOT-dev-all.jar
