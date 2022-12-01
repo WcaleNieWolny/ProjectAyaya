@@ -38,7 +38,7 @@ jobs:
       run: |
         cargo fmt --all -- --check
     - name: compile application
-      run: make compile
+      run: make linux_jar
     - name: push release
       uses: "marvinpinto/action-automatic-releases@latest"
       with:

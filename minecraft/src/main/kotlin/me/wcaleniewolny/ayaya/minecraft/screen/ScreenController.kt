@@ -97,7 +97,7 @@ class ScreenController(private val plugin: JavaPlugin) {
 
             screen.renderService = Optional.of(renderService)
             renderService.startRendering()
-            sender.sendColoredMessage(plugin.config.getString("videoVerificationFailed")!!)
+            sender.sendColoredMessage(plugin.config.getString("success")!!)
         })
     }
 
