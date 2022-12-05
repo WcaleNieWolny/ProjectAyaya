@@ -37,6 +37,6 @@ codegen-units = 1
 [profile.test] 
 opt-level = 3
 
-#[target.x86_64-pc-windows-gnu]
-#linker = "/usr/bin/x86_64-w64-mingw32-gcc"
-#ar = "/usr/bin/x86_64-w64-mingw32-ar"
+[target.x86_64-pc-windows-gnu]
+linker = "/usr/bin/x86_64-w64-mingw32-gcc"
+ar = "/usr/bin/x86_64-w64-mingw32-ar"
