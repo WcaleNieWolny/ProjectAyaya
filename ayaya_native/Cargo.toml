@@ -40,3 +40,6 @@ opt-level = 3
 [target.x86_64-pc-windows-gnu]
 linker = "/usr/bin/x86_64-w64-mingw32-gcc"
 ar = "/usr/bin/x86_64-w64-mingw32-ar"
+pre-build = [
+	"export PKG_CONFIG_PATH=./ayaya_native/target/ffmpeg_win//ffmpeg-master-latest-win64-lgpl-shared/lib/pkgconfig"
+]
