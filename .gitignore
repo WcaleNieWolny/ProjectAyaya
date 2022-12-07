@@ -140,3 +140,4 @@ native_old/cmake-build-debug
 /minecraft/src/main/resources/libayaya_native.so.sha1
 
 /ayaya_native/target/ffmpeg_win
+/minecraft/src/main/resources/ayaya_native.dll

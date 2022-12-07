@@ -1,34 +1,27 @@
-linux_lib:
-	die "12"
+all: linux clear windows jar
 
-linux_jar:
-	cd ayaya_native && cargo build --profile production --target x86_64-unknown-linux-gnu
-	cp -f ayaya_native/target/x86_64-unknown-linux-gnu/production/libayaya_native.so  minecraft/src/main/resource
+jar:
 	./gradlew.sh :minecraft:build
 
+linux_lib:
+	cd ayaya_native && cargo build --profile production --target x86_64-unknown-linux-gnu
 
-prepare_windows_ffmpeg:
-	$(eval DIR=$(shell echo ./ayaya_native/target/ffmpeg_win/))
+linux_move:
+	cp -f ./ayaya_native/target/x86_64-unknown-linux-gnu/production/libayaya_native.so  minecraft/src/main/resources
 
-	@if [ ! -d ./ayaya_native/target/ ]; then \
-		mkdir ./ayaya_native/target/; \
-	fi
+windows_lib: 
+	cd ayaya_native && cross build --profile production --target x86_64-pc-windows-gnu
 
-	@if [ ! -d $(DIR) ]; then \
-		echo "Dir DOES NOT exist"; \
-		mkdir $(DIR); \
-		curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip --output $(DIR)/ffmpeg-archive.zip; \
-		unzip -qq $(DIR)/ffmpeg-archive.zip -d $(DIR); \
-	fi
+windows_move:
+	cp -f ./ayaya_native/target/x86_64-pc-windows-gnu/production/ayaya_native.dll minecraft/src/main/resources
 
-windows_lib: prepare_windows_ffmpeg build_windows_lib
+windows: windows_lib windows_move
 
-build_windows_lib: 
-	$(eval DIR=$(shell echo ./ayaya_native/target/ffmpeg_win/)) 
-	cd ayaya_native && PKG_CONFIG_SYSROOT_DIR=/ PKG_CONFIG_PATH=$(DIR)/ffmpeg-master-latest-win64-lgpl-shared/lib/pkgconfig cross build --profile production --target x86_64-pc-windows-gnu
-
-docker:
-	docker build -t ayaya_native_windows:latest ./ayaya_native/
+linux: linux_lib linux_move
 
 clear:
 	cd ayaya_native && cargo clean && cd ..
+
+clear_jar:
+	rm minecraft/src/main/resource/libayaya_native.so 2> /dev/null || echo > /dev/null
+	rm minecraft/src/resource/ayaya_native.dll 2> /dev/null || echo > /dev/null

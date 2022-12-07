@@ -1,7 +1,3 @@
-#[target.x86_64-pc-windows-gnu]
-#image = "ayaya_native_windows:latest"
-
 [build.dockerfile]
-file = "./Dockerfile"         # the dockerfile to use relative to the `Cargo.toml`
-context = "."
-image = "ayaya_native_windows:latest"
+file = "./windows-cross/Dockerfile"
+context = "./windows-cross/"
