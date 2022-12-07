@@ -51,9 +51,9 @@ jobs:
         prerelease: true
         title: "Latest Development Build"
         files: |
-          minecraft/build/libs/minecraft-1.0-SNAPSHOT-dev-all.jar
+          minecraft/build/libs/minecraft-1.0-SNAPSHOT.jar
     - name: upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: AyayaNativeSpigotPlugin.jar
-        path: minecraft/build/libs/minecraft-1.0-SNAPSHOT-dev-all.jar
+        path: minecraft/build/libs/minecraft-1.0-SNAPSHOT.jar
