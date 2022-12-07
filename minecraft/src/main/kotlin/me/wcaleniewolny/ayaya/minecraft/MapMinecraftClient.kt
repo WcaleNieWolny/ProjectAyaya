@@ -8,12 +8,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
-import java.io.BufferedReader
-import java.io.File
 import java.io.InputStream
-import java.io.InputStreamReader
-import java.math.BigInteger
-import java.security.MessageDigest
 import java.util.logging.Level
 
 
@@ -47,6 +42,9 @@ class MapMinecraftClient : JavaPlugin() {
 
         val unsafe = System.getProperty("me.wcaleniewolny.ayaya.unsafe") != null
 
+        val os = System.getProperty("os.name")
+        logger.info("Detected os: $os")
+
         if(unsafe){
             logger.log(Level.WARNING, "UNSAFE LIB LOADING ENABLED")
             try{
@@ -57,14 +55,26 @@ class MapMinecraftClient : JavaPlugin() {
                 return false
             }
         } else {
-            try {
-                NativeUtils.loadLibraryFromJar("/libayaya_native.so")
-            }catch (exception: Exception){
-                logger.log(Level.SEVERE, "Unable to load native library! AyayaNative will now get disabled")
-                Bukkit.getPluginManager().disablePlugin(this)
-                exception.printStackTrace()
-                return false
+            if(os.contains("Linux", true)){
+                try {
+                    NativeUtils.loadLibraryFromJar("/libayaya_native.so")
+                }catch (exception: Exception){
+                    logger.log(Level.SEVERE, "Unable to load native library! AyayaNative will now get disabled")
+                    Bukkit.getPluginManager().disablePlugin(this)
+                    exception.printStackTrace()
+                    return false
+                }
+            }else if(os.contains("Windows", true)){
+                try {
+                    NativeUtils.loadLibraryFromJar("/ayaya_native.dll")
+                }catch (exception: Exception){
+                    logger.log(Level.SEVERE, "Unable to load native library! AyayaNative will now get disabled")
+                    Bukkit.getPluginManager().disablePlugin(this)
+                    exception.printStackTrace()
+                    return false
+                }
             }
+
         }
 
         return true
