@@ -136,7 +136,6 @@ class VideoCommand(
         y2: Int,
         z2: Int
     ) {
-        sender.sendMessage("N: $name, 1: $x1, $y1, $z1, 2: $x2, $y2, $z2")
 
         if (z1 != z2 && x1 != x2) {
             sender.sendColoredMessage(fileConfiguration.getString("screenInvalidCoordinate")!!)
