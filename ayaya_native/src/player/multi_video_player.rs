@@ -258,9 +258,13 @@ impl VideoPlayer for MultiVideoPlayer {
                 let frame = frames_rx.recv().expect("Couldn't recive with identifier");
 
                 if frame.id == last_id + 1 || frame.id == 0 {
-                    global_tx
-                        .blocking_send(frame.data)
-                        .expect("Couldn't send global frame");
+                    match global_tx.blocking_send(frame.data) {
+                        Ok(_) => {}
+                        Err(_) => {
+                            println!("[AyayaNative] Couldn't send frame data! Exiting!");
+                            break;
+                        }
+                    }
                     last_id = frame.id;
                     continue;
                 }

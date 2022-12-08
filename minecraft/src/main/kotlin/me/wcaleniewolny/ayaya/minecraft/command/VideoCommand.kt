@@ -69,7 +69,6 @@ class VideoCommand(
         //val allowMapServer = plugin.config.getBoolean("allowMapServer")
 
         screenController.startPlayback(videoPlayType, file, sender, screen)
-        sender.sendColoredMessage(fileConfiguration.getString("success")!!)
     }
 
     @Subcommand("pause")

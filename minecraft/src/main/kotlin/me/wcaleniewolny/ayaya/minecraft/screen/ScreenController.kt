@@ -27,20 +27,21 @@ class ScreenController(private val plugin: JavaPlugin) {
     private val screens = mutableListOf<Screen>()
 
     fun init() {
-        println(dir.listFiles()?.map { it.name })
 
-        dir.listFiles()?.forEach { file ->
-            val screenYaml = YamlConfiguration.loadConfiguration(file)
-            val startID = screenYaml.getInt("id")
-            val facing = ScreenFacing.valueOf(screenYaml.getString("facing")!!)
-            val x1 = screenYaml.getInt("x1")
-            val y1 = screenYaml.getInt("y1")
-            val z1 = screenYaml.getInt("z1")
-            val x2 = screenYaml.getInt("x2")
-            val y2 = screenYaml.getInt("y2")
-            val z2 = screenYaml.getInt("z2")
+        dir.listFiles()
+            ?.filterNot { it.name.contains(" ") }
+            ?.forEach { file ->
+                val screenYaml = YamlConfiguration.loadConfiguration(file)
+                val startID = screenYaml.getInt("id")
+                val facing = ScreenFacing.valueOf(screenYaml.getString("facing")!!)
+                val x1 = screenYaml.getInt("x1")
+                val y1 = screenYaml.getInt("y1")
+                val z1 = screenYaml.getInt("z1")
+                val x2 = screenYaml.getInt("x2")
+                val y2 = screenYaml.getInt("y2")
+                val z2 = screenYaml.getInt("z2")
 
-            screens.add(Screen(startID, file.nameWithoutExtension, facing.toBlockFace(), x1, y1, z1, x2, y2, z2))
+                screens.add(Screen(startID, file.nameWithoutExtension, facing.toBlockFace(), x1, y1, z1, x2, y2, z2))
         }
     }
 
@@ -55,6 +56,10 @@ class ScreenController(private val plugin: JavaPlugin) {
         val world = Bukkit.getWorlds()[0] //Hope it is the overworld
         val startID = buildScreen(world, Vector(x1, y1, z1), Vector(x2, y2, z2), face)
 
+
+        val screen = Screen(startID, name, face, x1, y1, z1, x2, y2, z2)
+        MapCleanerService.cleanMaps(world, startID, (screen.width*screen.height) / 16384)
+
         val screenYaml = YamlConfiguration.loadConfiguration(screenFile)
 
         screenYaml.set("id", startID)
@@ -68,8 +73,8 @@ class ScreenController(private val plugin: JavaPlugin) {
 
         screenYaml.save(screenFile)
 
-        screens.add(Screen(startID, name, face, x1, y1, z1, x2, y2, z2))
 
+        screens.add(screen)
     }
 
     fun startPlayback(
@@ -110,11 +115,22 @@ class ScreenController(private val plugin: JavaPlugin) {
         val renderService = renderServiceOptional.get()
         renderService.killRendering()
         screen.renderService = Optional.empty()
+
+        restartVideoScreen(screen)
     }
 
     fun getScreens(): List<Screen> {
         //Make immutable
         return screens
+    }
+
+    fun restartVideoScreen(screen: Screen){
+        for(i in screen.startID until screen.startID + (screen.width * screen.height) / 16384){
+            val map = Bukkit.getMap(i)!!
+            Bukkit.getOnlinePlayers().forEach {player ->
+                player.sendMap(map)
+            }
+        }
     }
 
     private fun buildScreen(world: World, loc1: Vector, loc2: Vector, blockFace: BlockFace): Int {
