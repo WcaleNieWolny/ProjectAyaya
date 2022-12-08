@@ -14,11 +14,11 @@ It is a reference that this was originally created to watch anime.
  - 🦀 rust native library using [ffmpeg](https://ffmpeg.org/)
  - 🍵 java [custom mod](https://github.com/WcaleNieWolny/ProjectAyaya/tree/master/fastmaprenderer) to allow for high resolution
  - ⏯ video pausing
+- 🪟 windows support
 
 ### 🗒 TODO list
 
 - 📢 sound using [discord](https://discord.com/) bot
-- 🪟 windows support
 - ⌚ video timeline
 
 ### 🚀 Deploying
