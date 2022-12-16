@@ -74,7 +74,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 fps,
             };
 
-            return Ok(PlayerContext::from_single_video_player(single_video_player));
+            return Ok(PlayerContext::from_player(single_video_player));
         }
 
         Err(anyhow::Error::new(Error::StreamNotFound))
@@ -113,7 +113,7 @@ impl VideoPlayer for SingleVideoPlayer {
         })
     }
 
-    fn destroy(self) -> anyhow::Result<()> {
+    fn destroy(self: Box<Self>) -> anyhow::Result<()> {
         Ok(()) //Nothing to do
     }
 

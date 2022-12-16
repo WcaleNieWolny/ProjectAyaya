@@ -287,7 +287,7 @@ impl VideoPlayer for MultiVideoPlayer {
             stop_tx,
             runtime: Arc::new(runtime),
         };
-        Ok(PlayerContext::from_multi_video_player(multi_video_player))
+        Ok(PlayerContext::from_player(multi_video_player))
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
@@ -321,7 +321,7 @@ impl VideoPlayer for MultiVideoPlayer {
         })
     }
 
-    fn destroy(self) -> anyhow::Result<()> {
+    fn destroy(self: Box<Self>) -> anyhow::Result<()> {
         match self.stop_tx.send(true) {
             Ok(_) => {}
             Err(_) => {
@@ -331,8 +331,11 @@ impl VideoPlayer for MultiVideoPlayer {
             }
         }
 
-        let runtime =
-            Arc::try_unwrap(self.runtime).expect("Couldn't get ownership to async runtime");
+        let runtime = match Arc::try_unwrap(self.runtime) {
+            Ok(val) => val,
+            Err(_) => return Err(anyhow!("Unable to get ownership of async runtime")),
+        };
+
         runtime.shutdown_background();
         Ok(())
     }

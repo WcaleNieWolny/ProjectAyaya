@@ -14,7 +14,7 @@ data class Screen(
     val x2: Int,
     val y2: Int,
     val z2: Int,
-    val width: Int = if (x1 == x2) (z2 - z1 + 1) * 128 else (x2 - x1 + 1) * 128,
+    val width: Int = if((mapFace == BlockFace.SOUTH) || (mapFace == BlockFace.WEST)) (if (x1 == x2) (z2 - z1 + 1) * 128 else (x2 - x1 + 1) * 128) else (if (x1 == x2) (z1 - z2 + 1) * 128 else (x1 - x2 + 1) * 128),
     val height: Int = (y1 - y2 + 1) * 128,
     var renderService: Optional<RenderService> = Optional.empty(),
 )

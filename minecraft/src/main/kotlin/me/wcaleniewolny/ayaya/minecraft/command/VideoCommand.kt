@@ -154,14 +154,22 @@ class VideoCommand(
         }
 
         try {
-            screenController.createScreen(
-                name, screenFacing, min(x1, x2), max(y1, y2), min(z1, z2), max(x1, x2), min(y1, y2), max(z1, z2)
-            )
-            sender.sendColoredMessage(fileConfiguration.getString("screenCreationSuccess")!!)
+            if(screenFacing == ScreenFacing.SOUTH || screenFacing == ScreenFacing.WEST){
+                screenController.createScreen(
+                    name, screenFacing, min(x1, x2), max(y1, y2), min(z1, z2), max(x1, x2), min(y1, y2), max(z1, z2)
+                )
+
+            }else {
+                screenController.createScreen(
+                    name, screenFacing, max(x1, x2), max(y1, y2), max(z1, z2), min(x1, x2), min(y1, y2), min(z1, z2)
+                )
+            }
 
         } catch (e: Exception) {
             sender.sendColoredMessage(fileConfiguration.getString("screenCreationFailed")!!)
         }
+
+        sender.sendColoredMessage(fileConfiguration.getString("screenCreationSuccess")!!)
 
     }
 
