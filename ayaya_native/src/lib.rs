@@ -20,6 +20,7 @@ use jni::objects::*;
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
 use jni::JNIEnv;
 use map_server::ServerOptions;
+use player::game_player::GamePlayer;
 use player::player_context::NativeCommunication;
 
 use crate::player::multi_video_player::MultiVideoPlayer;
@@ -145,6 +146,10 @@ fn init(
         1 => {
             let player_context = MultiVideoPlayer::create(file_name, server_options)?;
             Ok(PlayerContext::wrap_to_ptr(player_context))
+        }
+        2 => {
+           let player_context = GamePlayer::create(file_name, server_options)?;
+           Ok(PlayerContext::wrap_to_ptr(player_context))
         }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({})", render_type))),
     };

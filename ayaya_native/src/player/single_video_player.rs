@@ -94,7 +94,7 @@ impl VideoPlayer for SingleVideoPlayer {
 
                 let transformed_frame = SplittedFrame::split_frames(
                     transformed_frame.as_slice(),
-                    &mut self.splitted_frames,
+                    &self.splitted_frames,
                     self.width as i32,
                 )?;
 

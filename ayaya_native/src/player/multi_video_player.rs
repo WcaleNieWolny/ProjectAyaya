@@ -186,13 +186,13 @@ impl VideoPlayer for MultiVideoPlayer {
                         &mut scaler,
                     )
                     .expect("Couldn't create async frame");
-                    let mut splitted_frames = splitted_frames.clone();
+                    let splitted_frames = splitted_frames.clone();
 
                     let sender = frames_tx.clone();
 
                     handle.spawn(async move {
                         let vec = transform_frame_to_mc(frame.data(0), width, height);
-                        let vec = SplittedFrame::split_frames(vec.as_slice(), &mut splitted_frames, width as i32).expect("Couldn't split frames async");
+                        let vec = SplittedFrame::split_frames(vec.as_slice(), &splitted_frames, width as i32).expect("Couldn't split frames async");
 
                         let frame_with_id = FrameWithIdentifier {
                             id: frame_id,

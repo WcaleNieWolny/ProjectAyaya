@@ -62,8 +62,6 @@ impl SplittedFrame {
 
                 let frame_length = frame_height * frame_width;
 
-                //println!("DAT: {}, {}, {}, {}, {}, {}", x_frame_margin, y_frame_margin, frame_width, frame_height, x_margin, y_margin);
-                //println!("DAT: {}", frame_width);
                 i = i + 1;
 
                 frames.push(SplittedFrame {
@@ -79,7 +77,7 @@ impl SplittedFrame {
 
     pub fn split_frames(
         data: &[i8],
-        frames: &mut Vec<SplittedFrame>,
+        frames: &Vec<SplittedFrame>,
         width: i32,
     ) -> anyhow::Result<Vec<i8>> {
         let all_frames_x = FRAME_SPLITTER_ALL_FRAMES_X.load(Relaxed);
@@ -104,7 +102,7 @@ impl SplittedFrame {
         for y in 0..all_frames_y {
             let mut x_i = 0;
             for _x in 0..all_frames_x {
-                let frame = &mut frames[i];
+                let frame = &frames[i];
 
                 for y1 in 0..frame.height {
                     //final_data.extend_from_slice(&data[(y_i * width + x_i) as usize + (y1 * width) as usize..(y_i * width + x_i) as usize + (y1 * width) as usize + frame.width as usize])

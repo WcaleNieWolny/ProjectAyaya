@@ -1,12 +1,14 @@
-use std::env;
+use std::{env, num::ParseIntError};
+use anyhow::anyhow;
 
-pub struct MinecraftColor {
-    red: u8,
-    green: u8,
-    blue: u8,
+#[derive(Debug)]
+pub struct Color {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
 }
 
-impl MinecraftColor {
+impl Color {
     pub const fn new(r: u8, g: u8, b: u8) -> Self {
         Self {
             red: r,
@@ -14,13 +16,30 @@ impl MinecraftColor {
             blue: b,
         }
     }
+
+    pub fn hex(hex: &str) -> anyhow::Result<Self> {
+        let hex = hex.to_string();
+        let hex = hex.replace("#", "");
+
+        if hex.len() != 6 {
+           return Err(anyhow!("Invalid hex")); 
+        }
+
+        let hex: Result<Vec<u8>, ParseIntError> = (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
+            .collect();
+        let hex = hex?;
+
+        Ok(Self::new(hex[0], hex[1], hex[2]))
+    }
 }
 
 // static CONVERSION_TABLE_DIR: String = format!("{}/cached_color.hex", env::var("OUT_DIR").unwrap());
 pub static CONVERSION_TABLE: &[u8; 16777216] =
     include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
-pub fn get_cached_index(color: MinecraftColor) -> i8 {
+pub fn get_cached_index(color: Color) -> i8 {
     CONVERSION_TABLE
         [(color.red as usize * 256 * 256) + (color.green as usize * 256) + color.blue as usize]
         as i8
@@ -32,7 +51,7 @@ pub fn transform_frame_to_mc(data: &[u8], width: u32, height: u32) -> Vec<i8> {
 
     for y in 0..height {
         for x in 0..width {
-            buffer.push(get_cached_index(MinecraftColor::new(
+            buffer.push(get_cached_index(Color::new(
                 data[((y * width * 3) + (x * 3)) as usize],
                 data[((y * width * 3) + (x * 3) + 1) as usize],
                 data[((y * width * 3) + (x * 3) + 2) as usize],
