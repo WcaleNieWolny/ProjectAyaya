@@ -14,12 +14,13 @@ It is a reference that this was originally created to watch anime.
  - 🦀 rust native library using [ffmpeg](https://ffmpeg.org/)
  - 🍵 java [custom mod](https://github.com/WcaleNieWolny/ProjectAyaya/tree/master/fastmaprenderer) to allow for high resolution
  - ⏯ video pausing
-- 🪟 windows support
+ - 🪟 windows support
 
 ### 🗒 TODO list
 
-- 📢 sound using [discord](https://discord.com/) bot
-- ⌚ video timeline
+ - 📢 sound using [discord](https://discord.com/) bot
+ - ⌚ video timeline
+ - 🎮 games ([Flappy Bird](https://en.wikipedia.org/wiki/Flappy_Bird), [Snake](https://en.wikipedia.org/wiki/Snake_(video_game_genre)), [Falling blocks](https://en.wikipedia.org/wiki/Tetris)) 
 
 ### 🚀 Deploying
 Please see the [wiki](https://github.com/WcaleNieWolny/ProjectAyaya/wiki) for information on how to deploy.
