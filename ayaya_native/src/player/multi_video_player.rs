@@ -122,7 +122,7 @@ impl VideoPlayer for MultiVideoPlayer {
 
         let (stop_tx, mut stop_rx) = oneshot::channel::<bool>();
         thread::spawn(move || {
-            ffmpeg::init().expect("Couldn't init ffmpeg!");;
+            ffmpeg::init().expect("Couldn't init ffmpeg!");
             if let Ok(mut ictx) = input(&file_name) {
                 let input = ictx
                     .streams()

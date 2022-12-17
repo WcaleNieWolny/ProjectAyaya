@@ -27,9 +27,10 @@ impl Game for FlappyBirdGame {
     }
 
     fn draw(&self, player: &GamePlayer) -> anyhow::Result<super::game_player::VideoCanvas> {
-        let c = Color::hex("464B46")?;
-        println!("C: {:?}", c);
-        let canvas = VideoCanvas::new(player.width, player.height, c);
+        let mut canvas = VideoCanvas::new(player.width as usize, player.height as usize, Color::hex("464B46")?);
+        
+        canvas.draw_pixel(0, 0, Color::RED);
+        canvas.draw_pixel(639, 639, Color::RED);
 
         Ok(canvas)
     }

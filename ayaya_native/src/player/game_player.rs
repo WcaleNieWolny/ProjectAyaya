@@ -4,15 +4,15 @@ use crate::{map_server::ServerOptions, colorlib::{Color, transform_frame_to_mc},
 use super::{player_context::{VideoPlayer, VideoData}, flappy_bird::FlappyBirdGame};
 
 pub struct VideoCanvas {
-    pub width: i32,
-    pub height: i32,
+    pub width: usize,
+    pub height: usize,
     vec: Vec<u8>
 }
 
 impl VideoCanvas {
     pub fn new(
-        width: i32,
-        height: i32,
+        width: usize,
+        height: usize,
         start_color: Color, 
     ) -> Self {
         let vec: Vec<u8> = std::iter::repeat([start_color.red, start_color.green, start_color.blue])
@@ -27,9 +27,36 @@ impl VideoCanvas {
         }
     }
 
+    pub fn draw_pixel(
+        &mut self,
+        x: usize,
+        y: usize,
+        color: Color
+    ){
+        self.vec[((y * self.width + x) * 3)..(((y * self.width + x) * 3) + 3)].copy_from_slice(&[color.red, color.blue, color.green]);
+    }
+
+    pub fn draw_square(
+        &mut self,
+        x1: usize,
+        y1: usize,
+        x2: usize,
+        y2: usize,
+        color: Color
+    ){
+        let x1 = x1.min(x2);
+        let x2 = x1.max(x2);
+        let y1 = (self.height - 1 - y1).min(self.height - 1 - y2);
+        let y2 = (self.height - 1 - y1).max(self.height - 1 - y2);
+
+        let width = x2 - x1;
+        let height = y2 - x1;
+
+    }
+
     pub fn draw_to_minecraft(&self, splitted_frames: &mut Vec<SplittedFrame>) -> anyhow::Result<Vec<i8>>{
         let frame = transform_frame_to_mc(&self.vec, self.width as u32, self.height as u32);
-        Ok(SplittedFrame::split_frames(&frame, splitted_frames, self.width)?)
+        Ok(SplittedFrame::split_frames(&frame, splitted_frames, self.width as i32)?)
     }
 }
 
