@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 
 use crate::{map_server::ServerOptions, colorlib::{Color, transform_frame_to_mc}, splitting::SplittedFrame};
-use super::{player_context::{VideoPlayer, PlayerContext, VideoData}, flappy_bird::FlappyBirdGame};
+use super::{player_context::{VideoPlayer, VideoData}, flappy_bird::FlappyBirdGame};
 
 pub struct VideoCanvas {
     pub width: i32,
@@ -53,9 +53,9 @@ impl VideoPlayer for GamePlayer {
     fn create(
         file_name: String,
         _server_options: ServerOptions,
-    ) -> anyhow::Result<PlayerContext> {
+    ) -> anyhow::Result<Self> {
         let game: Box<dyn Game> = match file_name.as_str() {
-            "bird" => {
+            "flappy_bird" => {
                 Box::new(FlappyBirdGame::new())     
             }
             _ => return Err(anyhow!("This game is not implemented!"))
@@ -63,13 +63,13 @@ impl VideoPlayer for GamePlayer {
 
         let (width, height, fps) = (game.width(), game.height(), game.fps());
 
-        Ok(PlayerContext::from_player(Self {
+        Ok(Self {
             width,
             height,
             fps,
             splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
             game
-        }))
+        })
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {

@@ -8,19 +8,26 @@ use ffmpeg::{Error, Packet};
 
 use crate::map_server::ServerOptions;
 
-macro_rules! get_dyn_mutex {
+macro_rules! get_context {
     (
-        $MUTEX: ident
+        $PTR: ident
     ) => {
-        match $MUTEX.lock() {
-            Ok(val) => val,
-            Err(_) => return Err(anyhow!("Cannot lock mutex!")),
-        }
+        {
+            let arc_ptr = $PTR as *const() as *const Arc<Mutex<dyn VideoPlayer>>;
+            Arc::clone(unsafe { &*arc_ptr })
+        } 
     };
 }
 
-pub struct PlayerContext {
-    player: Arc<Mutex<Box<dyn VideoPlayer>>>, //Pointer
+macro_rules! lock_mutex {
+    (
+        $MUTEX: ident
+    ) => {
+        match $MUTEX.lock(){
+            Ok(val) => val,
+            Err(_) => return Err(anyhow!("Cannot lock arc!"))
+        }
+    };
 }
 
 pub struct VideoData {
@@ -35,65 +42,44 @@ pub enum NativeCommunication {
     StopRendering,
 }
 
-impl PlayerContext {
-    pub fn from_player<T>(player: T) -> Self
-    where
-        T: VideoPlayer + 'static,
-    {
-        Self {
-            player: Arc::new(Mutex::new(Box::new(player))),
-        }
-    }
-
-    pub fn wrap_to_ptr(self) -> i64 {
-        Box::into_raw(Box::new(self)) as i64
-    }
-
-    pub fn load_frame(ptr: i64) -> anyhow::Result<Vec<i8>> {
-        let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
-
-        let player_context = player_context.player.clone();
-        let mut player_context = get_dyn_mutex!(player_context);
-        player_context.load_frame()
-    }
-
-    pub fn video_data(ptr: i64) -> anyhow::Result<VideoData> {
-        let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
-
-        let player_context = player_context.player.clone();
-        let player_context = get_dyn_mutex!(player_context);
-        player_context.video_data()
-    }
-
-    pub fn pass_jvm_msg(ptr: i64, msg: NativeCommunication) -> anyhow::Result<()> {
-        let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
-
-        let player_context = player_context.player.clone();
-        let player_context = get_dyn_mutex!(player_context);
-        player_context.handle_jvm_msg(msg)
-    }
-
-    pub fn destroy(ptr: i64) -> anyhow::Result<()> {
-        let player_context = unsafe { ManuallyDrop::new(Box::from_raw(ptr as *mut PlayerContext)) };
-        let player_context = ManuallyDrop::into_inner(player_context);
-
-        let player_context = match Arc::try_unwrap(player_context.player) {
-            Ok(val) => val,
-            Err(_) => {
-                return Err(anyhow!(
-                    "Unable to get the inner value of arc! Not dropping!"
-                ))
-            }
-        };
-
-        let player_context = match player_context.into_inner() {
-            Ok(val) => val,
-            Err(_) => return Err(anyhow!("Coudln't get inner value of mutex! Not dropping!")),
-        };
-
-        VideoPlayer::destroy(player_context)
-    }
+//Thanks to https://github.com/alexschrod for helping me with getting this Arc pointer to work
+//He made this code much better!
+pub fn wrap_to_ptr<T>(to_wrap: T) -> i64
+    where T: VideoPlayer
+{
+    let arc = Arc::new(Mutex::new(to_wrap)) as Arc<Mutex<dyn VideoPlayer>>;
+    Box::into_raw(Box::new(arc)) as *const () as i64
 }
+
+pub fn load_frame(ptr: i64) -> anyhow::Result<Vec<i8>> {
+    let player_context = get_context!(ptr);
+    let mut player_context = lock_mutex!(player_context);
+
+    player_context.load_frame()
+}
+
+pub fn video_data(ptr: i64) -> anyhow::Result<VideoData> {
+    let player_context = get_context!(ptr);
+    let player_context = lock_mutex!(player_context);
+
+    player_context.video_data()
+}
+
+pub fn pass_jvm_msg(ptr: i64, msg: NativeCommunication) -> anyhow::Result<()> {
+    let player_context = get_context!(ptr);
+    let player_context = lock_mutex!(player_context);
+
+    player_context.handle_jvm_msg(msg)
+}
+
+pub fn destroy(ptr: i64) -> anyhow::Result<()> {
+    drop(unsafe {
+        Box::from_raw(ptr as *mut Arc<Mutex<dyn VideoPlayer>>)
+    });
+
+    Ok(())
+}
+
 
 pub fn receive_and_process_decoded_frames(
     decoder: &mut ffmpeg::decoder::Video,
@@ -125,7 +111,7 @@ pub fn receive_and_process_decoded_frames(
 }
 
 pub trait VideoPlayer {
-    fn create(file_name: String, server_options: ServerOptions) -> anyhow::Result<PlayerContext>
+    fn create(file_name: String, server_options: ServerOptions) -> anyhow::Result<Self>
     where
         Self: Sized;
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>>;

@@ -21,10 +21,10 @@ use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
 use jni::JNIEnv;
 use map_server::ServerOptions;
 use player::game_player::GamePlayer;
-use player::player_context::NativeCommunication;
+use player::player_context::{NativeCommunication, self};
 
 use crate::player::multi_video_player::MultiVideoPlayer;
-use crate::player::player_context::{PlayerContext, VideoPlayer};
+use crate::player::player_context::VideoPlayer;
 use crate::player::single_video_player::SingleVideoPlayer;
 use crate::splitting::SplittedFrame;
 
@@ -141,15 +141,15 @@ fn init(
     return match render_type {
         0 => {
             let player_context = SingleVideoPlayer::create(file_name, server_options)?;
-            Ok(PlayerContext::wrap_to_ptr(player_context))
+            Ok(player_context::wrap_to_ptr(player_context))
         }
         1 => {
             let player_context = MultiVideoPlayer::create(file_name, server_options)?;
-            Ok(PlayerContext::wrap_to_ptr(player_context))
+            Ok(player_context::wrap_to_ptr(player_context))
         }
         2 => {
            let player_context = GamePlayer::create(file_name, server_options)?;
-           Ok(PlayerContext::wrap_to_ptr(player_context))
+           Ok(player_context::wrap_to_ptr(player_context))
         }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({})", render_type))),
     };
@@ -157,7 +157,7 @@ fn init(
 
 //According to kotlin "@return Byte array of transformed frame (color index)"
 fn load_frame(env: JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
-    let data = PlayerContext::load_frame(ptr)?;
+    let data = player_context::load_frame(ptr)?;
     let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
     env.set_byte_array_region(output, 0, &data.as_slice())?;
 
@@ -184,13 +184,13 @@ fn recive_jvm_msg(
         _ => return Err(anyhow!("Invalid msg enum")),
     };
 
-    PlayerContext::pass_jvm_msg(ptr, msg_type)?;
+    player_context::pass_jvm_msg(ptr, msg_type)?;
     Ok(())
 }
 
 //Destroy function must be called to drop video_player struct
 fn destroy(_env: JNIEnv, ptr: jlong) -> anyhow::Result<()> {
-    PlayerContext::destroy(ptr)?;
+    player_context::destroy(ptr)?;
     Ok(())
 }
 
@@ -198,7 +198,7 @@ fn get_video_data(env: JNIEnv, ptr: jlong) -> anyhow::Result<jobject> {
     // let jclass = env.find_class("me/wcaleniewolny/ayaya/library/VideoData")?;
     // let jconstructor = env.get_method_id(jclass, "<init>", "(III)V")?;
 
-    let video_data = PlayerContext::video_data(ptr)?;
+    let video_data = player_context::video_data(ptr)?;
 
     let jobject = env.new_object(
         "me/wcaleniewolny/ayaya/library/VideoData",

@@ -38,6 +38,9 @@ class VideoCommandCompletion(
             return@registerAsyncCompletion mutableListOf("single", "multi", "map_server")
         }
 
+        manager.commandCompletions.registerAsyncCompletion("games") {
+            return@registerAsyncCompletion mutableListOf("flappy_bird")
+        }
     }
 
 }

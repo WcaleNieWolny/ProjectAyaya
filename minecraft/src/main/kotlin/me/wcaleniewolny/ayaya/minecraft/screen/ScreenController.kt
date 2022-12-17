@@ -73,7 +73,6 @@ class ScreenController(private val plugin: JavaPlugin) {
 
         screenYaml.save(screenFile)
 
-
         screens.add(screen)
     }
 
@@ -104,6 +103,23 @@ class ScreenController(private val plugin: JavaPlugin) {
             renderService.startRendering()
             sender.sendColoredMessage(plugin.config.getString("success")!!)
         })
+    }
+
+    fun startGame(
+        game: String,
+        screen: Screen
+    ){
+        val renderService = RenderServiceFactory.create(
+            plugin,
+            game, //Note: in game mode this will load selected game
+            screen.startID,
+            false,
+            RenderServiceType.JAVA,
+            VideoPlayType.GAME
+        )
+
+        screen.renderService = Optional.of(renderService)
+        renderService.startRendering()
     }
 
     fun killPlayback(screen: Screen) {

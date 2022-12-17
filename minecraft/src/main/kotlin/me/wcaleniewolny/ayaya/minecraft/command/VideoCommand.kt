@@ -47,6 +47,11 @@ class VideoCommand(
         }
         val screen = screenOptional.get()
 
+        if(screen.renderService.isPresent){
+            sender.sendColoredMessage(fileConfiguration.getString("unableToStartPlayback")!!)
+            return
+        }
+
         val file = File(File(plugin.dataFolder, "video"), video)
 
         //Prevent path traversal
@@ -69,6 +74,28 @@ class VideoCommand(
         //val allowMapServer = plugin.config.getBoolean("allowMapServer")
 
         screenController.startPlayback(videoPlayType, file, sender, screen)
+    }
+
+    @Subcommand("game")
+    @Syntax("[screen_id] [game]")
+    @CommandCompletion("@screens @games @nothing")
+    fun onGame(
+        sender: CommandSender,
+        @Values("@screens") screenId: String,
+        @Values("@games") game: String
+    ){
+        val screenOptional = lookupScreen(sender, screenId)
+        if (screenOptional.isEmpty) {
+            return
+        }
+        val screen = screenOptional.get()
+
+        if(screen.renderService.isPresent){
+            sender.sendColoredMessage(fileConfiguration.getString("unableToStartPlayback")!!)
+            return
+        }
+
+        screenController.startGame(game, screen)
     }
 
     @Subcommand("pause")
@@ -167,6 +194,7 @@ class VideoCommand(
 
         } catch (e: Exception) {
             sender.sendColoredMessage(fileConfiguration.getString("screenCreationFailed")!!)
+            return
         }
 
         sender.sendColoredMessage(fileConfiguration.getString("screenCreationSuccess")!!)

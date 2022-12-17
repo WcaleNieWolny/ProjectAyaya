@@ -10,7 +10,7 @@ use ffmpeg::Error::Eof;
 use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::ServerOptions;
 use crate::player::player_context::{
-    receive_and_process_decoded_frames, PlayerContext, VideoData, VideoPlayer,
+    receive_and_process_decoded_frames, VideoData, VideoPlayer,
 };
 use crate::{ffmpeg_set_multithreading, SplittedFrame};
 
@@ -26,7 +26,7 @@ pub struct SingleVideoPlayer {
 }
 
 impl VideoPlayer for SingleVideoPlayer {
-    fn create(file_name: String, server_options: ServerOptions) -> anyhow::Result<PlayerContext> {
+    fn create(file_name: String, server_options: ServerOptions) -> anyhow::Result<Self> {
         if server_options.use_server {
             return Err(anyhow!("Single video player does not support map server"));
         }
@@ -74,7 +74,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 fps,
             };
 
-            return Ok(PlayerContext::from_player(single_video_player));
+            return Ok(single_video_player);
         }
 
         Err(anyhow::Error::new(Error::StreamNotFound))

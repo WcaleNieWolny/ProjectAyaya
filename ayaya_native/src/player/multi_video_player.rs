@@ -20,7 +20,7 @@ use tokio::sync::oneshot;
 use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
-use crate::{ffmpeg_set_multithreading, PlayerContext, SplittedFrame, VideoPlayer};
+use crate::{ffmpeg_set_multithreading, SplittedFrame, VideoPlayer};
 
 use super::player_context::NativeCommunication;
 
@@ -63,7 +63,7 @@ impl VideoPlayer for MultiVideoPlayer {
     fn create(
         file_name: String,
         map_server_options: ServerOptions,
-    ) -> anyhow::Result<PlayerContext> {
+    ) -> anyhow::Result<Self> {
         let thread_pool_size = 24;
         let runtime = Builder::new_multi_thread()
             .worker_threads(thread_pool_size as usize)
@@ -122,6 +122,7 @@ impl VideoPlayer for MultiVideoPlayer {
 
         let (stop_tx, mut stop_rx) = oneshot::channel::<bool>();
         thread::spawn(move || {
+            ffmpeg::init().expect("Couldn't init ffmpeg!");;
             if let Ok(mut ictx) = input(&file_name) {
                 let input = ictx
                     .streams()
@@ -287,7 +288,7 @@ impl VideoPlayer for MultiVideoPlayer {
             stop_tx,
             runtime: Arc::new(runtime),
         };
-        Ok(PlayerContext::from_player(multi_video_player))
+        Ok(multi_video_player)
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
