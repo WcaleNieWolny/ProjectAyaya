@@ -31,6 +31,7 @@ impl Game for FlappyBirdGame {
         
         canvas.draw_pixel(0, 0, Color::RED);
         canvas.draw_pixel(639, 639, Color::RED);
+        canvas.draw_square(50, 0, 100, 100, Color::RED);
 
         Ok(canvas)
     }

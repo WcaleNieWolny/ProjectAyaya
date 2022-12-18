@@ -1,3 +1,5 @@
+use std::iter;
+
 use anyhow::anyhow;
 
 use crate::{map_server::ServerOptions, colorlib::{Color, transform_frame_to_mc}, splitting::SplittedFrame};
@@ -15,7 +17,7 @@ impl VideoCanvas {
         height: usize,
         start_color: Color, 
     ) -> Self {
-        let vec: Vec<u8> = std::iter::repeat([start_color.red, start_color.green, start_color.blue])
+        let vec: Vec<u8> = iter::repeat([start_color.red, start_color.green, start_color.blue])
             .take((width * height) as usize)
             .flatten()
             .collect();
@@ -46,12 +48,24 @@ impl VideoCanvas {
     ){
         let x1 = x1.min(x2);
         let x2 = x1.max(x2);
-        let y1 = (self.height - 1 - y1).min(self.height - 1 - y2);
-        let y2 = (self.height - 1 - y1).max(self.height - 1 - y2);
+
+        let temp_y1 = self.height - y1;
+        let temp_y2 = self.height - y2;
+        let y1 = temp_y1.min(temp_y2);
+        let y2 = temp_y1.max(temp_y2);
 
         let width = x2 - x1;
-        let height = y2 - x1;
 
+        let data_to_copy: Vec<u8> = iter::repeat([color.red, color.green, color.blue])
+            .take(width)
+            .flatten()
+            .collect();
+
+        println!("s: {}", data_to_copy.len());
+
+        for y in y1..y2 {
+            self.vec[(((y * self.width) + x1) * 3)..(((y * self.width) + x2) * 3)].copy_from_slice(&data_to_copy);
+        }
     }
 
     pub fn draw_to_minecraft(&self, splitted_frames: &mut Vec<SplittedFrame>) -> anyhow::Result<Vec<i8>>{
