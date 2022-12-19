@@ -41,6 +41,7 @@ impl Color {
 pub static CONVERSION_TABLE: &[u8; 16777216] =
     include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
+
 pub fn get_cached_index(color: Color) -> i8 {
     CONVERSION_TABLE
         [(color.red as usize * 256 * 256) + (color.green as usize * 256) + color.blue as usize]

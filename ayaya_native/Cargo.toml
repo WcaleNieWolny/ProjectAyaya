@@ -14,12 +14,12 @@ tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 flate2 = { version = "1.0.17", features = ["zlib-ng"], default-features = false }
 
+[build-dependencies]
+image = "0.24.5"
+
 [patch.crates-io]
 ffmpeg-next = { git = "https://github.com/FreezyLemon/rust-ffmpeg", branch = "non-exhaustive-enum" }
 ffmpeg-sys-next = { git = "https://github.com/FreezyLemon/rust-ffmpeg-sys", branch = "non-exhaustive-enum" }
-
-[dev-dependencies]
-rand = "0.8.5"
 
 [lib]
 crate_type = ["cdylib"]

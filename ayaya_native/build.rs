@@ -1,6 +1,8 @@
+use std::error::Error;
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Write, BufReader, Read};
 use std::{env, slice};
+use image::GenericImageView;
 
 pub struct MinecraftColor {
     red: u8,
@@ -305,13 +307,14 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
     };
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>>{
     let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
     let out_dir = format!("{}/cached_color.hex", out_dir);
 
-    println!("cargo:rerun-if-changed=build.rs");
+    //println!("cargo:rerun-if-changed=build.rs");
+    //println!(r#""cargo:rerun-if-changed=./assets""#);
 
-    let mut file = BufWriter::new(File::create(out_dir).unwrap());
+    let mut color_file = BufWriter::new(File::create(out_dir).unwrap());
 
     for r in 0..=255 {
         for g in 0..=255 {
@@ -322,10 +325,36 @@ fn main() {
 
                 let b: &[u8] = slice::from_ref(&color);
 
-                file.write(b).unwrap();
+                color_file.write(b).unwrap();
             }
         }
     }
 
-    file.flush().unwrap();
+    color_file.flush().unwrap();
+
+    let asstets_entries = std::fs::read_dir("./assets/")?
+        .map(|res| res.map(|e| e.path()))
+        .collect::<Result<Vec<_>, std::io::Error>>()?;
+
+    for ele in asstets_entries {
+        let name = ele.to_str().unwrap().replace("./assets/", "");
+        println!("N: {:?}", name);
+
+        let img = image::open(ele)?;
+        let (width, height) = img.dimensions();
+        println!("I: {}, {}", width, height);
+
+        let img = match img {
+            image::DynamicImage::ImageRgb8(img) => img,
+            x => x.to_rgb8()
+        };
+
+        let v = img.into_vec();
+        println!("l {} v : {:?}", v.len(), v);
+
+        let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
+        let out_dir = format!("{}/cached_color.bin", out_dir);
+    }
+
+    Ok(())
 }
