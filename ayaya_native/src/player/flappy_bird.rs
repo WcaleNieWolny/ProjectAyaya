@@ -1,10 +1,12 @@
-use crate::colorlib::Color;
+use crate::{colorlib::Color, bake_image};
 
-use super::game_player::{Game, VideoCanvas, GamePlayer};
+use super::game_player::{Game, VideoCanvas, GamePlayer, BakedImage};
 
 pub struct FlappyBirdGame {
     
 }
+
+static TEST_IMAGE: BakedImage = bake_image!(test); 
 
 impl Game for FlappyBirdGame {
     //5 x 5 @ 15 FPS
@@ -32,6 +34,7 @@ impl Game for FlappyBirdGame {
         canvas.draw_pixel(0, 0, Color::RED);
         canvas.draw_pixel(639, 639, Color::RED);
         canvas.draw_square(50, 0, 100, 100, Color::RED);
+        canvas.draw_image(200, 200, &TEST_IMAGE);
 
         Ok(canvas)
     }

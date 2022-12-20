@@ -25,6 +25,7 @@ name = "ayaya_native"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytemuck",
  "ffmpeg-next",
  "flate2",
  "image",

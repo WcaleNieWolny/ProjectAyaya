@@ -1,4 +1,3 @@
-use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;

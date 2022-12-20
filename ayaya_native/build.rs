@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufWriter, Write, BufReader, Read};
+use std::io::{BufWriter, Write};
+use std::path::Path;
 use std::{env, slice};
 use image::GenericImageView;
 
@@ -308,52 +309,86 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
 }
 
 fn main() -> Result<(), Box<dyn Error>>{
-    let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
+    let out_dir = env::var("OUT_DIR")?; //cargo makes sure that "OUT_DIR" exist
     let out_dir = format!("{}/cached_color.hex", out_dir);
 
-    //println!("cargo:rerun-if-changed=build.rs");
-    //println!(r#""cargo:rerun-if-changed=./assets""#);
+    println!("cargo:rerun-if-changed=build.rs");
+    println!(r#""cargo:rerun-if-changed=./assets""#);
 
-    let mut color_file = BufWriter::new(File::create(out_dir).unwrap());
+    if !Path::new(&out_dir).exists() {
+        println!("Color file does not exists!");
+        let mut color_file = BufWriter::new(File::create(out_dir)?);
 
-    for r in 0..=255 {
-        for g in 0..=255 {
-            for b in 0..=255 {
-                let color = get_mc_index(MinecraftColor::new(r, g, b));
+        for r in 0..=255 {
+            for g in 0..=255 {
+                for b in 0..=255 {
+                    let color = get_mc_index(MinecraftColor::new(r, g, b));
 
-                let color: u8 = color as u8;
+                    let color: u8 = color as u8;
 
-                let b: &[u8] = slice::from_ref(&color);
+                    let b: &[u8] = slice::from_ref(&color);
 
-                color_file.write(b).unwrap();
+                    color_file.write(b)?;
+                }
             }
         }
-    }
 
-    color_file.flush().unwrap();
+        color_file.flush().unwrap();
+    };
 
     let asstets_entries = std::fs::read_dir("./assets/")?
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>, std::io::Error>>()?;
 
     for ele in asstets_entries {
-        let name = ele.to_str().unwrap().replace("./assets/", "");
-        println!("N: {:?}", name);
+        let mut name = ele.to_str().unwrap().replace("./assets/", "");
+        match ele.extension() {
+            Some(val) => {
+                name = name.replace(".", "").replace(val.to_str().unwrap(), "")
+            },
+            None => {}
+        }
 
         let img = image::open(ele)?;
         let (width, height) = img.dimensions();
-        println!("I: {}, {}", width, height);
 
         let img = match img {
-            image::DynamicImage::ImageRgb8(img) => img,
-            x => x.to_rgb8()
+            image::DynamicImage::ImageRgba8(img) => img,
+            x => x.to_rgba8()
         };
 
-        let v = img.into_vec();
-        println!("l {} v : {:?}", v.len(), v);
+        let input_data = img.into_vec();
 
         let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
-        let out_dir = format!("{}/cached_color.bin", out_dir);
+        let out_path = format!("{}/{}.bin", out_dir, name);
+        let mut output_file = BufWriter::new(File::create(out_path)?);
+
+        //println!("D: {:?}", data);
+
+        for y in 0..height{
+            for x in 0..width{
+                let a = input_data[((((y * width) + x) * 4) + 3) as usize];
+
+                if a != 255{
+                    output_file.write(slice::from_ref(&0u8))?;
+                    continue;
+                }
+
+                let r = input_data[(((y * width) + x) * 4) as usize];
+                let g = input_data[((((y * width) + x) * 4) + 1) as usize];
+                let b = input_data[((((y * width) + x) * 4) + 2) as usize];
+                
+                output_file.write(slice::from_ref(&(get_mc_index(MinecraftColor::new(r, g, b)) as u8)))?; 
+            }
+        }
+
+        let mut dimensions_file =BufWriter::new(File::create(format!("{}/{}.dim", out_dir, name))?);
+        dimensions_file.write(&width.to_be_bytes())?;
+        dimensions_file.write(&height.to_be_bytes())?;
+
+        dimensions_file.flush()?;
+        output_file.flush()?;
+
     }
 
     Ok(())
