@@ -3,9 +3,10 @@ package me.wcaleniewolny.ayaya.minecraft.render.impl
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.render.RenderService
 import me.wcaleniewolny.ayaya.minecraft.render.RenderThread
+import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 
-class JavaRenderServiceImpl(
+open class JavaRenderServiceImpl(
     private val renderThread: RenderThread
 ) : RenderService {
 
@@ -38,8 +39,6 @@ class JavaRenderServiceImpl(
     }
 
     override fun killRendering() {
-        //Potential race condition
-        //If we destroy native resources in the time when render thread is  getting a frame we have a SEGFAULT
         renderThread.renderFrames.set(false)
         NativeRenderControler.destroy(renderThread.ptr)
     }

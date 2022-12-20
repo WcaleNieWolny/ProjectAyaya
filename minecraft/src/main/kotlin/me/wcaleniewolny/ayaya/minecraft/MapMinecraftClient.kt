@@ -3,6 +3,7 @@ package me.wcaleniewolny.ayaya.minecraft
 import co.aikar.commands.PaperCommandManager
 import me.wcaleniewolny.ayaya.minecraft.command.VideoCommand
 import me.wcaleniewolny.ayaya.minecraft.command.VideoCommandCompletion
+import me.wcaleniewolny.ayaya.minecraft.game.NativeGameController
 import me.wcaleniewolny.ayaya.minecraft.screen.ScreenController
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
@@ -21,8 +22,11 @@ class MapMinecraftClient : JavaPlugin() {
             return
         }
 
-        val screenController = ScreenController(this);
+        val nativeGameController = NativeGameController(this)
+        val screenController = ScreenController(this, nativeGameController);
+
         screenController.init()
+        nativeGameController.init()
 
         val manager = PaperCommandManager(this)
         val videoCommandCompletion = VideoCommandCompletion(screenController)

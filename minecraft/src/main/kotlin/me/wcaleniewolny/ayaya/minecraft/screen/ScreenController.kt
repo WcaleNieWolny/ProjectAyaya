@@ -3,9 +3,16 @@ package me.wcaleniewolny.ayaya.minecraft.screen
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
 import me.wcaleniewolny.ayaya.minecraft.extenstion.forEachIn
+import me.wcaleniewolny.ayaya.minecraft.game.NativeGameController
 import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceFactory
 import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceType
 import me.wcaleniewolny.ayaya.minecraft.sendColoredMessage
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket
+import net.minecraft.network.syncher.EntityDataAccessor
+import net.minecraft.network.syncher.EntityDataSerializers
+import net.minecraft.network.syncher.SynchedEntityData
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.item.ItemStack
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -13,15 +20,20 @@ import org.bukkit.World
 import org.bukkit.block.BlockFace
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
+import org.bukkit.craftbukkit.v1_18_R2.entity.CraftItemFrame
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.ItemFrame
+import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
 import java.io.File
 import java.util.*
 
 
-class ScreenController(private val plugin: JavaPlugin) {
+class ScreenController(
+    private val plugin: JavaPlugin,
+    private val nativeGameController: NativeGameController
+) {
 
     private val dir = File(plugin.dataFolder, "screens")
     private val screens = mutableListOf<Screen>()
@@ -107,7 +119,8 @@ class ScreenController(private val plugin: JavaPlugin) {
 
     fun startGame(
         game: String,
-        screen: Screen
+        screen: Screen,
+        player: Player
     ){
         val renderService = RenderServiceFactory.create(
             plugin,
@@ -117,6 +130,8 @@ class ScreenController(private val plugin: JavaPlugin) {
             RenderServiceType.JAVA,
             VideoPlayType.GAME
         )
+
+        nativeGameController.registerGamer(player, screen)
 
         screen.renderService = Optional.of(renderService)
         renderService.startRendering()
@@ -185,6 +200,9 @@ class ScreenController(private val plugin: JavaPlugin) {
         val frameLocation = Location(loc.world, loc.blockX + 0.5, loc.blockY + 0.5, loc.z + 0.5)
         for (entity in frameLocation.world.getNearbyEntities(frameLocation, 0.5, 0.5, 0.5)) {
             if (entity is ItemFrame) {
+                //val data = SynchedEntityData(entity as Entity)
+                //data.set(EntityDataAccessor(8, EntityDataSerializers.ITEM_STACK), "")
+                //val metadataPacket = ClientboundSetEntityDataPacket((entity as CraftItemFrame).entityId, )
                 return Optional.of(entity)
             }
         }

@@ -47,6 +47,7 @@ object RenderServiceFactory {
                     MinecraftNativeBroadcaster(startID),
                     width, height
                 ),
+                videoPlayType != VideoPlayType.GAME,
                 fps,
                 ptr
             )

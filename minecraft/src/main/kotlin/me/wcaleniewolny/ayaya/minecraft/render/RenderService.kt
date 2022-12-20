@@ -1,5 +1,6 @@
 package me.wcaleniewolny.ayaya.minecraft.render
 
+import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 
 interface RenderService {

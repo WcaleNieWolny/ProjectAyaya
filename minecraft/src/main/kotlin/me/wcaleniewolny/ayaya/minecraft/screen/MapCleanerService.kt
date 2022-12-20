@@ -18,6 +18,7 @@ object MapCleanerService {
         for (i in startID until len) {
             val map = getBukkitMapView(world, i)
             map.isLocked = true
+            map.isUnlimitedTracking = false
             map.renderers.forEach { map.removeRenderer(it) }
             map.isTrackingPosition = false
             map.isUnlimitedTracking = false

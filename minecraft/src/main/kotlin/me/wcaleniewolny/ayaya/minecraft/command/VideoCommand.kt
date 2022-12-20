@@ -8,6 +8,7 @@ import me.wcaleniewolny.ayaya.minecraft.screen.ScreenFacing
 import me.wcaleniewolny.ayaya.minecraft.sendColoredMessage
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.FileConfiguration
+import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.util.Optional
@@ -80,7 +81,7 @@ class VideoCommand(
     @Syntax("[screen_id] [game]")
     @CommandCompletion("@screens @games @nothing")
     fun onGame(
-        sender: CommandSender,
+        sender: Player,
         @Values("@screens") screenId: String,
         @Values("@games") game: String
     ){
@@ -95,7 +96,7 @@ class VideoCommand(
             return
         }
 
-        screenController.startGame(game, screen)
+        screenController.startGame(game, screen, sender)
     }
 
     @Subcommand("pause")
