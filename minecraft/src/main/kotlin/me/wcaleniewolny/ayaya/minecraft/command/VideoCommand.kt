@@ -154,7 +154,7 @@ class VideoCommand(
     @CommandCompletion("@nothing @screenFacing @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @nothing")
     @Description("Create video screen")
     fun onScreenCreate(
-        sender: CommandSender,
+        sender: Player,
         name: String,
         screenFacing: ScreenFacing,
         x1: Int,
@@ -162,7 +162,10 @@ class VideoCommand(
         z1: Int,
         x2: Int,
         y2: Int,
-        z2: Int
+        z2: Int,
+        gameX: Int,
+        gameY: Int,
+        gameZ: Int
     ) {
 
         if (z1 != z2 && x1 != x2) {
@@ -184,12 +187,34 @@ class VideoCommand(
         try {
             if(screenFacing == ScreenFacing.SOUTH || screenFacing == ScreenFacing.WEST){
                 screenController.createScreen(
-                    name, screenFacing, min(x1, x2), max(y1, y2), min(z1, z2), max(x1, x2), min(y1, y2), max(z1, z2)
+                    name,
+                    screenFacing,
+                    min(x1, x2),
+                    max(y1, y2),
+                    min(z1, z2),
+                    max(x1, x2),
+                    min(y1, y2),
+                    max(z1, z2),
+                    gameX,
+                    gameY,
+                    gameZ,
+                    sender.world
                 )
 
             }else {
                 screenController.createScreen(
-                    name, screenFacing, max(x1, x2), max(y1, y2), max(z1, z2), min(x1, x2), min(y1, y2), min(z1, z2)
+                    name,
+                    screenFacing,
+                    max(x1, x2),
+                    max(y1, y2),
+                    max(z1, z2),
+                    min(x1, x2),
+                    min(y1, y2),
+                    min(z1, z2),
+                    gameX,
+                    gameY,
+                    gameZ,
+                    sender.world
                 )
             }
 

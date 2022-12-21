@@ -2,6 +2,8 @@ package me.wcaleniewolny.ayaya.minecraft.game
 
 import me.wcaleniewolny.ayaya.minecraft.screen.Screen
 import org.bukkit.Bukkit
+import org.bukkit.Location
+import org.bukkit.block.BlockFace
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -12,6 +14,8 @@ import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.util.Vector
+import kotlin.math.E
 
 class NativeGameController(private val plugin: JavaPlugin): Listener {
 
@@ -59,7 +63,33 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
     }
 
     fun registerGamer(player: Player, screen: Screen){
-        println("${player.name} become a game!")
         games.add(NativeGame(screen, player))
+
+        val facing = when (screen.mapFace){
+            BlockFace.NORTH -> BlockFace.SOUTH
+            BlockFace.SOUTH -> BlockFace.NORTH
+            BlockFace.EAST -> BlockFace.WEST
+            BlockFace.WEST -> BlockFace.EAST
+            else -> return
+        }
+
+        var location = Location(
+            screen.world,
+            screen.gameX.toDouble(),
+            screen.gameY.toDouble(),
+            screen.gameZ.toDouble()
+        )
+        location.direction = facing.direction
+        location = location.add(Vector(0.5, 1.0, 0.5))
+
+        player.teleport(location)
+    }
+
+    fun unregisterScreen(screen: Screen){
+        val gameIndex = games.indexOfFirst { it.screen == screen }
+        if(gameIndex == -1) {
+            return
+        }
+        games.removeAt(gameIndex)
     }
 }

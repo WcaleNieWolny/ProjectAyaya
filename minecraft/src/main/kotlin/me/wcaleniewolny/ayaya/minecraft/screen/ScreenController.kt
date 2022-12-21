@@ -7,6 +7,7 @@ import me.wcaleniewolny.ayaya.minecraft.extenstion.forEachIn
 import me.wcaleniewolny.ayaya.minecraft.game.NativeGameController
 import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceFactory
 import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceType
+import me.wcaleniewolny.ayaya.minecraft.render.impl.JavaRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.sendColoredMessage
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket
 import net.minecraft.network.syncher.EntityDataAccessor
@@ -50,6 +51,9 @@ class ScreenController(
             ?.filterNot { it.name.contains(" ") }
             ?.forEach { file ->
                 val screenYaml = YamlConfiguration.loadConfiguration(file)
+
+                val world = Bukkit.getWorld(UUID.fromString(screenYaml.getString("world"))) ?: return
+
                 val startID = screenYaml.getInt("id")
                 val facing = ScreenFacing.valueOf(screenYaml.getString("facing")!!)
                 val x1 = screenYaml.getInt("x1")
@@ -58,12 +62,28 @@ class ScreenController(
                 val x2 = screenYaml.getInt("x2")
                 val y2 = screenYaml.getInt("y2")
                 val z2 = screenYaml.getInt("z2")
+                val gX = screenYaml.getInt("gx")
+                val gY = screenYaml.getInt("gy")
+                val gZ = screenYaml.getInt("gz")
 
-                screens.add(Screen(startID, file.nameWithoutExtension, facing.toBlockFace(), x1, y1, z1, x2, y2, z2))
+                screens.add(Screen(startID, file.nameWithoutExtension, facing.toBlockFace(), x1, y1, z1, x2, y2, z2, gX, gY, gZ, world))
         }
     }
 
-    fun createScreen(name: String, facing: ScreenFacing, x1: Int, y1: Int, z1: Int, x2: Int, y2: Int, z2: Int) {
+    fun createScreen(
+        name: String,
+        facing: ScreenFacing,
+        x1: Int,
+        y1: Int,
+        z1: Int,
+        x2: Int,
+        y2: Int,
+        z2: Int,
+        gameX: Int,
+        gameY: Int,
+        gameZ: Int,
+        world: World
+    ) {
         val screenFile = File(dir, "${name}.yml")
 
         if (screenFile.exists()) {
@@ -71,11 +91,9 @@ class ScreenController(
         }
 
         val face = facing.toBlockFace()
-        val world = Bukkit.getWorlds()[0] //Hope it is the overworld
         val startID = buildScreen(world, Vector(x1, y1, z1), Vector(x2, y2, z2), face)
 
-
-        val screen = Screen(startID, name, face, x1, y1, z1, x2, y2, z2)
+        val screen = Screen(startID, name, face, x1, y1, z1, x2, y2, z2, gameX, gameY, gameZ, world)
 
         val screenYaml = YamlConfiguration.loadConfiguration(screenFile)
 
@@ -87,6 +105,10 @@ class ScreenController(
         screenYaml.set("x2", x2)
         screenYaml.set("y2", y2)
         screenYaml.set("z2", z2)
+        screenYaml.set("gx", gameX)
+        screenYaml.set("gy", gameY)
+        screenYaml.set("gz", gameZ)
+        screenYaml.set("world", world.uid.toString())
 
         screenYaml.save(screenFile)
 
@@ -150,9 +172,11 @@ class ScreenController(
 
         val renderService = renderServiceOptional.get()
         renderService.killRendering()
+
         screen.renderService = Optional.empty()
 
         restartVideoScreen(screen)
+        nativeGameController.unregisterScreen(screen) //This is a NOOP when a screen is a non gaming screen
     }
 
     fun getScreens(): List<Screen> {
