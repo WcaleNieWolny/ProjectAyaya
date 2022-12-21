@@ -2,6 +2,7 @@ package me.wcaleniewolny.ayaya.minecraft.screen
 
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
+import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.MinecraftNativeBroadcaster
 import me.wcaleniewolny.ayaya.minecraft.extenstion.forEachIn
 import me.wcaleniewolny.ayaya.minecraft.game.NativeGameController
 import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceFactory
@@ -12,7 +13,8 @@ import net.minecraft.network.syncher.EntityDataAccessor
 import net.minecraft.network.syncher.EntityDataSerializers
 import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.world.entity.Entity
-import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Item
+import net.minecraft.world.level.ItemLike
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -21,9 +23,12 @@ import org.bukkit.block.BlockFace
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.craftbukkit.v1_18_R2.entity.CraftItemFrame
+import org.bukkit.craftbukkit.v1_18_R2.entity.CraftPlayer
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.ItemFrame
 import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.meta.MapMeta
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
 import java.io.File
@@ -37,6 +42,7 @@ class ScreenController(
 
     private val dir = File(plugin.dataFolder, "screens")
     private val screens = mutableListOf<Screen>()
+    private val random = Random()
 
     fun init() {
 
@@ -70,7 +76,6 @@ class ScreenController(
 
 
         val screen = Screen(startID, name, face, x1, y1, z1, x2, y2, z2)
-        MapCleanerService.cleanMaps(world, startID, (screen.width*screen.height) / 16384)
 
         val screenYaml = YamlConfiguration.loadConfiguration(screenFile)
 
@@ -157,9 +162,17 @@ class ScreenController(
 
     fun restartVideoScreen(screen: Screen){
         for(i in screen.startID until screen.startID + (screen.width * screen.height) / 16384){
-            val map = Bukkit.getMap(i)!!
-            Bukkit.getOnlinePlayers().forEach {player ->
-                player.sendMap(map)
+            val mapPacket = MinecraftNativeBroadcaster.makeMapPacket(
+                i,
+                0,
+                0,
+                128,
+                128,
+                ByteArray(16384) { 0 }
+            )
+
+            Bukkit.getOnlinePlayers().forEach {
+                (it as CraftPlayer).handle.connection.send(mapPacket)
             }
         }
     }
@@ -175,9 +188,10 @@ class ScreenController(
         cloneLoc1.add(blockFace.direction)
         cloneLoc2.add(blockFace.direction)
 
-        val preMap = Bukkit.createMap(world)
+        //It will have fake item init - no need to have realists ids
+        val preMap = random.nextInt(2_000_000 - 1_000_000) + 1_000_000
 
-        var i = preMap.id + 1
+        var i = preMap
 
         world.forEachIn(cloneLoc1, cloneLoc2) {
             it.type = Material.AIR
@@ -188,21 +202,18 @@ class ScreenController(
                 newFrame.isInvulnerable = true
                 newFrame.setFacingDirection(blockFace, true)
                 newFrame.setItem(MapCleanerService.generateMapItem(i, world))
-                i++
                 newFrame
             }
+            i++
         }
 
-        return preMap.id + 1
+        return preMap
     }
 
     private fun getFrameAt(loc: Location): Optional<ItemFrame> {
         val frameLocation = Location(loc.world, loc.blockX + 0.5, loc.blockY + 0.5, loc.z + 0.5)
         for (entity in frameLocation.world.getNearbyEntities(frameLocation, 0.5, 0.5, 0.5)) {
             if (entity is ItemFrame) {
-                //val data = SynchedEntityData(entity as Entity)
-                //data.set(EntityDataAccessor(8, EntityDataSerializers.ITEM_STACK), "")
-                //val metadataPacket = ClientboundSetEntityDataPacket((entity as CraftItemFrame).entityId, )
                 return Optional.of(entity)
             }
         }

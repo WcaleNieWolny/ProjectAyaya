@@ -12,6 +12,31 @@ class MinecraftNativeBroadcaster(
     private val startID: Int
 ) : Broadcaster {
 
+    companion object {
+        fun makeMapPacket(
+            id: Int,
+            startX: Int,
+            startY: Int,
+            width: Int,
+            height: Int,
+            data: ByteArray
+        ): ClientboundMapItemDataPacket {
+            return ClientboundMapItemDataPacket(
+                id,
+                0,
+                false,
+                null,
+                MapItemSavedData.MapPatch(
+                    startX,
+                    startY,
+                    width,
+                    height,
+                    data
+                )
+            )
+        }
+    }
+
     override fun init(players: List<Player>) {
         //Empty on purpose
     }
@@ -52,28 +77,5 @@ class MinecraftNativeBroadcaster(
                 (it as CraftPlayer).handle.connection.send(mapPacket)
             }
         }
-    }
-
-    private fun makeMapPacket(
-        id: Int,
-        startX: Int,
-        startY: Int,
-        width: Int,
-        height: Int,
-        data: ByteArray
-    ): ClientboundMapItemDataPacket {
-        return ClientboundMapItemDataPacket(
-            id,
-            0,
-            false,
-            null,
-            MapItemSavedData.MapPatch(
-                startX,
-                startY,
-                width,
-                height,
-                data
-            )
-        )
     }
 }
