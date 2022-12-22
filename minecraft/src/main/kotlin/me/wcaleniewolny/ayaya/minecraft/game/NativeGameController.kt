@@ -92,4 +92,8 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
         }
         games.removeAt(gameIndex)
     }
+
+    fun renderCallback(ptr: Long, screenName: String) {
+        println("Called game render callback with the ID: $screenName, and ptr: $ptr")
+    }
 }

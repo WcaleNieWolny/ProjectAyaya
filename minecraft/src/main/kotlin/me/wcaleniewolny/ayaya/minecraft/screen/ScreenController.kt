@@ -132,6 +132,7 @@ class ScreenController(
             val renderService = RenderServiceFactory.create(
                 plugin,
                 file.absolutePath,
+                screen.name,
                 screen.startID,
                 useMapServer,
                 if (useMapServer) RenderServiceType.NATIVE else RenderServiceType.JAVA,
@@ -152,10 +153,12 @@ class ScreenController(
         val renderService = RenderServiceFactory.create(
             plugin,
             game, //Note: in game mode this will load selected game
+            screen.name,
             screen.startID,
             false,
             RenderServiceType.JAVA,
-            VideoPlayType.GAME
+            VideoPlayType.GAME,
+            nativeGameController::renderCallback
         )
 
         nativeGameController.registerGamer(player, screen)

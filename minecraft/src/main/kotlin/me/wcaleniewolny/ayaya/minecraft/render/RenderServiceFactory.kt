@@ -19,10 +19,12 @@ object RenderServiceFactory {
     fun create(
         plugin: JavaPlugin,
         filename: String,
+        screenName: String,
         startID: Int,
         useServer: Boolean,
         service_type: RenderServiceType,
-        videoPlayType: VideoPlayType
+        videoPlayType: VideoPlayType,
+        renderCallback: ((ptr: Long, screenName: String) -> Unit)? = null
     ): RenderService {
         val ptr = NativeRenderControler.init(
             filename,
@@ -47,8 +49,10 @@ object RenderServiceFactory {
                     MinecraftNativeBroadcaster(startID),
                     width, height
                 ),
+                renderCallback,
                 videoPlayType != VideoPlayType.GAME,
                 fps,
+                screenName,
                 ptr
             )
         ) else NativeRenderServiceImpl(

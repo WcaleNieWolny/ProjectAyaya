@@ -150,8 +150,8 @@ class VideoCommand(
 
 
     @Subcommand("screen create")
-    @Syntax("[name] [facing] [x1] [y1] [z1] [x2] [y2] [z2]")
-    @CommandCompletion("@nothing @screenFacing @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @nothing")
+    @Syntax("[name] [facing] [x1] [y1] [z1] [x2] [y2] [z2] [game_x] [game_y] [game_z]")
+    @CommandCompletion("@nothing @screenFacing @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @lookingAt @nothing")
     @Description("Create video screen")
     fun onScreenCreate(
         sender: Player,

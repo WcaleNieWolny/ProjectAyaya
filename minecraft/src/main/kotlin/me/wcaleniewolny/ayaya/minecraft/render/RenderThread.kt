@@ -9,8 +9,10 @@ import kotlin.math.max
 //Note: We assume that ptr is a valid pointer and nativeRenderControler has been initialized
 class RenderThread(
     private val displayService: DisplayService,
+    private val renderCallback: ((ptr: Long, screenName: String) -> Unit)?,
     private val preRendering: Boolean,
     private val fps: Int,
+    private val screenName: String,
     val ptr: Long
 ) : Thread() {
 
@@ -28,7 +30,9 @@ class RenderThread(
     private fun renderLoop() {
 
         while (true) {
-            val start = System.nanoTime();
+            val start = System.nanoTime()
+
+            renderCallback?.invoke(ptr, screenName)
             val frame = if (frame.isNotEmpty()) frame else NativeRenderControler.loadFrame(ptr)
 
             displayService.displayFrame(frame)
