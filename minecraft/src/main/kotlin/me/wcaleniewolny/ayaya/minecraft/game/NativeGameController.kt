@@ -160,7 +160,6 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
             return
         }
 
-        game.player.sendMessage("$stringBuilder")
         NativeRenderControler.communicate(ptr, NativeLibCommunication.GAME_INPUT, stringBuilder.toString())
     }
 }

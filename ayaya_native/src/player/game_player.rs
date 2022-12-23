@@ -1,3 +1,5 @@
+use std::sync::mpsc::{Receiver, Sender, channel};
+
 use anyhow::anyhow;
 
 use crate::{map_server::ServerOptions, colorlib::Color, splitting::SplittedFrame};
@@ -9,7 +11,7 @@ pub struct VideoCanvas {
     vec: Vec<u8>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum GameInputDirection {
     FORWARD,
     BACKWARDS,
@@ -22,7 +24,7 @@ impl VideoCanvas {
     pub fn new(
         width: usize,
         height: usize,
-        start_color: Color, 
+        start_color: &Color, 
     ) -> Self {
         let vec: Vec<u8> = vec![start_color.to_mc() as u8; width*height];
 
@@ -37,16 +39,7 @@ impl VideoCanvas {
         &mut self,
         x: usize,
         y: usize,
-        color: Color
-    ){
-        self.draw_pixel_exact(x, self.height - y - 1, color);
-    }
-
-    fn draw_pixel_exact(
-        &mut self,
-        x: usize,
-        y: usize,
-        color: Color
+        color: &Color
     ){
         self.vec[(y * self.width) + x] = color.to_mc();
     }
@@ -57,21 +50,19 @@ impl VideoCanvas {
         y1: usize,
         x2: usize,
         y2: usize,
-        color: Color
+        color: &Color
     ){
         let x1 = x1.min(x2);
         let x2 = x1.max(x2);
 
-        let temp_y1 = self.height - y1;
-        let temp_y2 = self.height - y2;
-        let y1 = temp_y1.min(temp_y2);
-        let y2 = temp_y1.max(temp_y2);
+        let y1 = y1.min(y2);
+        let y2 = y1.max(y2);
 
         let width = x2 - x1;
 
         let data_to_copy: Vec<u8> = vec![color.to_mc(); width]; 
 
-        for y in y1..y2 {
+        for y in y1..y2+1{
             self.vec[((y * self.width) + x1)..((y * self.width) + x2)].copy_from_slice(&data_to_copy);
         }
     }
@@ -80,11 +71,10 @@ impl VideoCanvas {
     ///
     /// X and Y are the top left coordinates of the image
     pub fn draw_image(&mut self, x: usize, y: usize, image: &BakedImage){
-        let y2 = self.height as usize - y;
-        let y1 = y2 - image.height as usize;
-
+        let y1 = y - image.height as usize;
         let mut i : usize = 0;
-        for y in y1..y2 {
+
+        for y in y1..y {
             self.vec[((y * self.width) + x)..((y * self.width) + x + image.width as usize)].copy_from_slice(&image.data[(i * image.width as usize)..((i + 1) * image.width as usize)]);
             i += 1;
         }
@@ -131,7 +121,7 @@ pub trait Game {
     fn height(&self) -> i32;
     fn fps(&self) -> i32;
     fn new() -> Self where Self: Sized;
-    fn draw(&self, player: &GamePlayer) -> anyhow::Result<VideoCanvas>;
+    fn draw(&mut self, input_rx: &Receiver<GameInputDirection>) -> anyhow::Result<VideoCanvas>;
 }
 
 pub struct GamePlayer {
@@ -139,7 +129,9 @@ pub struct GamePlayer {
     pub height: i32,
     fps: i32,
     splitted_frames: Vec<SplittedFrame>,
-    game: Box<dyn Game>
+    game: Box<dyn Game>,
+    input_rx: Receiver<GameInputDirection>,
+    input_tx: Sender<GameInputDirection>
 }
 
 impl VideoPlayer for GamePlayer {
@@ -155,18 +147,21 @@ impl VideoPlayer for GamePlayer {
         };
 
         let (width, height, fps) = (game.width(), game.height(), game.fps());
+        let (input_tx, input_rx) = channel::<GameInputDirection>();
 
         Ok(Self {
             width,
             height,
             fps,
             splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
-            game
+            game,
+            input_rx,
+            input_tx
         })
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
-        let canvas = self.game.draw(&self)?;
+        let canvas = self.game.draw(&self.input_rx)?;
         canvas.draw_to_minecraft(&mut self.splitted_frames)
     }
 
@@ -185,7 +180,7 @@ impl VideoPlayer for GamePlayer {
         match msg{
             NativeCommunication::GameInput { input } => {
                 for ele in &input{
-                    println!("Rust got: {:?}", ele);
+                    self.input_tx.send(*ele)?;
                 }
             },
             _ => return Err(anyhow!("Gamep player does not accept jvm messages other than GameInputDirection"))

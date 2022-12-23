@@ -174,12 +174,16 @@ class ScreenController(
         }
 
         val renderService = renderServiceOptional.get()
-        renderService.killRendering()
 
+        //This is a NOOP when a screen is a non gaming screen
+        //This needs to be called before killing the service
+        //Doing it after the kill method could go VERY wrong (potential SEGFAULT)
+        nativeGameController.unregisterScreen(screen)
+
+        renderService.killRendering()
         screen.renderService = Optional.empty()
 
         restartVideoScreen(screen)
-        nativeGameController.unregisterScreen(screen) //This is a NOOP when a screen is a non gaming screen
     }
 
     fun getScreens(): List<Screen> {
