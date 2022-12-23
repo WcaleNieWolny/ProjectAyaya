@@ -20,7 +20,7 @@ use jni::objects::*;
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
 use jni::JNIEnv;
 use map_server::ServerOptions;
-use player::game_player::GamePlayer;
+use player::game_player::{GamePlayer, GameInputDirection};
 use player::player_context::{NativeCommunication, self};
 
 use crate::player::multi_video_player::MultiVideoPlayer;
@@ -181,6 +181,24 @@ fn recive_jvm_msg(
             NativeCommunication::StartRendering { fps }
         }
         1 => NativeCommunication::StopRendering,
+        2 => {
+            let info_str_vec = info_string.split("_");
+            let mut game_input_vec = Vec::<GameInputDirection>::with_capacity(4);
+            for val in info_str_vec {
+                let input = match val {
+                    "F" => GameInputDirection::FORWARD,
+                    "B" => GameInputDirection::BACKWARDS,
+                    "L" => GameInputDirection::LEFT,
+                    "R" => GameInputDirection::RIGHT,
+                    "U" => GameInputDirection::UP,
+                    "" => continue,
+                    _ => return Err(anyhow!("Invalid short game input"))
+                };
+                game_input_vec.push(input);
+            }
+
+            NativeCommunication::GameInput { input: game_input_vec }
+        }
         _ => return Err(anyhow!("Invalid msg enum")),
     };
 

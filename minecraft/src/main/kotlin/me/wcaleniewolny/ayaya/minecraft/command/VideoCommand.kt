@@ -1,6 +1,7 @@
 package me.wcaleniewolny.ayaya.minecraft.command;
 
 import co.aikar.commands.BaseCommand
+import co.aikar.commands.CommandHelp
 import co.aikar.commands.annotation.*
 import me.wcaleniewolny.ayaya.minecraft.screen.Screen
 import me.wcaleniewolny.ayaya.minecraft.screen.ScreenController
@@ -22,14 +23,9 @@ class VideoCommand(
     private val plugin: JavaPlugin
 ) : BaseCommand() {
 
-    @Default
-    @Subcommand("help")
-    @Description("Display help")
-    fun onHelp(sender: CommandSender) {
-        sender.sendColoredMessage(fileConfiguration.getString("videoPlayHelp")!!)
-        sender.sendColoredMessage(fileConfiguration.getString("videoPauseHelp")!!)
-        sender.sendColoredMessage(fileConfiguration.getString("videoKillHelp")!!)
-        sender.sendColoredMessage(fileConfiguration.getString("videoScreenCreateHelp")!!)
+    @HelpCommand
+    fun onHelp(sender: CommandSender, help: CommandHelp) {
+        help.showHelp()
     }
 
     @Subcommand("play")
@@ -78,6 +74,7 @@ class VideoCommand(
     }
 
     @Subcommand("game")
+    @Description("Starts game on selected screen")
     @Syntax("[screen_id] [game]")
     @CommandCompletion("@screens @games @nothing")
     fun onGame(

@@ -48,7 +48,7 @@ impl MapServer {
 
         let server = Arc::new(MapServer {
             options: options.clone(),
-            frame_index: frame_index,
+            frame_index,
             command_sender: cmd_tx,
         });
 
@@ -134,7 +134,7 @@ impl MapServer {
                                                 interval = time::interval(dur);
                                                 continue;
                                             }
-                                            NativeCommunication::StopRendering => {
+                                            _ => {
                                                 panic!("Invalid message! (Expected StartRendering, got: {:?})", msg);
                                             }
                                         },

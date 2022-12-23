@@ -1,5 +1,7 @@
 package me.wcaleniewolny.ayaya.minecraft.game
 
+import me.wcaleniewolny.ayaya.library.NativeLibCommunication
+import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.screen.Screen
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -15,17 +17,69 @@ import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
-import kotlin.math.E
+import java.util.concurrent.ConcurrentLinkedQueue
 
 class NativeGameController(private val plugin: JavaPlugin): Listener {
 
     private val games = mutableListOf<NativeGame>()
 
+    private fun verifyMove(
+        xDelta: Double,
+        yDelta: Double,
+        zDelta: Double,
+        direction1: MoveDirection,
+        direction2: MoveDirection,
+        direction3: MoveDirection,
+        direction4: MoveDirection
+    ): MoveDirection?{
+        return if(yDelta > 0){
+            MoveDirection.UP
+        }else if (zDelta < 0) {
+            direction1
+        }else if (zDelta > 0){
+            direction2
+        }else if (xDelta < 0) {
+            direction3
+        }else if (xDelta > 0){
+            direction4
+        }else {
+            return null
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGH)
     private fun onMoveEvent(event: PlayerMoveEvent){
         val game = games.firstOrNull { it.player == event.player } ?: return
-
         event.isCancelled = true
+
+        val player = event.player
+        val from = event.from
+        val to = event.to
+
+        if (from.x != to.x  || from.y != to.y || from.z != to.z){
+            val playerDirection = player.facing
+            val xDelta = to.x - from.x
+            val yDelta = to.y - from.y
+            val zDelta = to.z - from.z
+
+            val direction = when(playerDirection) {
+                BlockFace.NORTH -> {
+                    verifyMove(xDelta, yDelta, zDelta, MoveDirection.FORWARD, MoveDirection.BACKWARDS, MoveDirection.LEFT, MoveDirection.RIGHT) ?: return
+                }
+                BlockFace.SOUTH -> {
+                    verifyMove(xDelta, yDelta, zDelta, MoveDirection.BACKWARDS, MoveDirection.FORWARD, MoveDirection.RIGHT, MoveDirection.LEFT) ?: return
+                }
+                BlockFace.WEST -> {
+                    verifyMove(xDelta, yDelta, zDelta, MoveDirection.RIGHT, MoveDirection.LEFT, MoveDirection.FORWARD, MoveDirection.BACKWARDS) ?: return
+                }
+                BlockFace.EAST -> {
+                    verifyMove(xDelta, yDelta, zDelta, MoveDirection.LEFT, MoveDirection.RIGHT, MoveDirection.BACKWARDS, MoveDirection.FORWARD) ?: return
+                }
+                else -> return
+            }
+
+            game.moveEventQueue.add(direction)
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -63,7 +117,7 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
     }
 
     fun registerGamer(player: Player, screen: Screen){
-        games.add(NativeGame(screen, player))
+        games.add(NativeGame(screen, player, ConcurrentLinkedQueue()))
 
         val facing = when (screen.mapFace){
             BlockFace.NORTH -> BlockFace.SOUTH
@@ -94,6 +148,19 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
     }
 
     fun renderCallback(ptr: Long, screenName: String) {
-        println("Called game render callback with the ID: $screenName, and ptr: $ptr")
+        val game = games.firstOrNull { it.screen.name == screenName } ?: return
+        val stringBuilder = StringBuilder()
+
+        while (true){
+            val element = game.moveEventQueue.poll() ?: break
+            stringBuilder.append("_${element.shortName}")
+        }
+
+        if(stringBuilder.isEmpty()){
+            return
+        }
+
+        game.player.sendMessage("$stringBuilder")
+        NativeRenderControler.communicate(ptr, NativeLibCommunication.GAME_INPUT, stringBuilder.toString())
     }
 }

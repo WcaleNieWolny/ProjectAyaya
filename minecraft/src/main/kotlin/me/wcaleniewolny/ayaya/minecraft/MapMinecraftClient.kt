@@ -40,6 +40,8 @@ class MapMinecraftClient : JavaPlugin() {
             )
         )
 
+        manager.enableUnstableAPI("help")
+
     }
 
     fun loadNativeLib(): Boolean{
@@ -82,17 +84,6 @@ class MapMinecraftClient : JavaPlugin() {
         }
 
         return true
-    }
-
-    //https://mkyong.com/java/java-read-a-file-from-resources-folder/
-    private fun getFileFromResourceAsStream(fileName: String): InputStream {
-
-        // The class loader that loaded the class
-        val classLoader: ClassLoader = this::class.java.classLoader
-        val inputStream = classLoader.getResourceAsStream(fileName)
-
-        // the stream holding the file content
-        return inputStream ?: throw IllegalArgumentException("file not found! $fileName")
     }
 }
 

@@ -1,12 +1,21 @@
 use anyhow::anyhow;
 
 use crate::{map_server::ServerOptions, colorlib::Color, splitting::SplittedFrame};
-use super::{player_context::{VideoPlayer, VideoData}, flappy_bird::FlappyBirdGame};
+use super::{player_context::{VideoPlayer, VideoData, NativeCommunication}, flappy_bird::FlappyBirdGame};
 
 pub struct VideoCanvas {
     pub width: usize,
     pub height: usize,
     vec: Vec<u8>
+}
+
+#[derive(Debug)]
+pub enum GameInputDirection {
+    FORWARD,
+    BACKWARDS,
+    LEFT,
+    RIGHT,
+    UP
 }
 
 impl VideoCanvas {
@@ -171,9 +180,17 @@ impl VideoPlayer for GamePlayer {
 
     fn handle_jvm_msg(
         &self,
-        _msg: super::player_context::NativeCommunication,
+        msg: NativeCommunication,
     ) -> anyhow::Result<()> {
-        todo!()
+        match msg{
+            NativeCommunication::GameInput { input } => {
+                for ele in &input{
+                    println!("Rust got: {:?}", ele);
+                }
+            },
+            _ => return Err(anyhow!("Gamep player does not accept jvm messages other than GameInputDirection"))
+        }
+        Ok(())
     }
 
     fn destroy(self: Box<Self>) -> anyhow::Result<()> {

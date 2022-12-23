@@ -7,6 +7,8 @@ use ffmpeg::{Error, Packet};
 
 use crate::map_server::ServerOptions;
 
+use super::game_player::GameInputDirection;
+
 macro_rules! get_context {
     (
         $PTR: ident
@@ -35,11 +37,13 @@ pub struct VideoData {
     pub fps: i32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum NativeCommunication {
     StartRendering { fps: i32 },
     StopRendering,
+    GameInput { input: Vec<GameInputDirection> }
 }
+
 
 //Thanks to https://github.com/alexschrod for helping me with getting this Arc pointer to work
 //He made this code much better!
