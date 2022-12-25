@@ -102,7 +102,11 @@ impl Game for FlappyBirdGame {
         };
 
         if self.jump_tick >= 0 && self.jump_tick < JUMP_TICKS {
-            self.bird_y -= JUMP_HEIGHT / JUMP_TICKS as usize;
+            if self.bird_y >= 24 {
+                self.bird_y -= JUMP_HEIGHT / JUMP_TICKS as usize;
+            }else {
+                self.bird_y = 0;
+            }
             self.jump_tick += 1;
         }else if self.jump_tick == JUMP_TICKS{
             self.jump_tick = -1;
