@@ -131,7 +131,9 @@ pub struct GamePlayer {
     splitted_frames: Vec<SplittedFrame>,
     game: Box<dyn Game>,
     input_rx: Receiver<GameInputDirection>,
-    input_tx: Sender<GameInputDirection>
+    input_tx: Sender<GameInputDirection>,
+    last_frame: Vec<i8>,
+    frame_counter: u8,
 }
 
 impl VideoPlayer for GamePlayer {
@@ -156,13 +158,87 @@ impl VideoPlayer for GamePlayer {
             splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
             game,
             input_rx,
-            input_tx
+            input_tx,
+            last_frame: Vec::new(),
+            frame_counter: 0
         })
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
-        let canvas = self.game.draw(&self.input_rx)?;
-        canvas.draw_to_minecraft(&mut self.splitted_frames)
+        if self.frame_counter == 0 {
+            let canvas = self.game.draw(&self.input_rx)?;
+            let frame = canvas.draw_to_minecraft(&mut self.splitted_frames)?;
+            self.last_frame = frame.clone();
+
+            if self.frame_counter + 1 != 3 {
+                self.frame_counter += 1;
+            }else {
+                self.frame_counter = 3;
+            };
+
+
+            return Ok(frame);
+        }else {
+            let new_frame = self.game.draw(&self.input_rx)?.draw_to_minecraft(&mut self.splitted_frames)?;
+            
+            let mut offset: usize = 0;
+            let mut frame_inxex = 0;
+            for frame in &self.splitted_frames {
+                let mut check_buf = vec![false; frame.frame_length as usize];
+                for y in 0..frame.height as usize {
+                    for x in 0..frame.width as usize {
+
+                        let old_pixel = self.last_frame[offset + (y * frame.width as usize) + x];
+                        let new_pixel = new_frame[offset + (y * frame.width as usize) + x];
+
+                        if old_pixel != new_pixel {
+                            //println!("Pixel: ({}, {}) in offset {} does not match old pixel!", x, y, offset);
+                            check_buf[(y * frame.width as usize) + x] = true;
+                        }
+                    }
+                }
+
+                let mut x1 = 128usize;
+                let mut y1 = 128usize;
+                let mut x2 = 0usize;
+                let mut y2 = 0usize;
+
+                for y in 0..frame.height as usize {
+                    'x: for x in 0..frame.width as usize {
+                        let check = check_buf[(y * frame.width as usize) + x];
+                        if !check {
+                            continue 'x;
+                        };
+
+                        if x1 > x {
+                            x1 = x;
+                        }
+
+                        if y1 > y {
+                            y1 = y;
+                        }
+
+                        if x > x2 {
+                            x2 = x;
+                        }
+
+                        if y > y2 {
+                            y2 = y;
+                        }
+                    };
+                };
+
+                if x1 != 128 && y1 != 128 {
+                    println!("Frame {} change detected at: ({}, {}), ({}, {})", frame_inxex, x1, y1, x2, y2);
+                }
+                
+                offset += frame.frame_length as usize;
+                frame_inxex += 1;
+            }
+
+            return Ok(new_frame);
+        }
+
     }
 
     fn video_data(&self) -> anyhow::Result<super::player_context::VideoData> {
