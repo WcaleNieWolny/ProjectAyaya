@@ -40,10 +40,9 @@ class RenderThreadGameImpl(
         while (true) {
             val start = System.nanoTime()
 
-            renderCallback?.invoke(ptr, screenName)
-            val frame = NativeRenderControler.loadFrame(ptr)
-
             if(tick == 0){
+                renderCallback?.invoke(ptr, screenName)
+                val frame = NativeRenderControler.loadFrame(ptr)
                 displayService.displayFrame(frame)
 
                 val took = (System.nanoTime() - start)
@@ -57,6 +56,8 @@ class RenderThreadGameImpl(
                     println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
                 }
             }else {
+                val frame = NativeRenderControler.loadFrame(ptr)
+                renderCallback?.invoke(ptr, screenName)
                 //https://stackoverflow.com/questions/2840190/java-convert-4-bytes-to-int
                 val dataStringLen = 0xFF and frame[0].toInt() shl 24 or (0xFF and frame[1].toInt() shl 16) or
                         (0xFF and frame[2].toInt() shl 8) or (0xFF and frame[3].toInt())

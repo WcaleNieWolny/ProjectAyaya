@@ -20,17 +20,20 @@ pub struct FlappyBirdGame {
     thread_rng: ThreadRng
 }
 
-static TEST_IMAGE: BakedImage = bake_image!(test);
 static PIPE_COLOR: Color = Color::new(117, 192, 47);
 static HOLE_HEIGHT: usize = 192;
 static PIPE_WIDTH: usize = 96;
-static JUMP_HEIGHT: usize = 96;
-static JUMP_TICKS: i8 = 4;
+static JUMP_HEIGHT: usize = 100;
+static JUMP_TICKS: i8 = 10;
+static PIPE_SPAWN_TICKS: i32 = 96;
+static PIPE_MOVE_PER_TICK: isize = 3;
+static BIRD_FALL_RATE: usize = 5;
 
 impl Game for FlappyBirdGame {
-    //5 x 5 @ 15 FPS
-    //This is to save bandwith both server and client side
-    //Also make this efficient - it is not going to be multithreaded!
+    //5 x 5 @ 60 FPS
+    //This is to save bandwith both server and client side (only 20 frames are full frames - the
+    //other 40 are diff frames)
+    //5 x 5 makes this efficient - it is not going to be multithreaded!
     fn width(&self) -> i32 {
         640
     }
@@ -40,7 +43,7 @@ impl Game for FlappyBirdGame {
     }
 
     fn fps(&self) -> i32 {
-        30
+        60
     }
 
     fn new() -> Self {
@@ -75,16 +78,16 @@ impl Game for FlappyBirdGame {
                 let width = 639 - pipe.x as usize;
                 canvas.draw_square(639 - width, 0, 639, pipe.y_space, &PIPE_COLOR);
                 canvas.draw_square(639 - width, pipe.y_space + HOLE_HEIGHT, 639, 639, &PIPE_COLOR);
-                pipe.x -= 4;
+                pipe.x -= PIPE_MOVE_PER_TICK;
             }else if pipe.x > 0{
                 canvas.draw_square(pipe.x as usize, 0, pipe.x as usize + PIPE_WIDTH, pipe.y_space, &PIPE_COLOR);
                 canvas.draw_square(pipe.x as usize, pipe.y_space + HOLE_HEIGHT, pipe.x as usize + PIPE_WIDTH, 639, &PIPE_COLOR);
-                pipe.x -= 4;
+                pipe.x -= PIPE_MOVE_PER_TICK;
             }else if pipe.x > -95 {
                 let width = PIPE_WIDTH + pipe.x as usize;
                 canvas.draw_square(0, 0, width,  pipe.y_space, &PIPE_COLOR);
                 canvas.draw_square(0, pipe.y_space + HOLE_HEIGHT, width, 639, &PIPE_COLOR);
-                pipe.x -= 4;
+                pipe.x -= PIPE_MOVE_PER_TICK;
             }else {
                 pipe.to_remove =  true;
                 continue;
@@ -93,7 +96,7 @@ impl Game for FlappyBirdGame {
 
         self.pipes.retain(|x| !x.to_remove);
 
-        if self.tick == 70{
+        if self.tick == PIPE_SPAWN_TICKS{
             self.pipes.push(Pipe {
                 x: 639,
                 to_remove: false,
@@ -112,15 +115,15 @@ impl Game for FlappyBirdGame {
             self.jump_tick = -1;
         }
 
-        canvas.draw_square(287, self.bird_y, 351, self.bird_y + 64, &Color::RED);
+        canvas.draw_square(287, self.bird_y, 351, self.bird_y + 64, &Color::BLACK);
 
-        if self.bird_y + 8 <= 575 && self.jump_tick == -1 {
-            self.bird_y += 8;
+        if self.bird_y + BIRD_FALL_RATE <= 575 && self.jump_tick == -1 {
+            self.bird_y += BIRD_FALL_RATE;
         }else if self.jump_tick == -1{
             self.bird_y = 575;
         }
 
-        if self.tick < 70 {
+        if self.tick < PIPE_SPAWN_TICKS {
             self.tick += 1;
         }else {
             self.tick = 0;

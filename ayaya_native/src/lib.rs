@@ -160,7 +160,7 @@ fn load_frame(env: JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
     let data = player_context::load_frame(ptr)?;
     let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
     env.set_byte_array_region(output, 0, &data.as_slice())?;
-
+    drop(data);
     Ok(output)
 }
 
@@ -170,8 +170,8 @@ fn recive_jvm_msg(
     native_lib_communication: JObject,
     info: JString,
 ) -> anyhow::Result<()> {
-    let msg_type = env.call_method(native_lib_communication, "ordinal", "()I", &[])?;
-    let msg_type = msg_type.i()?;
+    let msg_type_obj = env.call_method(native_lib_communication, "ordinal", "()I", &[])?;
+    let msg_type = msg_type_obj.i()?;
 
     let info_string: String = env.get_string(info)?.into();
 
@@ -202,6 +202,8 @@ fn recive_jvm_msg(
         _ => return Err(anyhow!("Invalid msg enum")),
     };
 
+    env.delete_local_ref(info.into())?;
+    env.delete_local_ref(native_lib_communication)?;
     player_context::pass_jvm_msg(ptr, msg_type)?;
     Ok(())
 }

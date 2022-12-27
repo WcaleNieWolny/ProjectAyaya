@@ -18,6 +18,7 @@ impl Color {
     }
 
     pub const RED: Color = Color::new(255, 0, 0);
+    pub const BLACK: Color = Color::new(0, 0, 0);
 
     pub fn hex(hex: &str) -> anyhow::Result<Self> {
         let hex = hex.to_string();
