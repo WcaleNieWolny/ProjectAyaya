@@ -7,6 +7,8 @@ import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.MinecraftNative
 import me.wcaleniewolny.ayaya.minecraft.display.impl.DisplayServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.JavaRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.NativeRenderServiceImpl
+import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadGameImpl
+import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadVideoImpl
 import org.bukkit.plugin.java.JavaPlugin
 
 enum class RenderServiceType {
@@ -22,7 +24,7 @@ object RenderServiceFactory {
         screenName: String,
         startID: Int,
         useServer: Boolean,
-        service_type: RenderServiceType,
+        serviceType: RenderServiceType,
         videoPlayType: VideoPlayType,
         renderCallback: ((ptr: Long, screenName: String) -> Unit)? = null
     ): RenderService {
@@ -42,19 +44,29 @@ object RenderServiceFactory {
 
         val fps = videoData.fps
 
-        val service = if (service_type == RenderServiceType.JAVA) JavaRenderServiceImpl(
-            RenderThread(
-                DisplayServiceImpl(
-                    //ProtocolLibBroadcaster(),
-                    MinecraftNativeBroadcaster(startID),
-                    width, height
-                ),
-                renderCallback,
-                videoPlayType != VideoPlayType.GAME,
-                fps,
-                screenName,
-                ptr
-            )
+        val thread = if (videoPlayType != VideoPlayType.GAME) RenderThreadVideoImpl(
+            DisplayServiceImpl(
+                MinecraftNativeBroadcaster(startID),
+                width, height
+            ),
+            renderCallback,
+            fps,
+            screenName,
+            ptr
+        ) else RenderThreadGameImpl(
+            DisplayServiceImpl(
+                MinecraftNativeBroadcaster(startID),
+                width, height
+            ),
+            startID,
+            renderCallback,
+            fps,
+            screenName,
+            ptr
+        )
+
+        val service = if (serviceType == RenderServiceType.JAVA) JavaRenderServiceImpl(
+            thread
         ) else NativeRenderServiceImpl(
             plugin,
             videoData,

@@ -28,7 +28,7 @@ class DisplayServiceImpl(
 
     }
 
-    private fun allPlayers() = Bukkit.getServer().onlinePlayers.map { it as Player }
+    override fun allPlayers() = Bukkit.getServer().onlinePlayers.map { it as Player }
 
     override fun init() {
         frames.addAll(FrameSplitter.initializeFrames(width, height)) //Initialize frames

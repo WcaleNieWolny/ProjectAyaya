@@ -161,7 +161,7 @@ class ScreenController(
             nativeGameController::renderCallback
         )
 
-        nativeGameController.registerGamer(player, screen)
+        //nativeGameController.registerGamer(player, screen)
 
         screen.renderService = Optional.of(renderService)
         renderService.startRendering()

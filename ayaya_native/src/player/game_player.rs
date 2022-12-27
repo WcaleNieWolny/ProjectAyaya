@@ -165,26 +165,21 @@ impl VideoPlayer for GamePlayer {
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
-        if self.frame_counter == 0 {
+        let frame = if self.frame_counter == 0 {
             let canvas = self.game.draw(&self.input_rx)?;
             let frame = canvas.draw_to_minecraft(&mut self.splitted_frames)?;
             self.last_frame = frame.clone();
 
-            if self.frame_counter + 1 != 3 {
-                self.frame_counter += 1;
-            }else {
-                self.frame_counter = 3;
-            };
-
-
-            return Ok(frame);
+            Ok(frame)
         }else {
             let new_frame = self.game.draw(&self.input_rx)?.draw_to_minecraft(&mut self.splitted_frames)?;
-            
+            let mut frame_str_info = String::new();
+            let mut frame_data = Vec::<i8>::with_capacity(65536);
+
             let mut offset: usize = 0;
             let mut frame_inxex = 0;
             for frame in &self.splitted_frames {
-                let mut check_buf = vec![false; frame.frame_length as usize];
+                let (mut x1, mut y1, mut x2, mut y2) = (128usize, 128usize, 0usize, 0usize);
                 for y in 0..frame.height as usize {
                     for x in 0..frame.width as usize {
 
@@ -192,53 +187,68 @@ impl VideoPlayer for GamePlayer {
                         let new_pixel = new_frame[offset + (y * frame.width as usize) + x];
 
                         if old_pixel != new_pixel {
-                            //println!("Pixel: ({}, {}) in offset {} does not match old pixel!", x, y, offset);
-                            check_buf[(y * frame.width as usize) + x] = true;
+                            if x1 > x {
+                                x1 = x;
+                            }
+
+                            if y1 > y {
+                                y1 = y;
+                            }
+
+                            if x > x2 {
+                                x2 = x;
+                            }
+
+                            if y > y2 {
+                                y2 = y;
+                            }
                         }
                     }
                 }
 
-                let mut x1 = 128usize;
-                let mut y1 = 128usize;
-                let mut x2 = 0usize;
-                let mut y2 = 0usize;
-
-                for y in 0..frame.height as usize {
-                    'x: for x in 0..frame.width as usize {
-                        let check = check_buf[(y * frame.width as usize) + x];
-                        if !check {
-                            continue 'x;
-                        };
-
-                        if x1 > x {
-                            x1 = x;
-                        }
-
-                        if y1 > y {
-                            y1 = y;
-                        }
-
-                        if x > x2 {
-                            x2 = x;
-                        }
-
-                        if y > y2 {
-                            y2 = y;
-                        }
-                    };
-                };
-
                 if x1 != 128 && y1 != 128 {
-                    println!("Frame {} change detected at: ({}, {}), ({}, {})", frame_inxex, x1, y1, x2, y2);
+                    let width = x2 - x1 + 1; // + 1 due to the fact that x2 is inclusive;
+                    let height = y2 - y1 + 1;
+
+                    let mut data: Vec<i8> = Vec::with_capacity(width * height);
+
+                    for y in y1..=y2 {
+                        data.extend_from_slice(&new_frame[(offset + ((y * frame.width as usize) + x1))..=(offset + ((y * frame.width as usize) + x2))]) 
+                    };
+                    //Format: {frame_inxex}_{width}_{height}_{x1}_{y1}$
+                    frame_str_info.push_str(&format!("{:?}_{:?}_{:?}_{:?}_{:?}$", frame_inxex, width, height, x1, y1));
+                    frame_data.extend(data);
                 }
                 
                 offset += frame.frame_length as usize;
                 frame_inxex += 1;
             }
 
-            return Ok(new_frame);
-        }
+            let frame_str_info = match frame_str_info.strip_suffix("$"){
+                Some(string) => string,
+                None => return Err(anyhow!("Removing data sufix went wrong!")),
+            };
 
+            let frame_str_arr: &[i8] = bytemuck::cast_slice(frame_str_info.as_bytes());
+
+            let mut final_data = Vec::<i8>::with_capacity(frame_str_arr.len() + 4 + frame_data.len());
+            final_data.extend_from_slice(bytemuck::cast_slice(&(frame_str_arr.len() as i32).to_be_bytes()));
+            final_data.extend_from_slice(frame_str_arr);
+            final_data.extend(frame_data);
+
+            self.last_frame = new_frame.clone();
+
+            Ok(final_data)
+        };
+
+
+        if self.frame_counter + 1 != 3 {
+            self.frame_counter += 1;
+        }else {
+            self.frame_counter = 0;
+        };
+
+        return frame;
     }
 
     fn video_data(&self) -> anyhow::Result<super::player_context::VideoData> {

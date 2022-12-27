@@ -35,6 +35,10 @@ class MinecraftNativeBroadcaster(
                 )
             )
         }
+
+        fun sendPacket(player: Player, packet: ClientboundMapItemDataPacket){
+            (player as CraftPlayer).handle.connection.send(packet)
+        }
     }
 
     override fun init(players: List<Player>) {
