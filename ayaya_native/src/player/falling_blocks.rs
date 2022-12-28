@@ -96,6 +96,8 @@ impl Game for FallingBlocks {
             };
             match val {
                 GameInputDirection::RIGHT => {
+                    let mut blocks_clone = self.blocks.clone();
+                    let mut allow_swap = true;
                     'block_loop: for (id, block) in self.blocks.clone()
                         .iter_mut()
                         .enumerate()
@@ -107,15 +109,24 @@ impl Game for FallingBlocks {
                             continue 'block_loop;
                         }
 
-                        if let None = self.blocks[id + 1] {
-                            self.blocks[id + 1] = Some(Block::new(block.color.clone(), block.x + 1, block.y)); 
-                            self.blocks[id] = None;
+                        if let None = blocks_clone[id + 1] {
+                            blocks_clone[id + 1] = Some(Block::new(block.color.clone(), block.x + 1, block.y)); 
+                            blocks_clone[id] = None;
+                        }else {
+                            allow_swap = false;
+                            break 'block_loop;
                         }
+                    }
+
+                    if allow_swap {
+                        self.blocks = blocks_clone;
                     }
                     self.move_ticks = 10;
                     break;
                 },
                 GameInputDirection::LEFT => {
+                    let mut blocks_clone = self.blocks.clone();
+                    let mut allow_swap = true;
                     'block_loop: for (id, block) in self.blocks.clone()
                         .iter_mut()
                         .enumerate()
@@ -126,10 +137,14 @@ impl Game for FallingBlocks {
                             continue 'block_loop;
                         }
 
-                        if let None = self.blocks[id - 1] {
-                            self.blocks[id - 1] = Some(Block::new(block.color.clone(), block.x - 1, block.y)); 
-                            self.blocks[id] = None;
+                        if let None = blocks_clone[id - 1] {
+                            blocks_clone[id - 1] = Some(Block::new(block.color.clone(), block.x - 1, block.y)); 
+                            blocks_clone[id] = None;
                         }
+                    }
+
+                    if allow_swap {
+                        self.blocks = blocks_clone;
                     }
                     self.move_ticks = 10;
                     break;
