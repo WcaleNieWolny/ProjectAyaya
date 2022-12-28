@@ -1,7 +1,8 @@
 use std::{env, num::ParseIntError};
 use anyhow::anyhow;
+use rand::{rngs::ThreadRng, Rng};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
     pub red: u8,
     pub green: u8,
@@ -39,6 +40,14 @@ impl Color {
 
     pub fn to_mc(&self) -> u8{
         get_cached_index(self) as u8
+    }
+
+    pub fn random(rng: &mut ThreadRng) -> Self {
+        Self {
+           red: rng.gen(),
+           green: rng.gen(),
+           blue: rng.gen()
+        }
     }
 }
 

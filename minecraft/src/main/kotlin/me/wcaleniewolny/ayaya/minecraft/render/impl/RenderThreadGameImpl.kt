@@ -17,7 +17,6 @@ class RenderThreadGameImpl(
     private val ptr: Long
 ): RenderThread() {
 
-    private var tick = 0
     private val timeWindow = TimeUnit.SECONDS.toNanos(1) / fps
     private val debug = true
     private val renderFrames = AtomicBoolean(false)
@@ -39,11 +38,15 @@ class RenderThreadGameImpl(
 
         while (true) {
             val start = System.nanoTime()
+            val frame = NativeRenderControler.loadFrame(ptr)
+            renderCallback?.invoke(ptr, screenName)
 
-            if(tick == 0){
-                renderCallback?.invoke(ptr, screenName)
-                val frame = NativeRenderControler.loadFrame(ptr)
-                displayService.displayFrame(frame)
+            //We use a magic value - 0 is a transparent color, and it is not possible to get when using normal video splitting
+            //It is safe to assume that if we have a full frame 0 will never be present
+            if(frame[0].toInt() != 0){
+                if(frame.size != 1) {
+                    displayService.displayFrame(frame)
+                }
 
                 val took = (System.nanoTime() - start)
                 val toWait = max(0, timeWindow - took)
@@ -55,46 +58,46 @@ class RenderThreadGameImpl(
                 if (debug) {
                     println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
                 }
-            }else {
-                val frame = NativeRenderControler.loadFrame(ptr)
-                renderCallback?.invoke(ptr, screenName)
-                //https://stackoverflow.com/questions/2840190/java-convert-4-bytes-to-int
-                val dataStringLen = 0xFF and frame[0].toInt() shl 24 or (0xFF and frame[1].toInt() shl 16) or
-                        (0xFF and frame[2].toInt() shl 8) or (0xFF and frame[3].toInt())
+            }else{
+                if(frame.size != 1) {
+                    //https://stackoverflow.com/questions/2840190/java-convert-4-bytes-to-int
+                    val dataStringLen = 0xFF and frame[1].toInt() shl 24 or (0xFF and frame[2].toInt() shl 16) or
+                            (0xFF and frame[3].toInt() shl 8) or (0xFF and frame[4].toInt())
 
-                val dataStringArr = ByteArray(dataStringLen)
-                System.arraycopy(frame, 4, dataStringArr, 0, dataStringLen)
-                val dataString = String(dataStringArr, Charsets.UTF_8)
-                val dataSplit = dataString.split("$")
+                    val dataStringArr = ByteArray(dataStringLen)
+                    System.arraycopy(frame, 5, dataStringArr, 0, dataStringLen)
+                    val dataString = String(dataStringArr, Charsets.UTF_8)
+                    val dataSplit = dataString.split("$")
 
-                var offset = 0
-                for (split in dataSplit) {
-                    val splitArr = split.split("_")
-                    //Format: {frame_inxex}_{width}_{height}_{x1}_{y1}$
-                    val frameIndex = splitArr[0].toInt()
-                    val width = splitArr[1].toInt()
-                    val height = splitArr[2].toInt()
-                    val x1 = splitArr[3].toInt()
-                    val y1 = splitArr[4].toInt()
+                    var offset = 0
+                    for (split in dataSplit) {
+                        val splitArr = split.split("_")
+                        //Format: {frame_inxex}_{width}_{height}_{x1}_{y1}$
+                        val frameIndex = splitArr[0].toInt()
+                        val width = splitArr[1].toInt()
+                        val height = splitArr[2].toInt()
+                        val x1 = splitArr[3].toInt()
+                        val y1 = splitArr[4].toInt()
 
-                    val length = width * height
-                    val data = ByteArray(length)
+                        val length = width * height
+                        val data = ByteArray(length)
 
-                    System.arraycopy(frame, 4 + offset + dataStringLen, data, 0, length)
+                        System.arraycopy(frame, 5 + offset + dataStringLen, data, 0, length)
 
-                    val packet = MinecraftNativeBroadcaster.makeMapPacket(
-                        startID + frameIndex,
-                        x1,
-                        y1,
-                        width,
-                        height,
-                        data
-                    )
-                    displayService.allPlayers().forEach{
-                        player -> MinecraftNativeBroadcaster.sendPacket(player, packet)
+                        val packet = MinecraftNativeBroadcaster.makeMapPacket(
+                            startID + frameIndex,
+                            x1,
+                            y1,
+                            width,
+                            height,
+                            data
+                        )
+                        displayService.allPlayers().forEach{
+                                player -> MinecraftNativeBroadcaster.sendPacket(player, packet)
+                        }
+
+                        offset += length
                     }
-
-                    offset += length
                 }
 
                 val took = (System.nanoTime() - start)
@@ -103,12 +106,10 @@ class RenderThreadGameImpl(
                 if (toWait > 0) {
                     sleep(toWaitMilis, (toWait - (toWaitMilis * 1000000)).toInt())
                 }
-            }
 
-            if (tick + 1 != 3) {
-                tick += 1
-            }else {
-                tick = 0
+                if (debug) {
+                    println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
+                }
             }
 
             while (!renderFrames.get()) {

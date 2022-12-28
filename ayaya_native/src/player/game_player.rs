@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use anyhow::anyhow;
 
 use crate::{map_server::ServerOptions, colorlib::Color, splitting::SplittedFrame};
-use super::{player_context::{VideoPlayer, VideoData, NativeCommunication}, flappy_bird::FlappyBirdGame};
+use super::{player_context::{VideoPlayer, VideoData, NativeCommunication}, flappy_bird::FlappyBirdGame, falling_blocks::FallingBlocks};
 
 pub struct VideoCanvas {
     pub width: usize,
@@ -145,6 +145,9 @@ impl VideoPlayer for GamePlayer {
             "flappy_bird" => {
                 Box::new(FlappyBirdGame::new())     
             }
+            "falling_blocks" => {
+                Box::new(FallingBlocks::new())     
+            }
             _ => return Err(anyhow!("This game is not implemented!"))
         };
 
@@ -226,12 +229,13 @@ impl VideoPlayer for GamePlayer {
 
             let frame_str_info = match frame_str_info.strip_suffix("$"){
                 Some(string) => string,
-                None => return Err(anyhow!("Removing data sufix went wrong!")),
+                None => return Ok(vec![1]), //No change = no new packets
             };
 
             let frame_str_arr: &[i8] = bytemuck::cast_slice(frame_str_info.as_bytes());
 
-            let mut final_data = Vec::<i8>::with_capacity(frame_str_arr.len() + 4 + frame_data.len());
+            let mut final_data = Vec::<i8>::with_capacity(frame_str_arr.len() + 5 + frame_data.len());
+            final_data.push(0); //Magic value
             final_data.extend_from_slice(bytemuck::cast_slice(&(frame_str_arr.len() as i32).to_be_bytes()));
             final_data.extend_from_slice(frame_str_arr);
             final_data.extend(frame_data);
