@@ -11,7 +11,7 @@ pub struct VideoCanvas {
     vec: Vec<u8>
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GameInputDirection {
     FORWARD,
     BACKWARDS,
@@ -268,7 +268,7 @@ impl VideoPlayer for GamePlayer {
         msg: NativeCommunication,
     ) -> anyhow::Result<()> {
         match msg{
-            NativeCommunication::GameInput { input } => {
+            NativeCommunication::GameInput { mut input } => {
                 for ele in &input{
                     self.input_tx.send(*ele)?;
                 }

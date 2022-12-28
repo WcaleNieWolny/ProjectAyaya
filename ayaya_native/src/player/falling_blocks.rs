@@ -15,6 +15,7 @@ pub struct FallingBlocks {
     blocks: Vec<Option<Block>>,
     spawn_ticks: usize,
     fall_ticks: usize,
+    move_ticks: usize,
     rand: ThreadRng
 }
 
@@ -55,6 +56,7 @@ impl Game for FallingBlocks {
             blocks: vec![None; 140],
             spawn_ticks: 0usize,
             fall_ticks: 0usize,
+            move_ticks: 0usize,
             rand: rand::thread_rng()
         }
     }
@@ -89,6 +91,9 @@ impl Game for FallingBlocks {
         }
 
         while let Ok(val) = input_rx.try_recv(){
+            if self.move_ticks != 0 {
+                continue;
+            };
             match val {
                 GameInputDirection::RIGHT => {
                     'block_loop: for (id, block) in self.blocks.clone()
@@ -107,6 +112,8 @@ impl Game for FallingBlocks {
                             self.blocks[id] = None;
                         }
                     }
+                    self.move_ticks = 10;
+                    break;
                 },
                 GameInputDirection::LEFT => {
                     'block_loop: for (id, block) in self.blocks.clone()
@@ -124,10 +131,16 @@ impl Game for FallingBlocks {
                             self.blocks[id] = None;
                         }
                     }
+                    self.move_ticks = 10;
+                    break;
                 }
                 _ => continue,
             };
         };
+
+        if self.move_ticks != 0 {
+            self.move_ticks -= 1;
+        }
 
         if self.fall_ticks == FALL_TICKS {
             let mut block_clone = self.blocks.clone();
