@@ -10,12 +10,14 @@ static FRAME_COLOR: Color = Color::new(30, 40, 112);
 static INNER_FRAME_COLOR: Color = Color::new(50, 64, 190);
 static SPAWN_TICKS: usize = 30;
 static FALL_TICKS: usize = 60;
+static FAST_FALL_TICKS: usize = 4;
 
 pub struct FallingBlocks {
     blocks: Vec<Option<Block>>,
     spawn_ticks: usize,
     fall_ticks: usize,
     move_ticks: usize,
+    fast_fall_ticks: usize,
     rand: ThreadRng
 }
 
@@ -25,6 +27,7 @@ struct Block {
     x: usize,
     y: usize,
     active: bool,
+    falling: bool
 }
 
 impl Block {
@@ -34,6 +37,7 @@ impl Block {
             x,
             y,
             active: true,
+            falling: false
         }
     }
 }
@@ -57,6 +61,7 @@ impl Game for FallingBlocks {
             spawn_ticks: 0usize,
             fall_ticks: 0usize,
             move_ticks: 0usize,
+            fast_fall_ticks: 0usize,
             rand: rand::thread_rng()
         }
     }
@@ -102,7 +107,7 @@ impl Game for FallingBlocks {
                         .iter_mut()
                         .enumerate()
                         .rev()
-                        .filter(|(_id, x)| x.is_some() && x.as_ref().unwrap().active)
+                        .filter(|(_id, x)| x.is_some() && x.as_ref().unwrap().active && x.as_ref().unwrap().falling != true)
                         .map(|(id, x)| (id, x.as_ref().unwrap()))
                     {
                         if block.x + 1 >= 10 {
@@ -130,7 +135,7 @@ impl Game for FallingBlocks {
                     'block_loop: for (id, block) in self.blocks.clone()
                         .iter_mut()
                         .enumerate()
-                        .filter(|(_id, x)| x.is_some() && x.as_ref().unwrap().active)
+                        .filter(|(_id, x)| x.is_some() && x.as_ref().unwrap().active && x.as_ref().unwrap().falling != true)
                         .map(|(id, x)| (id, x.as_ref().unwrap()))
                     {
                         if block.x == 0 {
@@ -140,14 +145,30 @@ impl Game for FallingBlocks {
                         if let None = blocks_clone[id - 1] {
                             blocks_clone[id - 1] = Some(Block::new(block.color.clone(), block.x - 1, block.y)); 
                             blocks_clone[id] = None;
+                        }else {
+                            allow_swap = false;
+                            break 'block_loop;
                         }
+
                     }
 
                     if allow_swap {
                         self.blocks = blocks_clone;
                     }
+
                     self.move_ticks = 10;
                     break;
+                },
+                GameInputDirection::UP => {
+
+                    self.blocks.iter_mut()
+                        .rev()
+                        .filter(|x| x.is_some() && x.as_ref().unwrap().active == true)
+                        .map(|x| x.as_mut().unwrap())
+                        .for_each(|block| {
+                            block.falling = true; 
+                        });
+
                 }
                 _ => continue,
             };
@@ -155,6 +176,50 @@ impl Game for FallingBlocks {
 
         if self.move_ticks != 0 {
             self.move_ticks -= 1;
+        }
+    
+        if self.fast_fall_ticks == FAST_FALL_TICKS {
+            let mut block_clone = self.blocks.clone();
+            let mut final_block_clone = self.blocks.clone();
+            let mut allow_swap = true;
+
+            'fast_fall_loop: for (id, block) in &mut block_clone
+                    .iter_mut()
+                    .enumerate()
+                    .rev()
+                    .filter(|(_id, x)| x.is_some() && x.as_ref().unwrap().active == true && x.as_ref().unwrap().falling == true)
+                    .map(|(id, x)| (id, x.as_mut().unwrap()))
+            {
+                println!("B: {:?}", block);
+                if block.y + 1 >= 14 {
+                    final_block_clone[id].as_mut().unwrap().active = false;
+                    continue;
+                };
+
+                if let None = final_block_clone[id + 10] {
+                    final_block_clone[id + 10] = Some(Block { color: block.color.clone(), x: block.x, y: block.y + 1, active: true, falling: true }); 
+                    final_block_clone[id] = None;
+                }else {
+                    allow_swap = false;
+                    self.blocks
+                        .iter_mut()
+                        .filter(|x| x.is_some() && x.as_ref().unwrap().active == true)
+                        .map(|x| x.as_mut().unwrap())
+                        .for_each(|x| {
+                            x.active = false;
+                            x.falling = false;
+                        });
+                    break 'fast_fall_loop;
+                }
+            }
+
+            if allow_swap {
+                self.blocks = final_block_clone;
+            }
+            self.fast_fall_ticks = 0;
+
+        }else {
+            self.fast_fall_ticks += 1;
         }
 
         if self.fall_ticks == FALL_TICKS {
@@ -166,7 +231,7 @@ impl Game for FallingBlocks {
                     .iter_mut()
                     .enumerate()
                     .rev()
-                    .filter(|(_id, x)| x.is_some() && x.as_ref().unwrap().active == true)
+                    .filter(|(_id, x)| x.is_some() && x.as_ref().unwrap().active == true && x.as_ref().unwrap().falling != true)
                     .map(|(id, x)| (id, x.as_mut().unwrap()))
             { 
                 if block.y + 1 >= 14 {
