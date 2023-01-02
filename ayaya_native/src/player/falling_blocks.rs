@@ -307,6 +307,7 @@ impl Game for FallingBlocks {
                         self.rotation_state = prev_state;
                     }
                     self.move_ticks = 10;
+                    break;
                 }
                 _ => continue,
             };
@@ -483,9 +484,10 @@ impl FallingBlocks {
         println!("W: {} H: {}", width, height);
 
         let mut data_vec: Vec<bool> = Vec::with_capacity(width * height);
-        for x in (x1..=x2).rev() {
-            for y in y1..=y2 {
-                data_vec.push(self.blocks[y * 10 + x].is_some());
+        for x in x1..=x2 {
+            for y in (y1..=y2).rev() {
+                let block  = &self.blocks[y * 10 + x];
+                data_vec.push(block.is_some() && block.as_ref().unwrap().active);
             };
         }
 
@@ -495,18 +497,6 @@ impl FallingBlocks {
         for y in 0..height {
             println!("AAAAA: {:?}", data_vec[y * width..(y + 1) * width].to_vec());
         }
-
-        let mut temp_data_vec: Vec<bool> = vec![false; width * height];
-        for y in 0..height {
-            for x in 0..width {
-                let pixel = data_vec[y * width + x];
-                let new_x = width - 1 - x;
-                let new_y = height - 1 - y;
-                temp_data_vec[new_y * width + new_x] = pixel;
-            }
-        }
-
-        data_vec = temp_data_vec;
 
         for y in 0..height {
             for x in 0..width {
