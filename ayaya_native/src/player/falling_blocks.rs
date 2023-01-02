@@ -1,4 +1,4 @@
-use std::sync::mpsc::Receiver;
+use std::{sync::mpsc::Receiver, slice::Iter};
 
 use anyhow::{anyhow, bail};
 use rand::{rngs::ThreadRng, Rng};
@@ -117,7 +117,7 @@ impl Game for FallingBlocks {
             fall_ticks: 0usize,
             move_ticks: 0usize,
             fast_fall_ticks: 0usize,
-            current_block: BlockType::I, //We do not want to have a I block as the first one
+            current_block: BlockType::S, //We do not want to have a I block as the first one
             rotation_state: 0,
             rand: rand::thread_rng()
         }
@@ -306,6 +306,7 @@ impl Game for FallingBlocks {
                     if !self.rotate_block_right() {
                         self.rotation_state = prev_state;
                     }
+                    self.move_ticks = 10;
                 }
                 _ => continue,
             };
@@ -421,51 +422,115 @@ impl Game for FallingBlocks {
 
 impl FallingBlocks {
     fn rotate_block_right(&mut self) -> bool {
-        let blocks_clone: Vec<Block> = self.blocks
+        if self.current_block == BlockType::O {
+            return false;
+        }
+
+        let mut blocks_clone: Vec<Option<Block>> = self.blocks
             .iter()
-            .filter(|x| x.is_some())
-            .map(|x| x.as_ref().unwrap())
-            .filter(|x| x.active)
-            .map(|x| x.clone())
+            .map(|x| {
+                if x.is_none() {
+                    x.clone()
+                } else {
+                    if x.as_ref().unwrap().active {
+                        None
+                    }else {
+                        x.clone()
+                    }
+                }
+            })
             .collect();
+        
+        let any_block: &Block = match self.blocks
+            .iter()
+            .find(|x| x.is_some() && x.as_ref().unwrap().active)
+        {
+            Some(val) => val.as_ref().unwrap(),
+            None => return false
+        };
+
 
         let (mut x1, mut y1, mut x2, mut y2) = (10usize, 14usize, 0usize, 0usize);
 
-        for block in &blocks_clone {
-            let x = block.x;
-            let y = block.y;
+        self.blocks
+            .iter()
+            .filter(|x| x.is_some() && x.as_ref().unwrap().active)
+            .map(|x| x.as_ref().unwrap())
+            .for_each(|block| {
+                let x = block.x;
+                let y = block.y;
 
-            if x1 > x {
-                x1 = x;
-            }
+                if x1 > x {
+                    x1 = x;
+                }
 
-            if y1 > y {
-                y1 = y;
-            }
+                if y1 > y {
+                    y1 = y;
+                }
 
-            if x > x2 {
-                x2 = x;
-            }
+                if x > x2 {
+                    x2 = x;
+                }
 
-            if y > y2 {
-                y2 = y;
-            }
-        }
+                if y > y2 {
+                    y2 = y;
+                }
+            });
 
-        let width = x2 - x1 + 1; // + 1 due to the fact that x2 is inclusive;
-        let height = y2 - y1 + 1;
+        let mut width = x2 - x1 + 1; // + 1 due to the fact that x2 is inclusive;
+        let mut height = y2 - y1 + 1;
+
+        println!("W: {} H: {}", width, height);
 
         let mut data_vec: Vec<bool> = Vec::with_capacity(width * height);
-        for y in y1..=y2 {
-            for x in x1..=x2 {
+        for x in (x1..=x2).rev() {
+            for y in y1..=y2 {
                 data_vec.push(self.blocks[y * 10 + x].is_some());
+            };
+        }
+
+        let temp_width = width.clone();
+        width = height;
+        height = temp_width;
+        for y in 0..height {
+            println!("AAAAA: {:?}", data_vec[y * width..(y + 1) * width].to_vec());
+        }
+
+        let mut temp_data_vec: Vec<bool> = vec![false; width * height];
+        for y in 0..height {
+            for x in 0..width {
+                let pixel = data_vec[y * width + x];
+                let new_x = width - 1 - x;
+                let new_y = height - 1 - y;
+                temp_data_vec[new_y * width + new_x] = pixel;
             }
         }
 
-        for y in y1..y2 {
-            println!("Y: {} = {:?}", y, data_vec[y * 10 + x1..=y * 10 + x2].to_vec())
+        data_vec = temp_data_vec;
+
+        for y in 0..height {
+            for x in 0..width {
+                if !data_vec[y * width + x]{
+                    continue;
+                }
+
+                if y1 + y >= 14 {
+                    return false;
+                }
+                if x1 + x >= 10 {
+                    return false;
+                }
+
+                let block = &blocks_clone[(y1 + y) * 10 + (x1 + x)];
+                if block.is_some() {
+                    return false;
+                }
+
+                blocks_clone[(y1 + y) * 10 + (x1 + x)] = Some(any_block.partial_clone(x1 + x, y1 + y)); 
+            }
         }
 
-        false
+        self.blocks = blocks_clone;
+        true
     }
 }

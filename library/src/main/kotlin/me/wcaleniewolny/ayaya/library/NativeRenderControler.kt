@@ -25,7 +25,7 @@ object NativeRenderControler {
      * @return returns pointer to native memory. WARNING!! CHANGING THAT POINTER WILL CORRUPT MEMORY!
      * @throws java.lang.RuntimeException if rust panics during native call
      */
-    external fun init(fileName: String, type: NativeRenderType, serverOptions: MapServerOptions): Long
+        external fun init(fileName: String, type: NativeRenderType, serverOptions: MapServerOptions): Long
 
     /**
      * Tell native library to free any native memory. After that calling [NativeRenderControler.loadFrame] is an illegal operation.
