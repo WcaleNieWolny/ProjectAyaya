@@ -24,7 +24,7 @@ pub struct FallingBlocks {
     rand: ThreadRng
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 struct Block {
     color: Color,
     x: usize,
@@ -117,7 +117,7 @@ impl Game for FallingBlocks {
             fall_ticks: 0usize,
             move_ticks: 0usize,
             fast_fall_ticks: 0usize,
-            current_block: BlockType::S, //We do not want to have a I block as the first one
+            current_block: BlockType::I, //We do not want to have a I block as the first one
             rotation_state: 0,
             rand: rand::thread_rng()
         }
@@ -134,14 +134,35 @@ impl Game for FallingBlocks {
 
         if self.spawn_ticks == SPAWN_TICKS {
             if self.blocks.iter().find(|x| x.is_some() && x.as_ref().unwrap().active == true).is_none(){
+                //Do line checks before spawing!
+                'y_loop: for y in (0usize..14) {
+                    for x in 0usize..10 {
+                        if self.blocks[y * 10 + x].is_none(){
+                            continue 'y_loop;
+                        }
+                    }
+                    
+                    println!("AAAAAAAAAAAAAAAa");
+                    //Set line to none blocks
+                    self.blocks[y * 10..(y + 1) * 10].copy_from_slice(&vec![None; 10]);
+
+                    let mut block_copy = vec![None; 140];
+                    if y + 1 != 14 {
+                        block_copy[((y + 1) * 10)..self.blocks.len()].copy_from_slice(&self.blocks[((y + 1) * 10)..self.blocks.len()]);
+                    }
+                    if y != 0 {
+                        block_copy[(10..(y + 1) * 10)].copy_from_slice(&self.blocks[0..(y * 10)]);
+                    }
+                    self.blocks = block_copy;
+                }
+
                 let color = Color::random(&mut self.rand);
                 let mut rand_int = self.rand.gen_range(0..=6);
 
                 //Make sure we do not get 2 the same block in a row
                 //I am aware that this is not as the original tetris however this game is NOT
                 //supose to be the original tetris!
-                //TODO: FIX != to ==
-                while BlockType::from_i8(rand_int)? != self.current_block {
+                while BlockType::from_i8(rand_int)? == self.current_block {
                     rand_int = self.rand.gen_range(0..=6);
                 }
 
@@ -481,8 +502,6 @@ impl FallingBlocks {
         let mut width = x2 - x1 + 1; // + 1 due to the fact that x2 is inclusive;
         let mut height = y2 - y1 + 1;
 
-        println!("W: {} H: {}", width, height);
-
         let mut data_vec: Vec<bool> = Vec::with_capacity(width * height);
         for x in x1..=x2 {
             for y in (y1..=y2).rev() {
@@ -494,9 +513,6 @@ impl FallingBlocks {
         let temp_width = width.clone();
         width = height;
         height = temp_width;
-        for y in 0..height {
-            println!("AAAAA: {:?}", data_vec[y * width..(y + 1) * width].to_vec());
-        }
 
         for y in 0..height {
             for x in 0..width {
