@@ -49,6 +49,20 @@ impl Color {
            blue: rng.gen()
         }
     }
+
+    pub fn color_distance(&self, c2: &Color) -> f64 {
+        let ra = (self.red + c2.red) as f64 / 2.0;
+
+        let rd = self.red as f64 - c2.red as f64;
+        let gd = self.green as f64 - c2.green as f64;
+        let bd = self.blue as f64 - c2.blue as f64;
+
+        let weight_r = 2.0 + ra / 256.0;
+        let weight_g = 4.0;
+        let weight_b = 2.0 + (255.0 - ra) / 256.0;
+
+        weight_r * rd * rd + weight_g * gd * gd + weight_b * bd * bd
+    }
 }
 
 // static CONVERSION_TABLE_DIR: String = format!("{}/cached_color.hex", env::var("OUT_DIR").unwrap());

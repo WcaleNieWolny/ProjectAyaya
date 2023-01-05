@@ -156,7 +156,12 @@ impl Game for FallingBlocks {
                     self.blocks = block_copy;
                 }
 
-                let color = Color::random(&mut self.rand);
+                let mut color = Color::random(&mut self.rand);
+
+                while color.color_distance(&FRAME_COLOR) < 150.0 {
+                    color = Color::random(&mut self.rand);
+                };
+
                 let mut rand_int = self.rand.gen_range(0..=6);
 
                 //Make sure we do not get 2 the same block in a row

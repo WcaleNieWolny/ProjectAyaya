@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use anyhow::anyhow;
 
 use crate::{map_server::ServerOptions, colorlib::Color, splitting::SplittedFrame};
-use super::{player_context::{VideoPlayer, VideoData, NativeCommunication}, flappy_bird::FlappyBirdGame, falling_blocks::FallingBlocks};
+use super::{player_context::{VideoPlayer, VideoData, NativeCommunication}, falling_blocks::FallingBlocks};
 
 pub struct VideoCanvas {
     pub width: usize,
@@ -142,9 +142,6 @@ impl VideoPlayer for GamePlayer {
         _server_options: ServerOptions,
     ) -> anyhow::Result<Self> {
         let game: Box<dyn Game> = match file_name.as_str() {
-            "flappy_bird" => {
-                Box::new(FlappyBirdGame::new())     
-            }
             "falling_blocks" => {
                 Box::new(FallingBlocks::new())     
             }

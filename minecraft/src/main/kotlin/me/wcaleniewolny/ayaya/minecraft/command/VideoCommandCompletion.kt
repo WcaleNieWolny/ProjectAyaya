@@ -39,7 +39,7 @@ class VideoCommandCompletion(
         }
 
         manager.commandCompletions.registerAsyncCompletion("games") {
-            return@registerAsyncCompletion mutableListOf("flappy_bird", "falling_blocks")
+            return@registerAsyncCompletion mutableListOf("falling_blocks")
         }
     }
 
