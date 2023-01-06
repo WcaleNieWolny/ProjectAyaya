@@ -312,9 +312,6 @@ fn main() -> Result<(), Box<dyn Error>>{
     let out_dir = env::var("OUT_DIR")?; //cargo makes sure that "OUT_DIR" exist
     let out_dir = format!("{}/cached_color.hex", out_dir);
 
-    println!("cargo:rerun-if-changed=build.rs");
-    println!(r#""cargo:rerun-if-changed=./assets""#);
-
     if !Path::new(&out_dir).exists() {
         println!("Color file does not exists!");
         let mut color_file = BufWriter::new(File::create(out_dir)?);

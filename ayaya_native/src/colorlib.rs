@@ -1,6 +1,5 @@
 use std::{env, num::ParseIntError};
 use anyhow::anyhow;
-use rand::{rngs::ThreadRng, Rng};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
@@ -18,7 +17,6 @@ impl Color {
         }
     }
 
-    pub const RED: Color = Color::new(255, 0, 0);
     pub const BLACK: Color = Color::new(0, 0, 0);
 
     pub fn hex(hex: &str) -> anyhow::Result<Self> {
@@ -40,28 +38,6 @@ impl Color {
 
     pub fn to_mc(&self) -> u8{
         get_cached_index(self) as u8
-    }
-
-    pub fn random(rng: &mut ThreadRng) -> Self {
-        Self {
-           red: rng.gen(),
-           green: rng.gen(),
-           blue: rng.gen()
-        }
-    }
-
-    pub fn color_distance(&self, c2: &Color) -> f64 {
-        let ra = (self.red + c2.red) as f64 / 2.0;
-
-        let rd = self.red as f64 - c2.red as f64;
-        let gd = self.green as f64 - c2.green as f64;
-        let bd = self.blue as f64 - c2.blue as f64;
-
-        let weight_r = 2.0 + ra / 256.0;
-        let weight_g = 4.0;
-        let weight_b = 2.0 + (255.0 - ra) / 256.0;
-
-        weight_r * rd * rd + weight_g * gd * gd + weight_b * bd * bd
     }
 }
 

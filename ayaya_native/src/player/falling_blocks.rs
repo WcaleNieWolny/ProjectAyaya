@@ -1,17 +1,38 @@
-use std::{sync::mpsc::Receiver, slice::Iter};
+use std::sync::mpsc::Receiver;
 
-use anyhow::{anyhow, bail};
-use rand::{rngs::ThreadRng, Rng};
+use anyhow::anyhow;
+use rand::{rngs::ThreadRng, Rng, seq::SliceRandom};
 
-use crate::colorlib::Color;
+use crate::{colorlib::Color, bake_image};
 
-use super::game_player::{Game, GameInputDirection, VideoCanvas};
+use super::game_player::{Game, GameInputDirection, VideoCanvas, BakedImage};
 
 static FRAME_COLOR: Color = Color::new(30, 40, 112);
-static INNER_FRAME_COLOR: Color = Color::new(50, 64, 190);
+static INNER_FRAME_COLOR: Color = Color::new(60, 60, 60);
 static SPAWN_TICKS: usize = 30;
 static FALL_TICKS: usize = 60;
 static FAST_FALL_TICKS: usize = 4;
+
+static NUMBER_0: BakedImage = bake_image!(tetris_0);
+static NUMBER_1: BakedImage = bake_image!(tetris_1);
+static NUMBER_2: BakedImage = bake_image!(tetris_2);
+static NUMBER_3: BakedImage = bake_image!(tetris_3);
+static NUMBER_4: BakedImage = bake_image!(tetris_4);
+static NUMBER_5: BakedImage = bake_image!(tetris_5);
+static NUMBER_6: BakedImage = bake_image!(tetris_6);
+static NUMBER_7: BakedImage = bake_image!(tetris_7);
+static NUMBER_8: BakedImage = bake_image!(tetris_8);
+static NUMBER_9: BakedImage = bake_image!(tetris_9);
+
+static RANDOM_COLORS: [Color; 7] = [
+    Color::new(0, 240, 240),
+    Color::new(0, 0, 240),
+    Color::new(240, 160, 0),
+    Color::new(240, 240, 0),
+    Color::new(0, 240, 0),
+    Color::new(160, 0, 240),
+    Color::new(120, 0, 0)
+];
 
 pub struct FallingBlocks {
     blocks: Vec<Option<Block>>,
@@ -20,7 +41,8 @@ pub struct FallingBlocks {
     move_ticks: usize,
     fast_fall_ticks: usize,
     current_block: BlockType,
-    rotation_state: usize,
+    last_color: Color,
+    lines_cleared: usize,
     rand: ThreadRng
 }
 
@@ -118,7 +140,8 @@ impl Game for FallingBlocks {
             move_ticks: 0usize,
             fast_fall_ticks: 0usize,
             current_block: BlockType::I, //We do not want to have a I block as the first one
-            rotation_state: 0,
+            last_color: Color::BLACK, //Does not matter
+            lines_cleared: 0,
             rand: rand::thread_rng()
         }
     }
@@ -126,23 +149,55 @@ impl Game for FallingBlocks {
     fn draw(&mut self, input_rx: &Receiver<GameInputDirection>) -> anyhow::Result<VideoCanvas> {
         let mut canvas = VideoCanvas::new(self.width() as usize, self.height() as usize, &Color::hex("464B46")?); 
 
-        canvas.draw_square(140, 20, 580, 40, &FRAME_COLOR);
+        canvas.draw_square(0, 20, 580, 40, &FRAME_COLOR);
         canvas.draw_square(140, 40, 160, 600, &FRAME_COLOR);
         canvas.draw_square(140, 600, 580, 620, &FRAME_COLOR);
         canvas.draw_square(560, 40, 580, 600, &FRAME_COLOR);
         canvas.draw_square(160, 40, 560, 600, &INNER_FRAME_COLOR);
+        canvas.draw_square(0, 40, 20, 100, &FRAME_COLOR);
+        canvas.draw_square(20, 80, 140, 100, &FRAME_COLOR);
+
+        let chars = &mut self.lines_cleared.to_string()
+            .chars()
+            .map(|d| d.to_digit(10).unwrap())
+            .collect::<Vec<_>>();
+
+        while chars.len() != 3 {
+           chars.push(0);
+           chars.rotate_right(1);
+        };
+
+        for (id, x) in chars
+            .iter()
+            .enumerate()
+        {
+            let img =  match x {
+                0 => &NUMBER_0,
+                1 => &NUMBER_1,
+                2 => &NUMBER_2,
+                3 => &NUMBER_3,
+                4 => &NUMBER_4,
+                5 => &NUMBER_5,
+                6 => &NUMBER_6,
+                7 => &NUMBER_7,
+                8 => &NUMBER_8,
+                9 => &NUMBER_9,
+                _ => return Err(anyhow!("Unable to draw segment screen")),
+            };
+            
+            canvas.draw_image(20 + (40 * id), 40, img);
+        }
 
         if self.spawn_ticks == SPAWN_TICKS {
             if self.blocks.iter().find(|x| x.is_some() && x.as_ref().unwrap().active == true).is_none(){
                 //Do line checks before spawing!
-                'y_loop: for y in (0usize..14) {
+                'y_loop: for y in 0usize..14 {
                     for x in 0usize..10 {
                         if self.blocks[y * 10 + x].is_none(){
                             continue 'y_loop;
                         }
                     }
                     
-                    println!("AAAAAAAAAAAAAAAa");
                     //Set line to none blocks
                     self.blocks[y * 10..(y + 1) * 10].copy_from_slice(&vec![None; 10]);
 
@@ -154,13 +209,15 @@ impl Game for FallingBlocks {
                         block_copy[(10..(y + 1) * 10)].copy_from_slice(&self.blocks[0..(y * 10)]);
                     }
                     self.blocks = block_copy;
+                    self.lines_cleared += 1;
                 }
 
-                let mut color = Color::random(&mut self.rand);
-
-                while color.color_distance(&FRAME_COLOR) < 150.0 {
-                    color = Color::random(&mut self.rand);
+                let mut color = RANDOM_COLORS.choose(&mut self.rand).unwrap();
+                while color == &self.last_color {
+                    color = RANDOM_COLORS.choose(&mut self.rand).unwrap();
                 };
+                let color = color.clone();
+                self.last_color = color;
 
                 let mut rand_int = self.rand.gen_range(0..=6);
 
@@ -172,7 +229,6 @@ impl Game for FallingBlocks {
                 }
 
                 self.current_block = BlockType::from_i8(rand_int)?;
-                self.rotation_state = 0; //When spawing a new piece state is always zero!
                 match rand_int {
                     0 => {
                         //Block O  OK
@@ -321,19 +377,10 @@ impl Game for FallingBlocks {
                 }
                 GameInputDirection::FORWARD => {
                     //Right rotate
-                    let prev_state = self.rotation_state;
-                    if self.rotation_state + 1 != 4 {
-                        self.rotation_state += 1;
-                    }else {
-                        self.rotation_state = 0;
+                    if self.rotate_block_right(){
+                        self.move_ticks = 10;
                         break;
                     }
-
-                    if !self.rotate_block_right() {
-                        self.rotation_state = prev_state;
-                    }
-                    self.move_ticks = 10;
-                    break;
                 }
                 _ => continue,
             };

@@ -35,6 +35,7 @@ impl VideoCanvas {
         }
     }
 
+    #[allow(dead_code)]
     pub fn draw_pixel(
         &mut self,
         x: usize,
@@ -71,10 +72,10 @@ impl VideoCanvas {
     ///
     /// X and Y are the top left coordinates of the image
     pub fn draw_image(&mut self, x: usize, y: usize, image: &BakedImage){
-        let y1 = y - image.height as usize;
+        let y1 = y + image.height as usize;
         let mut i : usize = 0;
 
-        for y in y1..y {
+        for y in y..y1 {
             self.vec[((y * self.width) + x)..((y * self.width) + x + image.width as usize)].copy_from_slice(&image.data[(i * image.width as usize)..((i + 1) * image.width as usize)]);
             i += 1;
         }
@@ -265,7 +266,7 @@ impl VideoPlayer for GamePlayer {
         msg: NativeCommunication,
     ) -> anyhow::Result<()> {
         match msg{
-            NativeCommunication::GameInput { mut input } => {
+            NativeCommunication::GameInput { input } => {
                 for ele in &input{
                     self.input_tx.send(*ele)?;
                 }
