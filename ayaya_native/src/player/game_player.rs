@@ -16,23 +16,23 @@ pub struct VideoCanvas {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GameInputDirection {
-    FORWARD,
-    BACKWARDS,
-    LEFT,
-    RIGHT,
-    UP,
+    Forward,
+    Backwards,
+    Left,
+    Right,
+    Up,
 }
 
 impl VideoCanvas {
     pub fn new(width: usize, height: usize, start_color: &Color) -> Self {
-        let vec: Vec<u8> = vec![start_color.to_mc() as u8; width * height];
+        let vec: Vec<u8> = vec![start_color.convert_to_mc(); width * height];
 
         Self { width, height, vec }
     }
 
     #[allow(dead_code)]
     pub fn draw_pixel(&mut self, x: usize, y: usize, color: &Color) {
-        self.vec[(y * self.width) + x] = color.to_mc();
+        self.vec[(y * self.width) + x] = color.convert_to_mc();
     }
 
     pub fn draw_square(&mut self, x1: usize, y1: usize, x2: usize, y2: usize, color: &Color) {
@@ -44,7 +44,7 @@ impl VideoCanvas {
 
         let width = x2 - x1;
 
-        let data_to_copy: Vec<u8> = vec![color.to_mc(); width];
+        let data_to_copy: Vec<u8> = vec![color.convert_to_mc(); width];
 
         for y in y1..y2 + 1 {
             self.vec[((y * self.width) + x1)..((y * self.width) + x2)]
@@ -57,14 +57,12 @@ impl VideoCanvas {
     /// X and Y are the top left coordinates of the image
     pub fn draw_image(&mut self, x: usize, y: usize, image: &BakedImage) {
         let y1 = y + image.height as usize;
-        let mut i: usize = 0;
 
-        for y in y..y1 {
+        for (i, y) in (y..y1).enumerate() {
             self.vec[((y * self.width) + x)..((y * self.width) + x + image.width as usize)]
                 .copy_from_slice(
                     &image.data[(i * image.width as usize)..((i + 1) * image.width as usize)],
                 );
-            i += 1;
         }
     }
 
@@ -72,11 +70,11 @@ impl VideoCanvas {
         &self,
         splitted_frames: &mut Vec<SplittedFrame>,
     ) -> anyhow::Result<Vec<i8>> {
-        Ok(SplittedFrame::split_frames(
-            bytemuck::cast_slice(&self.vec.as_slice()),
+        SplittedFrame::split_frames(
+            bytemuck::cast_slice(self.vec.as_slice()),
             splitted_frames,
             self.width as i32,
-        )?)
+        )
     }
 }
 
@@ -157,7 +155,7 @@ impl VideoPlayer for GamePlayer {
             width,
             height,
             fps,
-            splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
+            splitted_frames: SplittedFrame::initialize_frames(width, height)?,
             game,
             input_rx,
             input_tx,
@@ -182,8 +180,7 @@ impl VideoPlayer for GamePlayer {
             let mut frame_data = Vec::<i8>::with_capacity(65536);
 
             let mut offset: usize = 0;
-            let mut frame_inxex = 0;
-            for frame in &self.splitted_frames {
+            for (frame_inxex, frame) in self.splitted_frames.iter().enumerate() {
                 let (mut x1, mut y1, mut x2, mut y2) = (128usize, 128usize, 0usize, 0usize);
                 for y in 0..frame.height as usize {
                     for x in 0..frame.width as usize {
@@ -224,17 +221,15 @@ impl VideoPlayer for GamePlayer {
                     }
                     //Format: {frame_inxex}_{width}_{height}_{x1}_{y1}$
                     frame_str_info.push_str(&format!(
-                        "{:?}_{:?}_{:?}_{:?}_{:?}$",
-                        frame_inxex, width, height, x1, y1
+                        "{frame_inxex:?}_{width:?}_{height:?}_{x1:?}_{y1:?}$"
                     ));
                     frame_data.extend(data);
                 }
 
                 offset += frame.frame_length as usize;
-                frame_inxex += 1;
             }
 
-            let frame_str_info = match frame_str_info.strip_suffix("$") {
+            let frame_str_info = match frame_str_info.strip_suffix('$') {
                 Some(string) => string,
                 None => return Ok(vec![1]), //No change = no new packets
             };
@@ -250,7 +245,7 @@ impl VideoPlayer for GamePlayer {
             final_data.extend_from_slice(frame_str_arr);
             final_data.extend(frame_data);
 
-            self.last_frame = new_frame.clone();
+            self.last_frame = new_frame;
 
             Ok(final_data)
         };
@@ -261,7 +256,7 @@ impl VideoPlayer for GamePlayer {
             self.frame_counter = 0;
         };
 
-        return frame;
+        frame
     }
 
     fn video_data(&self) -> anyhow::Result<super::player_context::VideoData> {

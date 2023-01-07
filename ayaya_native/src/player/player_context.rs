@@ -89,7 +89,7 @@ pub fn receive_and_process_decoded_frames(
 
     let mut out = decoder.receive_frame(&mut decoded);
 
-    while !out.is_ok() {
+    while out.is_err() {
         let err = out.unwrap_err();
 
         if err == Error::from(-11) {
@@ -105,7 +105,7 @@ pub fn receive_and_process_decoded_frames(
     scaler
         .run(&decoded, &mut rgb_frame)
         .expect("Scaler run failed");
-    return Ok(rgb_frame);
+    Ok(rgb_frame)
 }
 
 pub trait VideoPlayer {

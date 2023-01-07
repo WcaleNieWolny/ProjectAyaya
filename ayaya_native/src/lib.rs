@@ -151,7 +151,7 @@ fn init(
             let player_context = GamePlayer::create(file_name, server_options)?;
             Ok(player_context::wrap_to_ptr(player_context))
         }
-        _ => Err(anyhow::Error::msg(format!("Invalid id ({})", render_type))),
+        _ => Err(anyhow::Error::msg(format!("Invalid id ({render_type})"))),
     };
 }
 
@@ -159,7 +159,7 @@ fn init(
 fn load_frame(env: JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
     let data = player_context::load_frame(ptr)?;
     let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
-    env.set_byte_array_region(output, 0, &data.as_slice())?;
+    env.set_byte_array_region(output, 0, data.as_slice())?;
     drop(data);
     Ok(output)
 }
@@ -182,15 +182,15 @@ fn recive_jvm_msg(
         }
         1 => NativeCommunication::StopRendering,
         2 => {
-            let info_str_vec = info_string.split("_");
+            let info_str_vec = info_string.split('_');
             let mut game_input_vec = Vec::<GameInputDirection>::with_capacity(4);
             for val in info_str_vec {
                 let input = match val {
-                    "F" => GameInputDirection::FORWARD,
-                    "B" => GameInputDirection::BACKWARDS,
-                    "L" => GameInputDirection::LEFT,
-                    "R" => GameInputDirection::RIGHT,
-                    "U" => GameInputDirection::UP,
+                    "F" => GameInputDirection::Forward,
+                    "B" => GameInputDirection::Backwards,
+                    "L" => GameInputDirection::Left,
+                    "R" => GameInputDirection::Right,
+                    "U" => GameInputDirection::Up,
                     "" => continue,
                     _ => return Err(anyhow!("Invalid short game input")),
                 };

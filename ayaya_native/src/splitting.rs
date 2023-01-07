@@ -42,8 +42,6 @@ impl SplittedFrame {
         FRAME_SPLITTER_ALL_FRAMES_X.store(all_frames_x, Relaxed);
         FRAME_SPLITTER_ALL_FRAMES_Y.store(all_frames_y, Relaxed);
 
-        let mut i = 0;
-
         for y in 0..all_frames_y {
             for x in 0..all_frames_x {
                 let x_frame_margin = if x == 0 { x_margin / 2 } else { 0 };
@@ -61,8 +59,6 @@ impl SplittedFrame {
                 };
 
                 let frame_length = frame_height * frame_width;
-
-                i = i + 1;
 
                 frames.push(SplittedFrame {
                     width: frame_width,
@@ -115,7 +111,7 @@ impl SplittedFrame {
                                     + frame.width as usize],
                         );
 
-                    final_data_index = final_data_index + frame.width
+                    final_data_index += frame.width
 
                     //for x1 in 0..frame.width{
                     // ((yI * width) + xI) + ((y1 * width) + x1)
@@ -125,8 +121,8 @@ impl SplittedFrame {
                     //}
                 }
 
-                x_i = x_i + frame.width;
-                i = i + 1;
+                x_i += frame.width;
+                i += 1;
             }
             y_i += frames[(y * all_frames_x) as usize].height;
         }

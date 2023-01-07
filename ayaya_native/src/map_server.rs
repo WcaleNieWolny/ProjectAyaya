@@ -67,7 +67,7 @@ impl MapServer {
             &self.options.bind_ip,
             &self.options.port.to_string()
         );
-        println!("Binding map server on: {}", bind);
+        println!("Binding map server on: {bind}");
         let listener = TcpListener::bind(bind).await?;
         let frame_index = self.frame_index.clone();
 
@@ -87,7 +87,7 @@ impl MapServer {
                 .recv()
                 .await
                 .expect("Couldn't recive NativeCommunication send_message");
-            println!("GOT: {:?}", msg);
+            println!("GOT: {msg:?}");
 
             match msg {
                 NativeCommunication::StartRendering { fps } => {
@@ -102,7 +102,7 @@ impl MapServer {
                         .expect("Couldn't preprare tcp frame");
 
                     //1000000000 nanoseconds = 1 second. Rust feature for that is unsable
-                    let dur = Duration::from_millis(1000 as u64 / (fps as u64));
+                    let dur = Duration::from_millis(1000_u64 / (fps as u64));
                     let mut interval = time::interval(dur);
                     interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
@@ -122,38 +122,33 @@ impl MapServer {
                             .await
                             .expect("Couldn't prepare tcp frame");
 
-                        match cmd_reciver.try_recv() {
-                            Ok(msg) => {
-                                if let NativeCommunication::StopRendering = msg {
-                                    match cmd_reciver.recv().await {
-                                        Some(msg) => match msg {
-                                            NativeCommunication::StartRendering { fps } => {
-                                                let dur = Duration::from_millis(
-                                                    1000 as u64 / (fps as u64),
-                                                );
-                                                interval = time::interval(dur);
-                                                continue;
-                                            }
-                                            _ => {
-                                                panic!("Invalid message! (Expected StartRendering, got: {:?})", msg);
-                                            }
-                                        },
-                                        None => {
-                                            println!("Couldn't recive JVM msg");
+                        if let Ok(msg) = cmd_reciver.try_recv() {
+                            if let NativeCommunication::StopRendering = msg {
+                                match cmd_reciver.recv().await {
+                                    Some(msg) => match msg {
+                                        NativeCommunication::StartRendering { fps } => {
+                                            let dur = Duration::from_millis(
+                                                1000_u64 / (fps as u64),
+                                            );
+                                            interval = time::interval(dur);
+                                            continue;
                                         }
+                                        _ => {
+                                            panic!("Invalid message! (Expected StartRendering, got: {msg:?})");
+                                        }
+                                    },
+                                    None => {
+                                        println!("Couldn't recive JVM msg");
                                     }
-                                } else {
-                                    panic!(
-                                        "Invalid message! (Expected StopRendering, got: {:?})",
-                                        msg
-                                    );
                                 }
-                                break;
+                            } else {
+                                 panic!(
+                                    "Invalid message! (Expected StopRendering, got: {msg:?})"
+                                 );
                             }
-                            Err(_) => {}
-                        };
+                            break;
+                        }};
                     }
-                }
                 _ => {
                     println!("[FastMapServer] You cannot stop a non working render thread! MapServer will exit!");
                 }
@@ -167,7 +162,7 @@ impl MapServer {
                     .await
                     .expect("Couldn't accept server connection!'");
                 socket.set_nodelay(true).unwrap();
-                println!("GOT CONNECTION FROM: {:?}", addr);
+                println!("GOT CONNECTION FROM: {addr:?}");
 
                 let mut frame_rx = tcp_frame_rx.resubscribe();
 
@@ -216,7 +211,7 @@ impl MapServer {
         //Write len
         let mut len_vec: Vec<u8> = Vec::with_capacity(4);
         len_vec
-            .write_u32(buffer.len() as u32 - 4 as u32)
+            .write_u32(buffer.len() as u32 - 4_u32)
             .await
             .unwrap();
         buffer[0..4].copy_from_slice(&len_vec);

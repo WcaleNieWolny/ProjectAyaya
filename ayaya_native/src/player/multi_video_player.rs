@@ -65,7 +65,7 @@ impl VideoPlayer for MultiVideoPlayer {
         let runtime = Builder::new_multi_thread()
             .worker_threads(thread_pool_size as usize)
             .thread_name("ProjectAyaya native worker thread")
-            .thread_stack_size(3840 as usize * 2160 as usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
+            .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
             .enable_io()
             .enable_time() //TODO: REMOVE!!!
             .build()
@@ -161,16 +161,13 @@ impl VideoPlayer for MultiVideoPlayer {
                 let mut frame_id: i64 = 0;
 
                 'main: loop {
-                    match processing_sleep_rx.try_recv() {
-                        Ok(_) => {
-                            while processing_sleep_rx.try_recv().is_err() {
-                                thread::sleep(Duration::from_millis(50));
-                                if stop_rx.try_recv().is_ok() {
-                                    break 'main;
-                                }
+                    if processing_sleep_rx.try_recv().is_ok() {
+                        while processing_sleep_rx.try_recv().is_err() {
+                            thread::sleep(Duration::from_millis(50));
+                            if stop_rx.try_recv().is_ok() {
+                                break 'main;
                             }
                         }
-                        _ => {}
                     }
 
                     if stop_rx.try_recv().is_ok() {
@@ -214,7 +211,7 @@ impl VideoPlayer for MultiVideoPlayer {
                         //     data: vec
                         // }).expect("Couldn't send frame with identifier");
                     });
-                    frame_id = frame_id + 1
+                    frame_id += 1
                 }
             } else {
                 panic!("Couldn't create async video input")
@@ -240,17 +237,14 @@ impl VideoPlayer for MultiVideoPlayer {
                         .expect("Couldnt send sleep disable request");
                 }
 
-                let cached_frame = frame_hash_map.remove(&(last_id as u64 + 1 as u64));
+                let cached_frame = frame_hash_map.remove(&(last_id as u64 + 1_u64));
 
-                match cached_frame {
-                    Some(cached_frame) => {
-                        global_tx
-                            .blocking_send(cached_frame.data)
-                            .expect("Couldn't send cached global frame");
-                        last_id = cached_frame.id;
-                        continue;
-                    }
-                    _ => {}
+                if let Some(cached_frame) = cached_frame {
+                    global_tx
+                        .blocking_send(cached_frame.data)
+                        .expect("Couldn't send cached global frame");
+                    last_id = cached_frame.id;
+                    continue;
                 }
 
                 let frame = frames_rx.recv().expect("Couldn't recive with identifier");
@@ -300,14 +294,14 @@ impl VideoPlayer for MultiVideoPlayer {
 
         self.frame_index
             .store(self.frame_index.load(Relaxed) + 1, Relaxed);
-        return loop {
+        loop {
             let frame = reciver.try_recv();
-            if frame.is_ok() {
-                break Ok(frame.unwrap());
+            if let Ok(frame) = frame {
+                break Ok(frame);
             } else {
                 thread::sleep(time::Duration::from_millis(3));
             }
-        };
+        }
     }
 
     fn video_data(&self) -> anyhow::Result<VideoData> {

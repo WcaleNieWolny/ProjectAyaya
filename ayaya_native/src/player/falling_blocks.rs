@@ -159,11 +159,9 @@ impl Game for FallingBlocks {
         self.draw_score_display(&mut canvas, 20, 40)?;
 
         if self.spawn_ticks == SPAWN_TICKS {
-            if self
+            if !self
                 .blocks
-                .iter()
-                .find(|x| x.is_some() && x.as_ref().unwrap().active == true)
-                .is_none()
+                .iter().any(|x| x.is_some() && x.as_ref().unwrap().active)
             {
                 //Do line checks before spawing!
                 'y_loop: for y in 0usize..14 {
@@ -192,7 +190,7 @@ impl Game for FallingBlocks {
                 while color == &self.last_color {
                     color = RANDOM_COLORS.choose(&mut self.rand).unwrap();
                 }
-                let color = color.clone();
+                let color = *color;
                 self.last_color = color;
 
                 let mut rand_int = self.rand.gen_range(0..=6);
@@ -288,7 +286,7 @@ impl Game for FallingBlocks {
                 continue;
             };
             match val {
-                GameInputDirection::RIGHT => {
+                GameInputDirection::Right => {
                     let mut blocks_clone = self.blocks.clone();
                     let mut allow_swap = false;
                     'block_loop: for block in self
@@ -303,7 +301,7 @@ impl Game for FallingBlocks {
                             continue 'block_loop;
                         }
 
-                        if let None = blocks_clone[block.y * 10 + (block.x + 1)] {
+                        if blocks_clone[block.y * 10 + (block.x + 1)].is_none() {
                             allow_swap = true;
                             blocks_clone[block.y * 10 + (block.x + 1)] =
                                 Some(block.partial_clone(block.x + 1, block.y));
@@ -320,7 +318,7 @@ impl Game for FallingBlocks {
                     self.move_ticks = 10;
                     break;
                 }
-                GameInputDirection::LEFT => {
+                GameInputDirection::Left => {
                     let mut blocks_clone = self.blocks.clone();
                     let mut allow_swap = false;
                     'block_loop: for block in self
@@ -334,7 +332,7 @@ impl Game for FallingBlocks {
                             continue 'block_loop;
                         }
 
-                        if let None = blocks_clone[block.y * 10 + (block.x - 1)] {
+                        if blocks_clone[block.y * 10 + (block.x - 1)].is_none() {
                             allow_swap = true;
                             blocks_clone[block.y * 10 + (block.x - 1)] =
                                 Some(block.partial_clone(block.x - 1, block.y));
@@ -352,24 +350,24 @@ impl Game for FallingBlocks {
                     self.move_ticks = 10;
                     break;
                 }
-                GameInputDirection::UP => {
+                GameInputDirection::Up => {
                     self.blocks
                         .iter_mut()
                         .rev()
-                        .filter(|x| x.is_some() && x.as_ref().unwrap().active == true)
+                        .filter(|x| x.is_some() && x.as_ref().unwrap().active)
                         .map(|x| x.as_mut().unwrap())
                         .for_each(|block| {
                             block.falling = true;
                         });
                 }
-                GameInputDirection::FORWARD => {
+                GameInputDirection::Forward => {
                     //Right rotate
                     if self.rotate_block(false) {
                         self.move_ticks = 10;
                         break;
                     }
                 }
-                GameInputDirection::BACKWARDS => {
+                GameInputDirection::Backwards => {
                     //left rotate
                     if self.rotate_block(true) {
                         self.move_ticks = 10;
@@ -393,8 +391,8 @@ impl Game for FallingBlocks {
                 .rev()
                 .filter(|x| {
                     x.is_some()
-                        && x.as_ref().unwrap().active == true
-                        && x.as_ref().unwrap().falling == true
+                        && x.as_ref().unwrap().active
+                        && x.as_ref().unwrap().falling
                 })
                 .map(|x| x.as_mut().unwrap())
             {
@@ -406,7 +404,7 @@ impl Game for FallingBlocks {
                         .falling = false;
                     continue 'fast_fall_loop;
                 };
-                if let None = final_block_clone[(block.y + 1) * 10 + block.x] {
+                if final_block_clone[(block.y + 1) * 10 + block.x].is_none() {
                     allow_swap = true;
                     final_block_clone[(block.y + 1) * 10 + block.x] =
                         Some(block.partial_clone(block.x, block.y + 1));
@@ -415,7 +413,7 @@ impl Game for FallingBlocks {
                     allow_swap = false;
                     self.blocks
                         .iter_mut()
-                        .filter(|x| x.is_some() && x.as_ref().unwrap().active == true)
+                        .filter(|x| x.is_some() && x.as_ref().unwrap().active)
                         .map(|x| x.as_mut().unwrap())
                         .for_each(|x| {
                             x.active = false;
@@ -444,8 +442,8 @@ impl Game for FallingBlocks {
                 .rev()
                 .filter(|x| {
                     x.is_some()
-                        && x.as_ref().unwrap().active == true
-                        && x.as_ref().unwrap().falling == false
+                        && x.as_ref().unwrap().active
+                        && !x.as_ref().unwrap().falling
                 })
                 .map(|x| x.as_mut().unwrap())
             {
@@ -453,7 +451,7 @@ impl Game for FallingBlocks {
                     self.blocks[block.y * 10 + block.x].as_mut().unwrap().active = false;
                     continue 'fall_loop;
                 };
-                if let None = final_block_clone[(block.y + 1) * 10 + block.x] {
+                if final_block_clone[(block.y + 1) * 10 + block.x].is_none() {
                     allow_swap = true;
                     final_block_clone[(block.y + 1) * 10 + block.x] =
                         Some(block.partial_clone(block.x, block.y + 1));
@@ -462,7 +460,7 @@ impl Game for FallingBlocks {
                     allow_swap = false;
                     self.blocks
                         .iter_mut()
-                        .filter(|x| x.is_some() && x.as_ref().unwrap().active == true)
+                        .filter(|x| x.is_some() && x.as_ref().unwrap().active)
                         .map(|x| x.as_mut().unwrap())
                         .for_each(|x| {
                             x.active = false;
@@ -509,13 +507,11 @@ impl FallingBlocks {
             .iter()
             .map(|x| {
                 if x.is_none() {
-                    x.clone()
+                    *x
+                } else if x.as_ref().unwrap().active {
+                    None
                 } else {
-                    if x.as_ref().unwrap().active {
-                        None
-                    } else {
-                        x.clone()
-                    }
+                    *x
                 }
             })
             .collect();
@@ -576,9 +572,7 @@ impl FallingBlocks {
             }
         }
 
-        let temp_width = width.clone();
-        width = height;
-        height = temp_width;
+        std::mem::swap(&mut width, &mut height);
 
         for y in 0..height {
             for x in 0..width {

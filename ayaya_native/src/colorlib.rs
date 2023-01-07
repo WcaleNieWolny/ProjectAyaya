@@ -21,7 +21,7 @@ impl Color {
 
     pub fn hex(hex: &str) -> anyhow::Result<Self> {
         let hex = hex.to_string();
-        let hex = hex.replace("#", "");
+        let hex = hex.replace('#', "");
 
         if hex.len() != 6 {
             return Err(anyhow!("Invalid hex"));
@@ -36,7 +36,7 @@ impl Color {
         Ok(Self::new(hex[0], hex[1], hex[2]))
     }
 
-    pub fn to_mc(&self) -> u8 {
+    pub fn convert_to_mc(&self) -> u8 {
         get_cached_index(self) as u8
     }
 }
@@ -65,5 +65,5 @@ pub fn transform_frame_to_mc(data: &[u8], width: u32, height: u32) -> Vec<i8> {
         }
     }
 
-    return buffer;
+    buffer
 }

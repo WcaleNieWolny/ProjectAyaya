@@ -80,7 +80,7 @@ impl VideoPlayer for SingleVideoPlayer {
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
         while let Some((stream, packet)) = self.input.packets().next() {
-            if stream.index() == self.video_stream_index as usize {
+            if stream.index() == self.video_stream_index {
                 self.decoder.send_packet(&packet)?;
                 let frame_data = receive_and_process_decoded_frames(
                     &mut self.decoder,

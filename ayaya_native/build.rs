@@ -278,12 +278,12 @@ static MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
 ];
 
 fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
-    let r = ((c2.red as f64 - c1.red as f64).powi(2)
+    
+
+    ((c2.red as f64 - c1.red as f64).powi(2)
         + (c2.blue as f64 - c1.blue as f64).powi(2)
         + (c2.green as f64 - c1.green as f64).powi(2))
-    .sqrt();
-
-    r
+    .sqrt()
 }
 
 fn get_mc_index(color: MinecraftColor) -> i8 {
@@ -291,8 +291,7 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
     let mut best: f64 = -1.0;
 
     //Magic value: 248 = mc color size
-    for i in 4..248 {
-        let c = &MINECRAFT_COLOR_ARRAY[i];
+    for (i, c) in MINECRAFT_COLOR_ARRAY.iter().enumerate().skip(4) {
         let d = color_distance(&color, c);
 
         if d < best || best == -1.0 {
@@ -301,11 +300,11 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
         }
     }
 
-    return if index < 128 {
+    if index < 128 {
         index as i8
     } else {
         (-129 + (index - 127)) as i8
-    };
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -313,7 +312,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=./assets");
 
     let out_dir = env::var("OUT_DIR")?; //cargo makes sure that "OUT_DIR" exist
-    let out_dir = format!("{}/cached_color.hex", out_dir);
+    let out_dir = format!("{out_dir}/cached_color.hex");
 
     if !Path::new(&out_dir).exists() {
         println!("Color file does not exists!");
@@ -328,7 +327,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     let b: &[u8] = slice::from_ref(&color);
 
-                    color_file.write(b)?;
+                    let _ = color_file.write(b)?;
                 }
             }
         }
@@ -342,9 +341,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for ele in asstets_entries {
         let mut name = ele.to_str().unwrap().replace("./assets/", "");
-        match ele.extension() {
-            Some(val) => name = name.replace(".", "").replace(val.to_str().unwrap(), ""),
-            None => {}
+        if let Some(val) = ele.extension() {
+            name = name.replace('.', "").replace(val.to_str().unwrap(), "") 
         }
 
         let img = image::open(ele)?;
@@ -358,7 +356,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let input_data = img.into_vec();
 
         let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
-        let out_path = format!("{}/{}.bin", out_dir, name);
+        let out_path = format!("{out_dir}/{name}.bin");
         let mut output_file = BufWriter::new(File::create(out_path)?);
 
         //println!("D: {:?}", data);
@@ -368,7 +366,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let a = input_data[((((y * width) + x) * 4) + 3) as usize];
 
                 if a != 255 {
-                    output_file.write(slice::from_ref(&0u8))?;
+                    let _ = output_file.write(slice::from_ref(&0u8))?;
                     continue;
                 }
 
@@ -376,16 +374,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let g = input_data[((((y * width) + x) * 4) + 1) as usize];
                 let b = input_data[((((y * width) + x) * 4) + 2) as usize];
 
-                output_file.write(slice::from_ref(
+                let _ = output_file.write(slice::from_ref(
                     &(get_mc_index(MinecraftColor::new(r, g, b)) as u8),
                 ))?;
             }
         }
 
         let mut dimensions_file =
-            BufWriter::new(File::create(format!("{}/{}.dim", out_dir, name))?);
-        dimensions_file.write(&width.to_be_bytes())?;
-        dimensions_file.write(&height.to_be_bytes())?;
+            BufWriter::new(File::create(format!("{out_dir}/{name}.dim"))?);
+        let _ = dimensions_file.write(&width.to_be_bytes())?;
+        let _ = dimensions_file.write(&height.to_be_bytes())?;
 
         dimensions_file.flush()?;
         output_file.flush()?;
