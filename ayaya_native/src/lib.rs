@@ -231,7 +231,7 @@ fn get_video_data(env: JNIEnv, ptr: jlong) -> anyhow::Result<jobject> {
             JValue::Int(video_data.fps),
         ],
     )?;
-    Ok(jobject.into_inner())
+    Ok(jobject.into_raw())
 }
 
 //Thanks to thatbakamono (https://github.com/thatbakamono) for help with developing this macro
