@@ -1,9 +1,9 @@
+use image::GenericImageView;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::{env, slice};
-use image::GenericImageView;
 
 pub struct MinecraftColor {
     red: u8,
@@ -308,7 +308,10 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
     };
 }
 
-fn main() -> Result<(), Box<dyn Error>>{
+fn main() -> Result<(), Box<dyn Error>> {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=./assets");
+
     let out_dir = env::var("OUT_DIR")?; //cargo makes sure that "OUT_DIR" exist
     let out_dir = format!("{}/cached_color.hex", out_dir);
 
@@ -340,9 +343,7 @@ fn main() -> Result<(), Box<dyn Error>>{
     for ele in asstets_entries {
         let mut name = ele.to_str().unwrap().replace("./assets/", "");
         match ele.extension() {
-            Some(val) => {
-                name = name.replace(".", "").replace(val.to_str().unwrap(), "")
-            },
+            Some(val) => name = name.replace(".", "").replace(val.to_str().unwrap(), ""),
             None => {}
         }
 
@@ -351,7 +352,7 @@ fn main() -> Result<(), Box<dyn Error>>{
 
         let img = match img {
             image::DynamicImage::ImageRgba8(img) => img,
-            x => x.to_rgba8()
+            x => x.to_rgba8(),
         };
 
         let input_data = img.into_vec();
@@ -362,11 +363,11 @@ fn main() -> Result<(), Box<dyn Error>>{
 
         //println!("D: {:?}", data);
 
-        for y in 0..height{
-            for x in 0..width{
+        for y in 0..height {
+            for x in 0..width {
                 let a = input_data[((((y * width) + x) * 4) + 3) as usize];
 
-                if a != 255{
+                if a != 255 {
                     output_file.write(slice::from_ref(&0u8))?;
                     continue;
                 }
@@ -374,18 +375,20 @@ fn main() -> Result<(), Box<dyn Error>>{
                 let r = input_data[(((y * width) + x) * 4) as usize];
                 let g = input_data[((((y * width) + x) * 4) + 1) as usize];
                 let b = input_data[((((y * width) + x) * 4) + 2) as usize];
-                
-                output_file.write(slice::from_ref(&(get_mc_index(MinecraftColor::new(r, g, b)) as u8)))?; 
+
+                output_file.write(slice::from_ref(
+                    &(get_mc_index(MinecraftColor::new(r, g, b)) as u8),
+                ))?;
             }
         }
 
-        let mut dimensions_file =BufWriter::new(File::create(format!("{}/{}.dim", out_dir, name))?);
+        let mut dimensions_file =
+            BufWriter::new(File::create(format!("{}/{}.dim", out_dir, name))?);
         dimensions_file.write(&width.to_be_bytes())?;
         dimensions_file.write(&height.to_be_bytes())?;
 
         dimensions_file.flush()?;
         output_file.flush()?;
-
     }
 
     Ok(())

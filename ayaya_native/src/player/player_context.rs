@@ -12,21 +12,19 @@ use super::game_player::GameInputDirection;
 macro_rules! get_context {
     (
         $PTR: ident
-    ) => {
-        {
-            let arc_ptr = $PTR as *const() as *const Arc<Mutex<dyn VideoPlayer>>;
-            Arc::clone(unsafe { &*arc_ptr })
-        } 
-    };
+    ) => {{
+        let arc_ptr = $PTR as *const () as *const Arc<Mutex<dyn VideoPlayer>>;
+        Arc::clone(unsafe { &*arc_ptr })
+    }};
 }
 
 macro_rules! lock_mutex {
     (
         $MUTEX: ident
     ) => {
-        match $MUTEX.lock(){
+        match $MUTEX.lock() {
             Ok(val) => val,
-            Err(_) => return Err(anyhow!("Cannot lock arc!"))
+            Err(_) => return Err(anyhow!("Cannot lock arc!")),
         }
     };
 }
@@ -41,14 +39,14 @@ pub struct VideoData {
 pub enum NativeCommunication {
     StartRendering { fps: i32 },
     StopRendering,
-    GameInput { input: Vec<GameInputDirection> }
+    GameInput { input: Vec<GameInputDirection> },
 }
-
 
 //Thanks to https://github.com/alexschrod for helping me with getting this Arc pointer to work
 //He made this code much better!
 pub fn wrap_to_ptr<T>(to_wrap: T) -> i64
-    where T: VideoPlayer
+where
+    T: VideoPlayer,
 {
     let arc = Arc::new(Mutex::new(to_wrap)) as Arc<Mutex<dyn VideoPlayer>>;
     Box::into_raw(Box::new(arc)) as *const () as i64
@@ -76,13 +74,10 @@ pub fn pass_jvm_msg(ptr: i64, msg: NativeCommunication) -> anyhow::Result<()> {
 }
 
 pub fn destroy(ptr: i64) -> anyhow::Result<()> {
-    drop(unsafe {
-        Box::from_raw(ptr as *mut Arc<Mutex<dyn VideoPlayer>>)
-    });
+    drop(unsafe { Box::from_raw(ptr as *mut Arc<Mutex<dyn VideoPlayer>>) });
 
     Ok(())
 }
-
 
 pub fn receive_and_process_decoded_frames(
     decoder: &mut ffmpeg::decoder::Video,

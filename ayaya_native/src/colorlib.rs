@@ -1,5 +1,5 @@
-use std::{env, num::ParseIntError};
 use anyhow::anyhow;
+use std::{env, num::ParseIntError};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
@@ -24,7 +24,7 @@ impl Color {
         let hex = hex.replace("#", "");
 
         if hex.len() != 6 {
-           return Err(anyhow!("Invalid hex")); 
+            return Err(anyhow!("Invalid hex"));
         }
 
         let hex: Result<Vec<u8>, ParseIntError> = (0..hex.len())
@@ -36,7 +36,7 @@ impl Color {
         Ok(Self::new(hex[0], hex[1], hex[2]))
     }
 
-    pub fn to_mc(&self) -> u8{
+    pub fn to_mc(&self) -> u8 {
         get_cached_index(self) as u8
     }
 }
@@ -44,7 +44,6 @@ impl Color {
 // static CONVERSION_TABLE_DIR: String = format!("{}/cached_color.hex", env::var("OUT_DIR").unwrap());
 pub static CONVERSION_TABLE: &[u8; 16777216] =
     include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
-
 
 pub fn get_cached_index(color: &Color) -> i8 {
     CONVERSION_TABLE

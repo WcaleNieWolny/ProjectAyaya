@@ -20,8 +20,8 @@ use jni::objects::*;
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
 use jni::JNIEnv;
 use map_server::ServerOptions;
-use player::game_player::{GamePlayer, GameInputDirection};
-use player::player_context::{NativeCommunication, self};
+use player::game_player::{GameInputDirection, GamePlayer};
+use player::player_context::{self, NativeCommunication};
 
 use crate::player::multi_video_player::MultiVideoPlayer;
 use crate::player::player_context::VideoPlayer;
@@ -148,8 +148,8 @@ fn init(
             Ok(player_context::wrap_to_ptr(player_context))
         }
         2 => {
-           let player_context = GamePlayer::create(file_name, server_options)?;
-           Ok(player_context::wrap_to_ptr(player_context))
+            let player_context = GamePlayer::create(file_name, server_options)?;
+            Ok(player_context::wrap_to_ptr(player_context))
         }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({})", render_type))),
     };
@@ -192,12 +192,14 @@ fn recive_jvm_msg(
                     "R" => GameInputDirection::RIGHT,
                     "U" => GameInputDirection::UP,
                     "" => continue,
-                    _ => return Err(anyhow!("Invalid short game input"))
+                    _ => return Err(anyhow!("Invalid short game input")),
                 };
                 game_input_vec.push(input);
             }
 
-            NativeCommunication::GameInput { input: game_input_vec }
+            NativeCommunication::GameInput {
+                input: game_input_vec,
+            }
         }
         _ => return Err(anyhow!("Invalid msg enum")),
     };

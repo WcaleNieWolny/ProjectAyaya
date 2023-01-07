@@ -60,10 +60,7 @@ impl MultiVideoPlayer {
 }
 
 impl VideoPlayer for MultiVideoPlayer {
-    fn create(
-        file_name: String,
-        map_server_options: ServerOptions,
-    ) -> anyhow::Result<Self> {
+    fn create(file_name: String, map_server_options: ServerOptions) -> anyhow::Result<Self> {
         let thread_pool_size = 24;
         let runtime = Builder::new_multi_thread()
             .worker_threads(thread_pool_size as usize)

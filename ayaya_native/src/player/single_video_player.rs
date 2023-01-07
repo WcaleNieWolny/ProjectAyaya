@@ -9,9 +9,7 @@ use ffmpeg::Error::Eof;
 
 use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::ServerOptions;
-use crate::player::player_context::{
-    receive_and_process_decoded_frames, VideoData, VideoPlayer,
-};
+use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{ffmpeg_set_multithreading, SplittedFrame};
 
 pub struct SingleVideoPlayer {
