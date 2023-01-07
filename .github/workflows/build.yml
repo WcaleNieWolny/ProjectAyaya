@@ -27,6 +27,8 @@ jobs:
         cargo install cross
     - name: setup rust cache
       uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: "./ayaya_native/ -> target"
     - name: download ffmpeg
       run: |
         sudo apt install -y libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev
