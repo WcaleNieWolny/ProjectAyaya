@@ -127,9 +127,8 @@ impl MapServer {
                                 match cmd_reciver.recv().await {
                                     Some(msg) => match msg {
                                         NativeCommunication::StartRendering { fps } => {
-                                            let dur = Duration::from_millis(
-                                                1000_u64 / (fps as u64),
-                                            );
+                                            let dur =
+                                                Duration::from_millis(1000_u64 / (fps as u64));
                                             interval = time::interval(dur);
                                             continue;
                                         }
@@ -142,13 +141,12 @@ impl MapServer {
                                     }
                                 }
                             } else {
-                                 panic!(
-                                    "Invalid message! (Expected StopRendering, got: {msg:?})"
-                                 );
+                                panic!("Invalid message! (Expected StopRendering, got: {msg:?})");
                             }
                             break;
-                        }};
+                        }
                     }
+                }
                 _ => {
                     println!("[FastMapServer] You cannot stop a non working render thread! MapServer will exit!");
                 }

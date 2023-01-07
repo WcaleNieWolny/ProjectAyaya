@@ -278,8 +278,6 @@ static MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
 ];
 
 fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
-    
-
     ((c2.red as f64 - c1.red as f64).powi(2)
         + (c2.blue as f64 - c1.blue as f64).powi(2)
         + (c2.green as f64 - c1.green as f64).powi(2))
@@ -342,7 +340,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     for ele in asstets_entries {
         let mut name = ele.to_str().unwrap().replace("./assets/", "");
         if let Some(val) = ele.extension() {
-            name = name.replace('.', "").replace(val.to_str().unwrap(), "") 
+            name = name.replace('.', "").replace(val.to_str().unwrap(), "")
         }
 
         let img = image::open(ele)?;
@@ -380,8 +378,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
 
-        let mut dimensions_file =
-            BufWriter::new(File::create(format!("{out_dir}/{name}.dim"))?);
+        let mut dimensions_file = BufWriter::new(File::create(format!("{out_dir}/{name}.dim"))?);
         let _ = dimensions_file.write(&width.to_be_bytes())?;
         let _ = dimensions_file.write(&height.to_be_bytes())?;
 

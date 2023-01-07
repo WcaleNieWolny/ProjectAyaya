@@ -161,7 +161,8 @@ impl Game for FallingBlocks {
         if self.spawn_ticks == SPAWN_TICKS {
             if !self
                 .blocks
-                .iter().any(|x| x.is_some() && x.as_ref().unwrap().active)
+                .iter()
+                .any(|x| x.is_some() && x.as_ref().unwrap().active)
             {
                 //Do line checks before spawing!
                 'y_loop: for y in 0usize..14 {
@@ -390,9 +391,7 @@ impl Game for FallingBlocks {
                 .iter_mut()
                 .rev()
                 .filter(|x| {
-                    x.is_some()
-                        && x.as_ref().unwrap().active
-                        && x.as_ref().unwrap().falling
+                    x.is_some() && x.as_ref().unwrap().active && x.as_ref().unwrap().falling
                 })
                 .map(|x| x.as_mut().unwrap())
             {
@@ -441,9 +440,7 @@ impl Game for FallingBlocks {
                 .iter_mut()
                 .rev()
                 .filter(|x| {
-                    x.is_some()
-                        && x.as_ref().unwrap().active
-                        && !x.as_ref().unwrap().falling
+                    x.is_some() && x.as_ref().unwrap().active && !x.as_ref().unwrap().falling
                 })
                 .map(|x| x.as_mut().unwrap())
             {
