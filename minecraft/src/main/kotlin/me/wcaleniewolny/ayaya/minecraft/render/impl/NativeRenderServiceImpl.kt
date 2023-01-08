@@ -164,4 +164,7 @@ class NativeRenderServiceImpl(
         }
     }
 
+    override fun seekSecond(second: Int) {
+        TODO("Not yet implemented")
+    }
 }

@@ -19,4 +19,5 @@ videoVerificationFailed: <red>Couldn't play this video on this screen. It is lik
 mapServerPlaybackNotAllowed: <red>Map server playback is disabled in the config!
 unableToPausePlayback: <red>This screen is not playing any video!
 unableToStartPlayback: <red>This screen is playing video! It cannot start playing another one!
+seekToNegativeSecond: <red>You are trying to seek to a negative number. This is an absolute value!
 success: <green>Success!

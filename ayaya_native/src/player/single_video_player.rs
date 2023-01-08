@@ -1,10 +1,12 @@
+use std::sync::mpsc::{Sender, Receiver, channel};
+
 use anyhow::anyhow;
 use ffmpeg::decoder::Video;
 use ffmpeg::format::context::Input;
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
-use ffmpeg::Error;
+use ffmpeg::{Error, rescale, Rescale};
 use ffmpeg::Error::Eof;
 
 use crate::colorlib::transform_frame_to_mc;
@@ -12,12 +14,16 @@ use crate::map_server::ServerOptions;
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{ffmpeg_set_multithreading, SplittedFrame};
 
+use super::player_context::NativeCommunication;
+
 pub struct SingleVideoPlayer {
     video_stream_index: usize,
     scaler: Context,
     input: Input,
     decoder: Video,
     splitted_frames: Vec<SplittedFrame>,
+    seek_tx: Sender<i32>,
+    seek_rx: Receiver<i32>,
     width: u32,
     height: u32,
     fps: i32,
@@ -61,12 +67,16 @@ impl VideoPlayer for SingleVideoPlayer {
                 Flags::BILINEAR,
             )?;
 
+            let (seek_tx, seek_rx) = channel::<i32>();
+
             let single_video_player = Self {
                 video_stream_index,
                 scaler,
                 input: ictx,
                 decoder,
                 splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
+                seek_tx,
+                seek_rx,
                 width,
                 height,
                 fps,
@@ -79,6 +89,13 @@ impl VideoPlayer for SingleVideoPlayer {
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
+
+        while let Ok(position) = &self.seek_rx.try_recv() {
+            let position = position.rescale((1, 1), rescale::TIME_BASE);
+            self.input.seek(position, ..position)?;
+            self.decoder.flush();
+        }
+
         while let Some((stream, packet)) = self.input.packets().next() {
             if stream.index() == self.video_stream_index {
                 self.decoder.send_packet(&packet)?;
@@ -117,10 +134,14 @@ impl VideoPlayer for SingleVideoPlayer {
 
     fn handle_jvm_msg(
         &self,
-        _msg: super::player_context::NativeCommunication,
+        msg: NativeCommunication,
     ) -> anyhow::Result<()> {
-        return Err(anyhow!(
-            "Single threaded player does not support JVM -> Native msg"
-        ));
+        match msg {
+            NativeCommunication::VideoSeek { second } => {
+                self.seek_tx.send(second)?;
+            }
+            _ => return Err(anyhow!("Expected VideoSeek msg")),
+        };
+        Ok(())
     }
 }

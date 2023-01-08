@@ -3,6 +3,7 @@ package me.wcaleniewolny.ayaya.minecraft.command;
 import co.aikar.commands.BaseCommand
 import co.aikar.commands.CommandHelp
 import co.aikar.commands.annotation.*
+import me.wcaleniewolny.ayaya.minecraft.render.impl.JavaRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.screen.Screen
 import me.wcaleniewolny.ayaya.minecraft.screen.ScreenController
 import me.wcaleniewolny.ayaya.minecraft.screen.ScreenFacing
@@ -94,6 +95,30 @@ class VideoCommand(
         }
 
         screenController.startGame(game, screen, sender)
+    }
+
+    @Subcommand("seek")
+    @Syntax("[screen_id]")
+    @CommandCompletion("@screens @nothing")
+    fun onSeek(
+        sender: Player,
+        @Values("@screens") screenId: String,
+        second: Int
+    ){
+        if (0 > second) {
+            sender.sendColoredMessage(fileConfiguration.getString("seekToNegativeSecond")!!)
+            return
+        }
+        val screenOptional = lookupScreen(sender, screenId)
+        if (screenOptional.isEmpty) {
+            return
+        }
+        val screen = screenOptional.get()
+        if(screen.renderService.isPresent){
+            //This is safe due to rust mutex
+            val renderService = screen.renderService.get()
+            renderService.seekSecond(second)
+        }
     }
 
     @Subcommand("pause")

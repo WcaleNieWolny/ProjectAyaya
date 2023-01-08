@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::mpsc::TrySendError;
@@ -12,10 +13,10 @@ use ffmpeg::format::context::Input;
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
-use ffmpeg::Error;
+use ffmpeg::{Error, Rescale, rescale};
 use ffmpeg::Error::Eof;
 use tokio::runtime::{Builder, Runtime};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, broadcast};
 
 use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
@@ -29,15 +30,24 @@ pub struct MultiVideoPlayer {
     height: i32,
     fps: i32,
     pub frame_index: Arc<AtomicI64>,
-    receiver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<Vec<i8>>>>>,
+    receiver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<FrameWithIdentifier>>>>,
     map_server: MapServerData,
     stop_tx: oneshot::Sender<bool>,
+    seek_tx: broadcast::Sender<i32>,
+    seek_rx: broadcast::Receiver<i32>,
     runtime: Arc<Runtime>,
 }
 
-struct FrameWithIdentifier {
-    id: i64,
-    data: Vec<i8>,
+pub struct FrameWithIdentifier {
+    pub id: i64,
+    pub data: Vec<i8>,
+}
+
+//No data field
+impl Debug for FrameWithIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FrameWithIdentifier").field("id", &self.id).finish()
+    }
 }
 
 impl MultiVideoPlayer {
@@ -67,30 +77,18 @@ impl VideoPlayer for MultiVideoPlayer {
             .thread_name("ProjectAyaya native worker thread")
             .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
             .enable_io()
-            .enable_time() //TODO: REMOVE!!!
+            .enable_time()
             .build()
             .expect("Couldn't create tokio runtime");
 
         let handle = runtime.handle().clone();
         let frame_index = Arc::new(AtomicI64::new(0));
-        //        let mut multi_video_player = MultiVideoPlayer {
-        //            width: None,
-        //            height: None,
-        //            fps: None,
-        //            frame_index: frame_index.clone(),
-        //            splitter_frames: Vec::new(),
-        //            thread_pool_size,
-        //            file_name,
-        //            receiver: None,
-        //            map_server: MapServer::new(&map_server_options, &frame_index),
-        //            runtime: Arc::new(runtime),
-        //        };
 
-        let (global_tx, global_rx) = tokio::sync::mpsc::channel::<Vec<i8>>(100);
+        let (global_tx, global_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(100);
         let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
         let (frames_tx, frames_rx) = mpsc::sync_channel::<FrameWithIdentifier>(100);
 
-        let mut reciver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<Vec<i8>>>>> = None;
+        let mut reciver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<FrameWithIdentifier>>>> = None;
         let (server_tx, server_rx) = oneshot::channel::<anyhow::Result<MapServerData>>();
 
         match map_server_options.use_server {
@@ -118,6 +116,9 @@ impl VideoPlayer for MultiVideoPlayer {
         let (processing_sleep_tx, processing_sleep_rx) = mpsc::sync_channel::<bool>(3);
 
         let (stop_tx, mut stop_rx) = oneshot::channel::<bool>();
+        let (seek_tx, seek_rx) = broadcast::channel::<i32>(5);
+        let mut seek_rx_clone = seek_rx.resubscribe();
+
         thread::spawn(move || {
             ffmpeg::init().expect("Couldn't init ffmpeg!");
             if let Ok(mut ictx) = input(&file_name) {
@@ -174,6 +175,17 @@ impl VideoPlayer for MultiVideoPlayer {
                         break 'main;
                     }
 
+                    if let Ok(position) = seek_rx_clone.try_recv() {
+                        let position = position.rescale((1, 1), rescale::TIME_BASE);
+                        if let Err(_) = ictx.seek(position, ..position) {
+                            println!("Cannot seek in async context! Quiting!");
+                            break 'main;
+                        }
+                        //We do not flush the decoder due to some wierd bug that causes "End of
+                        //file" when we do. It SHOULD be fine! (It causes a small lag but it is ok)
+                        frame_id = 0;
+                    }
+
                     let frame = MultiVideoPlayer::decode_frame(
                         &mut ictx,
                         video_stream_index,
@@ -206,10 +218,6 @@ impl VideoPlayer for MultiVideoPlayer {
                             }
                         }
 
-                        // sender.send(FrameWithIdentifier{
-                        //     id: frame_id,
-                        //     data: vec
-                        // }).expect("Couldn't send frame with identifier");
                     });
                     frame_id += 1
                 }
@@ -240,24 +248,30 @@ impl VideoPlayer for MultiVideoPlayer {
                 let cached_frame = frame_hash_map.remove(&(last_id as u64 + 1_u64));
 
                 if let Some(cached_frame) = cached_frame {
-                    global_tx
-                        .blocking_send(cached_frame.data)
-                        .expect("Couldn't send cached global frame");
                     last_id = cached_frame.id;
+                    global_tx
+                        .blocking_send(cached_frame)
+                        .expect("Couldn't send cached global frame");
+                    
                     continue;
                 }
 
                 let frame = frames_rx.recv().expect("Couldn't recive with identifier");
 
                 if frame.id == last_id + 1 || frame.id == 0 {
-                    match global_tx.blocking_send(frame.data) {
+
+                    if frame.id == 0 {
+                        frame_hash_map.clear();
+                    }
+
+                    last_id = frame.id;
+                    match global_tx.blocking_send(frame) {
                         Ok(_) => {}
                         Err(_) => {
                             println!("[AyayaNative] Couldn't send frame data! Exiting!");
                             break;
                         }
                     }
-                    last_id = frame.id;
                     continue;
                 }
 
@@ -277,6 +291,8 @@ impl VideoPlayer for MultiVideoPlayer {
             receiver: reciver,
             map_server,
             stop_tx,
+            seek_tx,
+            seek_rx,
             runtime: Arc::new(runtime),
         };
         Ok(multi_video_player)
@@ -290,18 +306,32 @@ impl VideoPlayer for MultiVideoPlayer {
         }
 
         let reciver = self.receiver.as_ref().unwrap();
-        let mut reciver = reciver.lock().expect("Couldn't lock JVM mutex");
+        let mut reciver = match reciver.lock(){
+            Ok(val) => val,
+            Err(_) => return Err(anyhow!("Unable to lock JVM frame mutex"))
+        };
 
-        self.frame_index
-            .store(self.frame_index.load(Relaxed) + 1, Relaxed);
-        loop {
-            let frame = reciver.try_recv();
-            if let Ok(frame) = frame {
-                break Ok(frame);
-            } else {
-                thread::sleep(time::Duration::from_millis(3));
+        //Recive so we can do next frame normaly. is_empty does not recive
+        if let Ok(_) = self.seek_rx.try_recv() {
+            'frame_recv_loop: while let Some(frame) = reciver.blocking_recv() {
+                if frame.id != 0 {
+                self.frame_index
+                    .store(self.frame_index.load(Relaxed) + 1, Relaxed);
+                    continue 'frame_recv_loop;
+                };
+                self.frame_index.store(1, Relaxed);
+                return Ok(frame.data);
             }
+        }else {
+            self.frame_index
+                .store(self.frame_index.load(Relaxed) + 1, Relaxed);
+            return match reciver.blocking_recv() {
+                Some(frame) => Ok(frame.data),
+                None => Err(anyhow!("JVM frame reciver closed!"))
+            };
         }
+
+        Err(anyhow!("Unable to recive JVM rame"))
     }
 
     fn video_data(&self) -> anyhow::Result<VideoData> {
@@ -338,7 +368,14 @@ impl VideoPlayer for MultiVideoPlayer {
                 let server = server.clone();
                 server.send_message(msg)?;
             }
-            None => return Err(anyhow!("Map server is not enabled!")),
+            None => {
+                match msg {
+                    NativeCommunication::VideoSeek { second } => {
+                        self.seek_tx.send(second)?;
+                    }
+                    _ => return Err(anyhow!("Map server is not enabled!")), 
+                }
+            },
         }
         Ok(())
     }

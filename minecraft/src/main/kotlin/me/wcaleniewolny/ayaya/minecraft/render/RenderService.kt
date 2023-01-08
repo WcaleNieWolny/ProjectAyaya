@@ -1,6 +1,5 @@
 package me.wcaleniewolny.ayaya.minecraft.render
 
-import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 
 interface RenderService {
@@ -9,5 +8,6 @@ interface RenderService {
     fun startRendering()
     fun pauseRendering()
     fun killRendering()
+    fun seekSecond(second: Int)
 
 }

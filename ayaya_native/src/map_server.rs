@@ -20,7 +20,7 @@ use tokio::{
     time,
 };
 
-use crate::player::player_context::NativeCommunication;
+use crate::player::{player_context::NativeCommunication, multi_video_player::FrameWithIdentifier};
 
 #[derive(Debug, Clone)]
 pub struct ServerOptions {
@@ -42,7 +42,7 @@ impl MapServer {
     pub async fn create(
         options: &ServerOptions,
         frame_index: Arc<AtomicI64>,
-        map_reciver: Receiver<Vec<i8>>,
+        map_reciver: Receiver<FrameWithIdentifier>,
     ) -> anyhow::Result<MapServerData> {
         let (cmd_tx, cmd_rx) = tokio::sync::mpsc::channel(8);
 
@@ -59,7 +59,7 @@ impl MapServer {
 
     async fn init(
         &self,
-        mut map_reciver: Receiver<Vec<i8>>,
+        mut map_reciver: Receiver<FrameWithIdentifier>,
         mut cmd_reciver: Receiver<NativeCommunication>,
     ) -> anyhow::Result<()> {
         let bind = format!(
@@ -97,7 +97,7 @@ impl MapServer {
                         .await
                         .expect("Couldn't recive first frame");
 
-                    let mut data = Self::prepare_frame(data, &mut data_size)
+                    let mut data = Self::prepare_frame(data.data, &mut data_size)
                         .await
                         .expect("Couldn't preprare tcp frame");
 
@@ -118,7 +118,7 @@ impl MapServer {
                             .expect("Couldn't recive frame from main map server loop");
                         frame_index.fetch_add(1, Ordering::Relaxed);
 
-                        data = Self::prepare_frame(temp_data, &mut data_size)
+                        data = Self::prepare_frame(temp_data.data, &mut data_size)
                             .await
                             .expect("Couldn't prepare tcp frame");
 

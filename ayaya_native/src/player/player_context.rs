@@ -40,6 +40,7 @@ pub enum NativeCommunication {
     StartRendering { fps: i32 },
     StopRendering,
     GameInput { input: Vec<GameInputDirection> },
+    VideoSeek { second: i32 }
 }
 
 //Thanks to https://github.com/alexschrod for helping me with getting this Arc pointer to work

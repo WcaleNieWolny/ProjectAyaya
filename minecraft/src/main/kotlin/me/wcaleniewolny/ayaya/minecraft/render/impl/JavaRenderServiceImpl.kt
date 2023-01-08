@@ -1,5 +1,6 @@
 package me.wcaleniewolny.ayaya.minecraft.render.impl
 
+import me.wcaleniewolny.ayaya.library.NativeLibCommunication
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.render.RenderService
 import me.wcaleniewolny.ayaya.minecraft.render.RenderThread
@@ -42,4 +43,7 @@ open class JavaRenderServiceImpl(
         NativeRenderControler.destroy(renderThread.ptr())
     }
 
+    override fun seekSecond(second: Int) {
+        NativeRenderControler.communicate(renderThread.ptr(), NativeLibCommunication.VIDEO_SEEK, second.toString())
+    }
 }
