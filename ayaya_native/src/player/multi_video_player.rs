@@ -13,10 +13,10 @@ use ffmpeg::format::context::Input;
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
-use ffmpeg::{Error, Rescale, rescale};
 use ffmpeg::Error::Eof;
+use ffmpeg::{rescale, Error, Rescale};
 use tokio::runtime::{Builder, Runtime};
-use tokio::sync::{oneshot, broadcast};
+use tokio::sync::{broadcast, oneshot};
 
 use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
@@ -46,7 +46,9 @@ pub struct FrameWithIdentifier {
 //No data field
 impl Debug for FrameWithIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FrameWithIdentifier").field("id", &self.id).finish()
+        f.debug_struct("FrameWithIdentifier")
+            .field("id", &self.id)
+            .finish()
     }
 }
 
@@ -88,7 +90,8 @@ impl VideoPlayer for MultiVideoPlayer {
         let (data_tx, data_rx) = mpsc::sync_channel::<i32>(3);
         let (frames_tx, frames_rx) = mpsc::sync_channel::<FrameWithIdentifier>(100);
 
-        let mut reciver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<FrameWithIdentifier>>>> = None;
+        let mut reciver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<FrameWithIdentifier>>>> =
+            None;
         let (server_tx, server_rx) = oneshot::channel::<anyhow::Result<MapServerData>>();
 
         match map_server_options.use_server {
@@ -252,14 +255,13 @@ impl VideoPlayer for MultiVideoPlayer {
                     global_tx
                         .blocking_send(cached_frame)
                         .expect("Couldn't send cached global frame");
-                    
+
                     continue;
                 }
 
                 let frame = frames_rx.recv().expect("Couldn't recive with identifier");
 
                 if frame.id == last_id + 1 || frame.id == 0 {
-
                     if frame.id == 0 {
                         frame_hash_map.clear();
                     }
@@ -306,28 +308,28 @@ impl VideoPlayer for MultiVideoPlayer {
         }
 
         let reciver = self.receiver.as_ref().unwrap();
-        let mut reciver = match reciver.lock(){
+        let mut reciver = match reciver.lock() {
             Ok(val) => val,
-            Err(_) => return Err(anyhow!("Unable to lock JVM frame mutex"))
+            Err(_) => return Err(anyhow!("Unable to lock JVM frame mutex")),
         };
 
         //Recive so we can do next frame normaly. is_empty does not recive
         if let Ok(_) = self.seek_rx.try_recv() {
             'frame_recv_loop: while let Some(frame) = reciver.blocking_recv() {
                 if frame.id != 0 {
-                self.frame_index
-                    .store(self.frame_index.load(Relaxed) + 1, Relaxed);
+                    self.frame_index
+                        .store(self.frame_index.load(Relaxed) + 1, Relaxed);
                     continue 'frame_recv_loop;
                 };
                 self.frame_index.store(1, Relaxed);
                 return Ok(frame.data);
             }
-        }else {
+        } else {
             self.frame_index
                 .store(self.frame_index.load(Relaxed) + 1, Relaxed);
             return match reciver.blocking_recv() {
                 Some(frame) => Ok(frame.data),
-                None => Err(anyhow!("JVM frame reciver closed!"))
+                None => Err(anyhow!("JVM frame reciver closed!")),
             };
         }
 
@@ -368,13 +370,11 @@ impl VideoPlayer for MultiVideoPlayer {
                 let server = server.clone();
                 server.send_message(msg)?;
             }
-            None => {
-                match msg {
-                    NativeCommunication::VideoSeek { second } => {
-                        self.seek_tx.send(second)?;
-                    }
-                    _ => return Err(anyhow!("Map server is not enabled!")), 
+            None => match msg {
+                NativeCommunication::VideoSeek { second } => {
+                    self.seek_tx.send(second)?;
                 }
+                _ => return Err(anyhow!("Map server is not enabled!")),
             },
         }
         Ok(())

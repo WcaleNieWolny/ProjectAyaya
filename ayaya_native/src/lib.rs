@@ -203,9 +203,7 @@ fn recive_jvm_msg(
         }
         3 => {
             let second = info_string.parse::<i32>()?;
-            NativeCommunication::VideoSeek { 
-                second
-            }
+            NativeCommunication::VideoSeek { second }
         }
         _ => return Err(anyhow!("Invalid msg enum")),
     };

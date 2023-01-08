@@ -20,7 +20,7 @@ use tokio::{
     time,
 };
 
-use crate::player::{player_context::NativeCommunication, multi_video_player::FrameWithIdentifier};
+use crate::player::{multi_video_player::FrameWithIdentifier, player_context::NativeCommunication};
 
 #[derive(Debug, Clone)]
 pub struct ServerOptions {

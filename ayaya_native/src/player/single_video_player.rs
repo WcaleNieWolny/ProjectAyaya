@@ -1,4 +1,4 @@
-use std::sync::mpsc::{Sender, Receiver, channel};
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 use anyhow::anyhow;
 use ffmpeg::decoder::Video;
@@ -6,8 +6,8 @@ use ffmpeg::format::context::Input;
 use ffmpeg::format::{input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
-use ffmpeg::{Error, rescale, Rescale};
 use ffmpeg::Error::Eof;
+use ffmpeg::{rescale, Error, Rescale};
 
 use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::ServerOptions;
@@ -89,7 +89,6 @@ impl VideoPlayer for SingleVideoPlayer {
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
-
         while let Ok(position) = &self.seek_rx.try_recv() {
             let position = position.rescale((1, 1), rescale::TIME_BASE);
             self.input.seek(position, ..position)?;
@@ -132,10 +131,7 @@ impl VideoPlayer for SingleVideoPlayer {
         Ok(()) //Nothing to do
     }
 
-    fn handle_jvm_msg(
-        &self,
-        msg: NativeCommunication,
-    ) -> anyhow::Result<()> {
+    fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()> {
         match msg {
             NativeCommunication::VideoSeek { second } => {
                 self.seek_tx.send(second)?;
