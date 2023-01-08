@@ -65,8 +65,9 @@ class ScreenController(
                 val gX = screenYaml.getInt("gx")
                 val gY = screenYaml.getInt("gy")
                 val gZ = screenYaml.getInt("gz")
+                val useGame = screenYaml.getBoolean("useGame")
 
-                screens.add(Screen(startID, file.nameWithoutExtension, facing.toBlockFace(), x1, y1, z1, x2, y2, z2, gX, gY, gZ, world))
+                screens.add(Screen(startID, file.nameWithoutExtension, facing.toBlockFace(), x1, y1, z1, x2, y2, z2, gX, gY, gZ, useGame, world))
         }
     }
 
@@ -82,6 +83,7 @@ class ScreenController(
         gameX: Int,
         gameY: Int,
         gameZ: Int,
+        useGame: Boolean,
         world: World
     ) {
         val screenFile = File(dir, "${name}.yml")
@@ -93,7 +95,7 @@ class ScreenController(
         val face = facing.toBlockFace()
         val startID = buildScreen(world, Vector(x1, y1, z1), Vector(x2, y2, z2), face)
 
-        val screen = Screen(startID, name, face, x1, y1, z1, x2, y2, z2, gameX, gameY, gameZ, world)
+        val screen = Screen(startID, name, face, x1, y1, z1, x2, y2, z2, gameX, gameY, gameZ, useGame, world)
 
         val screenYaml = YamlConfiguration.loadConfiguration(screenFile)
 
@@ -108,6 +110,7 @@ class ScreenController(
         screenYaml.set("gx", gameX)
         screenYaml.set("gy", gameY)
         screenYaml.set("gz", gameZ)
+        screenYaml.set("useGame", useGame)
         screenYaml.set("world", world.uid.toString())
 
         screenYaml.save(screenFile)
