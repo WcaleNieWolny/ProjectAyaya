@@ -20,4 +20,5 @@ mapServerPlaybackNotAllowed: <red>Map server playback is disabled in the config!
 unableToPausePlayback: <red>This screen is not playing any video!
 unableToStartPlayback: <red>This screen is playing video! It cannot start playing another one!
 seekToNegativeSecond: <red>You are trying to seek to a negative number. This is an absolute value!
+screenNoGaming: <red>This screen does not support gaming!
 success: <green>Success!

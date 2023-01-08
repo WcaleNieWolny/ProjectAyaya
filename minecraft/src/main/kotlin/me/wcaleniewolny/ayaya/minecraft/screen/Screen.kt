@@ -18,6 +18,7 @@ data class Screen(
     val gameX: Int,
     val gameY: Int,
     val gameZ: Int,
+    val useGame: Boolean,
     val world: World,
     val width: Int = if((mapFace == BlockFace.SOUTH) || (mapFace == BlockFace.WEST)) (if (x1 == x2) (z2 - z1 + 1) * 128 else (x2 - x1 + 1) * 128) else (if (x1 == x2) (z1 - z2 + 1) * 128 else (x1 - x2 + 1) * 128),
     val height: Int = (y1 - y2 + 1) * 128,

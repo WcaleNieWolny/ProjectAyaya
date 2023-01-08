@@ -3,7 +3,6 @@ package me.wcaleniewolny.ayaya.minecraft.command;
 import co.aikar.commands.BaseCommand
 import co.aikar.commands.CommandHelp
 import co.aikar.commands.annotation.*
-import me.wcaleniewolny.ayaya.minecraft.render.impl.JavaRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.screen.Screen
 import me.wcaleniewolny.ayaya.minecraft.screen.ScreenController
 import me.wcaleniewolny.ayaya.minecraft.screen.ScreenFacing
@@ -13,7 +12,6 @@ import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
-import java.util.Optional
 import kotlin.math.max
 import kotlin.math.min
 
@@ -88,6 +86,11 @@ class VideoCommand(
             return
         }
         val screen = screenOptional.get()
+
+        if (!screen.useGame){
+            sender.sendColoredMessage(fileConfiguration.getString("screenNoGaming")!!)
+            return
+        }
 
         if(screen.renderService.isPresent){
             sender.sendColoredMessage(fileConfiguration.getString("unableToStartPlayback")!!)
@@ -185,9 +188,9 @@ class VideoCommand(
         x2: Int,
         y2: Int,
         z2: Int,
-        gameX: Int,
-        gameY: Int,
-        gameZ: Int
+        @Optional gameX: Int?,
+        @Optional gameY: Int?,
+        @Optional gameZ: Int?
     ) {
 
         if (z1 != z2 && x1 != x2) {
@@ -206,6 +209,8 @@ class VideoCommand(
             return
         }
 
+        val useGame = gameX != null && gameY != null && gameZ != null
+
         try {
             if(screenFacing == ScreenFacing.SOUTH || screenFacing == ScreenFacing.WEST){
                 screenController.createScreen(
@@ -217,9 +222,10 @@ class VideoCommand(
                     max(x1, x2),
                     min(y1, y2),
                     max(z1, z2),
-                    gameX,
-                    gameY,
-                    gameZ,
+                    if (useGame) gameX!! else 0,
+                    if (useGame) gameY!! else 0,
+                    if (useGame) gameZ!! else 0,
+                    useGame,
                     sender.world
                 )
 
@@ -233,9 +239,10 @@ class VideoCommand(
                     min(x1, x2),
                     min(y1, y2),
                     min(z1, z2),
-                    gameX,
-                    gameY,
-                    gameZ,
+                    if (useGame) gameX!! else 0,
+                    if (useGame) gameY!! else 0,
+                    if (useGame) gameZ!! else 0,
+                    useGame,
                     sender.world
                 )
             }
@@ -276,10 +283,10 @@ class VideoCommand(
         val screens = screenController.getScreens().filter { it.name == id }
         if (screens.isEmpty()) {
             sender.sendColoredMessage(fileConfiguration.getString("screenLookupEmpty")!!)
-            return Optional.empty()
+            return java.util.Optional.empty()
         }
 
-        return Optional.of(screens[0])
+        return java.util.Optional.of(screens[0])
     }
 
 }
