@@ -23,6 +23,7 @@ class RenderThreadVideoImpl(
     private val debug = false
 
     override fun run() {
+        println("SELECTED FPS: $fps")
         displayService.init()
         renderLoop()
     }
