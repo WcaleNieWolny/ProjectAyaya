@@ -144,7 +144,9 @@ class ScreenController(
 
             screen.renderService = Optional.of(renderService)
             renderService.startRendering()
-            sender.sendColoredMessage(plugin.config.getString("success")!!)
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                sender.sendColoredMessage(plugin.config.getString("success")!!)
+            })
         })
     }
 
