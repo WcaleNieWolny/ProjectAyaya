@@ -20,7 +20,7 @@ It is a reference that this was originally created to watch anime.
 
  - 📢 sound using [discord](https://discord.com/) bot
  - ⌚ video timeline
- - 🎮 games ([Snake](https://en.wikipedia.org/wiki/Snake_(video_game_genre)), [Falling blocks](https://en.wikipedia.org/wiki/Tetris)) 
+ - 🎮 games ([Snake](https://en.wikipedia.org/wiki/Snake_(video_game_genre)), ~~[Falling blocks](https://en.wikipedia.org/wiki/Tetris)~~) 
 
 ### 🚀 Deploying
 Please see the [wiki](https://github.com/WcaleNieWolny/ProjectAyaya/wiki) for information on how to deploy.
