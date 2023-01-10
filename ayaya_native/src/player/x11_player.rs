@@ -1,4 +1,4 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::channel;
 
 use anyhow::anyhow;
 use ffmpeg::decoder::Video;
@@ -7,7 +7,7 @@ use ffmpeg::format::Pixel;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::Error::Eof;
-use ffmpeg::{rescale, Error, Rescale, Format, Dictionary};
+use ffmpeg::{rescale, Error, Format, Dictionary};
 
 use crate::colorlib::{get_cached_index, Color};
 use crate::map_server::ServerOptions;
@@ -22,8 +22,6 @@ pub struct X11Player {
     input: Input,
     decoder: Video,
     splitted_frames: Vec<SplittedFrame>,
-    seek_tx: Sender<i32>,
-    seek_rx: Receiver<i32>,
     width: u32,
     height: u32,
     fps: i32,
@@ -35,28 +33,17 @@ impl VideoPlayer for X11Player {
             return Err(anyhow!("Single video player does not support map server"));
         }
 
+        //https://docs.rs/ffmpeg-next/latest/ffmpeg_next/format/fn.register.html
+        //We propably should call this however this breaks windows compilation!
         ffmpeg::init()?;
-        ffmpeg::format::register_all();
 
-        let ffmpeg_caputre_device_name = if cfg!(target_os = "linux") {
-            "x11grab"
-        }else if cfg!(target_os = "windows"){
-            "dshow"
-        }else {
-            return Err(anyhow!("You do not seem to be running windows or linux! There is no MACOS support at the time!"))
+        if cfg!(not(target_os = "linux")){
+            return Err(anyhow!("You are not running linux! X11 does not work outside of linux!")); 
         };
-
-        let ffmpeg_input = if cfg!(target_os = "linux") {
-            ":0.0"
-        }else if cfg!(target_os = "windows"){
-            "screen-capture-recorder"
-        }else {
-            unreachable!();
-        }.to_string();
 
         let mut optional_format: Option<Format> = None;
         for format in ffmpeg::device::input::video() {
-            if format.name() == ffmpeg_caputre_device_name {
+            if format.name() == "x11grab" {
                 optional_format = Some(format);
                 break;
             }
@@ -72,7 +59,7 @@ impl VideoPlayer for X11Player {
         dictionary.set("video_size", "3440x1440");
         dictionary.set("probesize", "100M");
 
-        if let Ok(conext) = ffmpeg::format::open_with(&ffmpeg_input, &format, dictionary){
+        if let Ok(conext) = ffmpeg::format::open_with(&":0.0", &format, dictionary){
             let ictx = conext.input();
             let input = ictx
                 .streams()
@@ -109,8 +96,6 @@ impl VideoPlayer for X11Player {
                 input: ictx,
                 decoder,
                 splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
-                seek_tx,
-                seek_rx,
                 width,
                 height,
                 fps,
@@ -123,12 +108,6 @@ impl VideoPlayer for X11Player {
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
-        while let Ok(position) = &self.seek_rx.try_recv() {
-            let position = position.rescale((1, 1), rescale::TIME_BASE);
-            self.input.seek(position, ..position)?;
-            self.decoder.flush();
-        }
-
         while let Some((stream, packet)) = self.input.packets().next() {
             if stream.index() == self.video_stream_index {
                 self.decoder.send_packet(&packet)?;
@@ -167,13 +146,7 @@ impl VideoPlayer for X11Player {
     }
 
     fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()> {
-        match msg {
-            NativeCommunication::VideoSeek { second } => {
-                self.seek_tx.send(second)?;
-            }
-            _ => return Err(anyhow!("Expected VideoSeek msg")),
-        };
-        Ok(())
+        return Err(anyhow!("X11 player does not support native messages!"));
     }
 }
 
