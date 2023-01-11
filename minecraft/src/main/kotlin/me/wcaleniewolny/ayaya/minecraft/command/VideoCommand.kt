@@ -130,7 +130,16 @@ class VideoCommand(
     fun onX11(
         sender: Player,
         @Values("@screens") screenId: String,
+        @Optional mapServerBool: Boolean?
     ){
+        val mapServer = (mapServerBool != null) && mapServerBool
+
+        if (mapServer && !plugin.config.getBoolean("allowMapServer")) {
+            sender.sendColoredMessage(fileConfiguration.getString("mapServerPlaybackNotAllowed")!!)
+            return
+        }
+
+        sender.sendMessage(mapServer.toString())
         val screenOptional = lookupScreen(sender, screenId)
         if (screenOptional.isEmpty) {
             return
@@ -141,7 +150,7 @@ class VideoCommand(
             return
         }
 
-        screenController.startX11(screen)
+        screenController.startX11(screen, mapServer)
     }
 
     @Subcommand("pause")

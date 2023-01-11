@@ -1,7 +1,7 @@
 # See config in GitHub wiki for more info
 allowMapServer: false
-mapServerLocalIp: localhost
-mapServerRemoteIp: localhost
+mapServerLocalIp: 0.0.0.0
+mapServerRemoteIp: 0.0.0.0
 mapServerPort: 1965
 
 screenCreationFailed: <red>Couldn't create screen! Make sure that screen with that name DOES not exists!

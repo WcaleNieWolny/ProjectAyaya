@@ -1,3 +1,5 @@
+use std::sync::Arc;
+use std::sync::atomic::AtomicI64;
 use std::thread;
 
 use anyhow::anyhow;
@@ -5,28 +7,29 @@ use ffmpeg::format::Pixel;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::{Dictionary, Error, Format};
+use tokio::runtime::{Builder, Runtime};
 use tokio::sync::mpsc::Receiver;
+use tokio::sync::oneshot;
 
 use crate::colorlib::{get_cached_index, Color};
-use crate::map_server::ServerOptions;
+use crate::map_server::{ServerOptions, MapServerData, MapServer};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::SplittedFrame;
 
+use super::multi_video_player::FrameWithIdentifier;
 use super::player_context::NativeCommunication;
 
 pub struct X11Player {
     width: u32,
     height: u32,
     fps: i32,
-    jvm_rx: Option<Receiver<Vec<i8>>>,
+    jvm_rx: Option<Receiver<FrameWithIdentifier>>,
+    map_server: MapServerData,
+    runtime: Option<Runtime>
 }
 
 impl VideoPlayer for X11Player {
-    fn create(_file_name: String, server_options: ServerOptions) -> anyhow::Result<Self> {
-        if server_options.use_server {
-            return Err(anyhow!("Single video player does not support map server"));
-        }
-
+    fn create(input: String, map_server_options: ServerOptions) -> anyhow::Result<Self> {
         //https://docs.rs/ffmpeg-next/latest/ffmpeg_next/format/fn.register.html
         //We propably should call this however this breaks windows compilation!
         ffmpeg::init()?;
@@ -55,7 +58,7 @@ impl VideoPlayer for X11Player {
         };
 
         let mut dictionary = Dictionary::new();
-        dictionary.set("framerate", "10"); //TODO: dynamic
+        dictionary.set("framerate", "60"); //TODO: dynamic
         dictionary.set("video_size", "3440x1440");
         dictionary.set("probesize", "100M");
 
@@ -80,7 +83,47 @@ impl VideoPlayer for X11Player {
             let splitted_frames = SplittedFrame::initialize_frames(width as i32, height as i32)?;
 
             //Small buffer due to fact that we are only decoding UP TO FPS frames per second
-            let (jvm_tx, jvm_rx) = tokio::sync::mpsc::channel::<Vec<i8>>(50);
+            let (jvm_tx, jvm_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(50);
+
+            let (server_tx, server_rx) = oneshot::channel::<(anyhow::Result<MapServerData>, Option<Runtime>)>();
+            let mut jvm_final_reciver: Option<Receiver<FrameWithIdentifier>> =
+                None;
+
+            match map_server_options.use_server {
+                true => {
+                    let frame_index_clone = Arc::new(AtomicI64::new(0));
+
+                    let runtime = Builder::new_multi_thread()
+                        .worker_threads(2usize) //We do not need more
+                        .thread_name("ProjectAyaya native X11 worker thread")
+                        .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
+                        .enable_io()
+                        .enable_time()
+                        .build()
+                        .expect("Couldn't create tokio runtime");
+
+                    let handle = runtime.handle().clone();
+                    handle.spawn(async move {
+                        let result = MapServer::create(
+                            &map_server_options.clone(),
+                            frame_index_clone,
+                            jvm_rx,
+                        )
+                        .await;
+                        server_tx
+                            .send((result, Some(runtime)))
+                            .expect("Cannot send map server creation result");
+                    });
+                }
+                false => {
+                    jvm_final_reciver = Some(jvm_rx);
+                    server_tx.send((Ok(None), None)).unwrap();
+                }
+            };
+
+            let (map_server, runtime) = server_rx.blocking_recv()?;
+            let map_server = map_server?;
+            
 
             //Threading is not a speed optymalisation. It is required to have support for map_server
             thread::Builder::new()
@@ -103,6 +146,7 @@ impl VideoPlayer for X11Player {
                     };
 
                     'decoder_loop: loop {
+                        let mut frame_id = 0;
                         while let Some((stream, packet)) = ictx.packets().next() {
                             if stream.index() == video_stream_index {
                                 if let Err(err) = decoder.send_packet(&packet) {
@@ -139,10 +183,15 @@ impl VideoPlayer for X11Player {
                                     }
                                 };
 
-                                if let Err(err) = jvm_tx.blocking_send(transformed_frame) {
-                                    println!("Unable to send JVM frame (X11) ({err:?})");
+                                if jvm_tx.blocking_send(FrameWithIdentifier{
+                                    id: frame_id,
+                                    data: transformed_frame
+                                }).is_err() {
+                                    //This is designed to fail
+                                    println!("Unable to send JVM frame (X11) This is normal");
                                     break 'decoder_loop;
                                 }
+                                frame_id += 1;
                             }
                         }
                     }
@@ -152,7 +201,9 @@ impl VideoPlayer for X11Player {
                 width,
                 height,
                 fps,
-                jvm_rx: Some(jvm_rx),
+                jvm_rx: jvm_final_reciver,
+                map_server,
+                runtime
             };
 
             return Ok(single_video_player);
@@ -164,7 +215,7 @@ impl VideoPlayer for X11Player {
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
         if let Some(jvm_rx) = &mut self.jvm_rx {
             match jvm_rx.blocking_recv() {
-                Some(val) => Ok(val),
+                Some(val) => Ok(val.data),
                 None => return Err(anyhow!("")),
             }
         } else {
@@ -186,8 +237,17 @@ impl VideoPlayer for X11Player {
         Ok(()) //Nothing to do
     }
 
-    fn handle_jvm_msg(&self, _msg: NativeCommunication) -> anyhow::Result<()> {
-        return Err(anyhow!("X11 player does not support native messages!"));
+    fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()> {
+        match &self.map_server {
+            Some(server) => {
+                let server = server.clone();
+                server.send_message(msg)?;
+            },
+            None => {
+                return Err(anyhow!("X11 player does not support native messages!"));
+            }
+        }
+        Ok(())
     }
 }
 

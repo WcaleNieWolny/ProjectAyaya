@@ -36,7 +36,7 @@ public class MapNettyClient {
                 .handler(new ChannelInitializer() {
 
                     @Override
-                    protected void initChannel(Channel socketChannel) {
+                    public void initChannel(Channel socketChannel) {
                         ChannelPipeline pipeline = socketChannel.pipeline();
                         pipeline.addLast("framer", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
                         pipeline.addLast("decompression", new CompressionDecoder(metadata.finalLength()));

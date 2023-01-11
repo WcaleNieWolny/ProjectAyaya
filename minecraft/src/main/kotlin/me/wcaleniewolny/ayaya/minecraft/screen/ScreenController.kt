@@ -174,14 +174,16 @@ class ScreenController(
 
     fun startX11(
         screen: Screen,
+        useMapServer: Boolean
     ){
+        //"$" is the splitting sign of the X11 player
         val renderService = RenderServiceFactory.create(
             plugin,
-            "", //TODO: Add optional screen selection (X11 grab argument from FFMPEG)
+            "$useMapServer\$", //TODO: Add optional screen selection (X11 grab argument from FFMPEG)
             screen.name,
             screen.startID,
-            false,
-            RenderServiceType.JAVA,
+            useMapServer,
+            if (!useMapServer) RenderServiceType.JAVA else RenderServiceType.NATIVE,
             VideoPlayType.X11,
         )
 
