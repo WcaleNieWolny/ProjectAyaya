@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::mpsc::TrySendError;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
-use std::{thread, time};
+use std::thread;
 
 use anyhow::anyhow;
 use ffmpeg::decoder::Video;
@@ -180,7 +180,7 @@ impl VideoPlayer for MultiVideoPlayer {
 
                     if let Ok(position) = seek_rx_clone.try_recv() {
                         let position = position.rescale((1, 1), rescale::TIME_BASE);
-                        if let Err(_) = ictx.seek(position, ..position) {
+                        if ictx.seek(position, ..position).is_err() {
                             println!("Cannot seek in async context! Quiting!");
                             break 'main;
                         }
@@ -314,7 +314,7 @@ impl VideoPlayer for MultiVideoPlayer {
         };
 
         //Recive so we can do next frame normaly. is_empty does not recive
-        if let Ok(_) = self.seek_rx.try_recv() {
+        if self.seek_rx.try_recv().is_ok() {
             'frame_recv_loop: while let Some(frame) = reciver.blocking_recv() {
                 if frame.id != 0 {
                     self.frame_index

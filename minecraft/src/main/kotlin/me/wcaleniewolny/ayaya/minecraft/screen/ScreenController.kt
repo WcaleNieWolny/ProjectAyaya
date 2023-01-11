@@ -172,6 +172,23 @@ class ScreenController(
         renderService.startRendering()
     }
 
+    fun startX11(
+        screen: Screen,
+    ){
+        val renderService = RenderServiceFactory.create(
+            plugin,
+            "", //TODO: Add optional screen selection (X11 grab argument from FFMPEG)
+            screen.name,
+            screen.startID,
+            false,
+            RenderServiceType.JAVA,
+            VideoPlayType.X11,
+        )
+
+        screen.renderService = Optional.of(renderService)
+        renderService.startRendering()
+    }
+
     fun killPlayback(screen: Screen) {
         val renderServiceOptional = screen.renderService
         if (renderServiceOptional.isEmpty) {

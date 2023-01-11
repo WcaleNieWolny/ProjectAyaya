@@ -124,6 +124,26 @@ class VideoCommand(
         }
     }
 
+    @Subcommand("x11")
+    @Syntax("[screen_id]")
+    @CommandCompletion("@screens @nothing")
+    fun onX11(
+        sender: Player,
+        @Values("@screens") screenId: String,
+    ){
+        val screenOptional = lookupScreen(sender, screenId)
+        if (screenOptional.isEmpty) {
+            return
+        }
+        val screen = screenOptional.get()
+        if(screen.renderService.isPresent){
+            sender.sendColoredMessage(fileConfiguration.getString("unableToStartPlayback")!!)
+            return
+        }
+
+        screenController.startX11(screen)
+    }
+
     @Subcommand("pause")
     @Syntax("[screen_id]")
     @CommandCompletion("@screens @nothing")

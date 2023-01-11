@@ -141,7 +141,7 @@ fn init(
 
     return match render_type {
         0 => {
-            let player_context = X11Player::create(file_name, server_options)?;
+            let player_context = SingleVideoPlayer::create(file_name, server_options)?;
             Ok(player_context::wrap_to_ptr(player_context))
         }
         1 => {
@@ -150,6 +150,10 @@ fn init(
         }
         2 => {
             let player_context = GamePlayer::create(file_name, server_options)?;
+            Ok(player_context::wrap_to_ptr(player_context))
+        }
+        3 => {
+            let player_context = X11Player::create(file_name, server_options)?;
             Ok(player_context::wrap_to_ptr(player_context))
         }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({render_type})"))),

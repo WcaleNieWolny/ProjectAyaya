@@ -44,7 +44,7 @@ object RenderServiceFactory {
 
         val fps = videoData.fps
 
-        val thread = if (videoPlayType != VideoPlayType.GAME) RenderThreadVideoImpl(
+        val thread = if (videoPlayType != VideoPlayType.GAME && videoPlayType != VideoPlayType.X11) RenderThreadVideoImpl(
             DisplayServiceImpl(
                 MinecraftNativeBroadcaster(startID),
                 width, height

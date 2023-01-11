@@ -6,7 +6,8 @@ enum class VideoPlayType {
     SINGLE,
     MULTI,
     MAP_SERVER,
-    GAME;
+    GAME,
+    X11;
 
     fun toNativeRenderType(): NativeRenderType {
         return when (this) {
@@ -14,6 +15,7 @@ enum class VideoPlayType {
             MULTI -> NativeRenderType.MULTI_THREADED
             MAP_SERVER -> NativeRenderType.MULTI_THREADED
             GAME -> NativeRenderType.GAME
+            X11 -> NativeRenderType.X11
         }
     }
 }
