@@ -12,6 +12,7 @@ public class MapStateMixin {
     @Inject(method = "setColorsTo", at = @At("HEAD"), cancellable = true)
     void injected(MapState mapState, CallbackInfo ci) {
         MapState.UpdateData data = ((MapState.UpdateData) (Object) this);
+        //TODO: Implement checking from NettyDataHandler
         System.arraycopy(data.colors, 0, mapState.colors, data.startZ * data.width + data.startX, data.width * data.height);
 
 

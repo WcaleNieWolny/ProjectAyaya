@@ -29,7 +29,7 @@ pub struct X11Player {
 }
 
 impl VideoPlayer for X11Player {
-    fn create(input: String, map_server_options: ServerOptions) -> anyhow::Result<Self> {
+    fn create(input_string: String, map_server_options: ServerOptions) -> anyhow::Result<Self> {
         //https://docs.rs/ffmpeg-next/latest/ffmpeg_next/format/fn.register.html
         //We propably should call this however this breaks windows compilation!
         ffmpeg::init()?;
@@ -39,6 +39,12 @@ impl VideoPlayer for X11Player {
                 "You are not running linux! X11 does not work outside of linux!"
             ));
         };
+
+        let input_vec: Vec<&str> = input_string.split("@").collect();
+
+        if input_vec.len() < 2 {
+            return Err(anyhow!("Invalid input string for X11 capture"));
+        }
 
         let mut optional_format: Option<Format> = None;
         for format in ffmpeg::device::input::video() {
@@ -58,8 +64,8 @@ impl VideoPlayer for X11Player {
         };
 
         let mut dictionary = Dictionary::new();
-        dictionary.set("framerate", "60"); //TODO: dynamic
-        dictionary.set("video_size", "3440x1440");
+        dictionary.set("framerate", input_vec[1]); //TODO: dynamic
+        dictionary.set("video_size", input_vec[0]);
         dictionary.set("probesize", "100M");
 
         if let Ok(conext) = ffmpeg::format::open_with(&":0.0", &format, dictionary) {

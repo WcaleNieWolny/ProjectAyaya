@@ -28,7 +28,6 @@ public class MapNettyClient {
     }
 
     public void run() throws InterruptedException, ChannelException {
-        System.out.println("NETADATA " + metadata.toString());
         NioEventLoopGroup group = new NioEventLoopGroup(1);
 
         Bootstrap bootstrap = new Bootstrap()

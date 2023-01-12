@@ -12,6 +12,7 @@ import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
+import java.util.regex.Pattern
 import kotlin.math.max
 import kotlin.math.min
 
@@ -21,6 +22,8 @@ class VideoCommand(
     private val fileConfiguration: FileConfiguration,
     private val plugin: JavaPlugin
 ) : BaseCommand() {
+
+    private val X11CaptureRegex = Pattern.compile("[0-9]+(?i-)x[0-9]+@[0-9]+")
 
     @HelpCommand
     fun onHelp(sender: CommandSender, help: CommandHelp) {
@@ -130,6 +133,7 @@ class VideoCommand(
     fun onX11(
         sender: Player,
         @Values("@screens") screenId: String,
+        screenDetails: String,
         @Optional mapServerBool: Boolean?
     ){
         val mapServer = (mapServerBool != null) && mapServerBool
@@ -138,7 +142,12 @@ class VideoCommand(
             sender.sendColoredMessage(fileConfiguration.getString("mapServerPlaybackNotAllowed")!!)
             return
         }
-        
+
+        if(!X11CaptureRegex.matcher(screenDetails).matches()){
+            sender.sendColoredMessage(fileConfiguration.getString("x11NoScreenDetails")!!)
+            return
+        }
+
         val screenOptional = lookupScreen(sender, screenId)
         if (screenOptional.isEmpty) {
             return
@@ -149,7 +158,12 @@ class VideoCommand(
             return
         }
 
-        screenController.startX11(screen, mapServer)
+        try {
+            screenController.startX11(screen, mapServer, screenDetails)
+            sender.sendColoredMessage(fileConfiguration.getString("success")!!)
+        }catch (e: Exception){
+            sender.sendColoredMessage(fileConfiguration.getString("x11WentWrong")!!)
+        }
     }
 
     @Subcommand("pause")
