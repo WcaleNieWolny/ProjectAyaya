@@ -19,6 +19,7 @@ use crate::SplittedFrame;
 use super::multi_video_player::FrameWithIdentifier;
 use super::player_context::NativeCommunication;
 
+//TODO: av_log_set_callback for passing messages!
 pub struct X11Player {
     width: u32,
     height: u32,

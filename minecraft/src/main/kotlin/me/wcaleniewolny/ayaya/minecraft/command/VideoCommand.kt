@@ -162,6 +162,7 @@ class VideoCommand(
             screenController.startX11(screen, mapServer, screenDetails)
             sender.sendColoredMessage(fileConfiguration.getString("success")!!)
         }catch (e: Exception){
+            e.printStackTrace()
             sender.sendColoredMessage(fileConfiguration.getString("x11WentWrong")!!)
         }
     }
