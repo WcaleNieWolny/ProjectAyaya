@@ -138,8 +138,7 @@ class VideoCommand(
             sender.sendColoredMessage(fileConfiguration.getString("mapServerPlaybackNotAllowed")!!)
             return
         }
-
-        sender.sendMessage(mapServer.toString())
+        
         val screenOptional = lookupScreen(sender, screenId)
         if (screenOptional.isEmpty) {
             return
