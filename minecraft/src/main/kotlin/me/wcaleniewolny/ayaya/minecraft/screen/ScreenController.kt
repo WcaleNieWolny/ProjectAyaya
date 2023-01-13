@@ -144,7 +144,9 @@ class ScreenController(
 
             screen.renderService = Optional.of(renderService)
             renderService.startRendering()
-            sender.sendColoredMessage(plugin.config.getString("success")!!)
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                sender.sendColoredMessage(plugin.config.getString("success")!!)
+            })
         })
     }
 
@@ -165,6 +167,26 @@ class ScreenController(
         )
 
         nativeGameController.registerGamer(player, screen)
+
+        screen.renderService = Optional.of(renderService)
+        renderService.startRendering()
+    }
+
+    fun startX11(
+        screen: Screen,
+        useMapServer: Boolean,
+        screenDetails: String
+    ){
+        //"$" is the splitting sign of the X11 player
+        val renderService = RenderServiceFactory.create(
+            plugin,
+            screenDetails,
+            screen.name,
+            screen.startID,
+            useMapServer,
+            if (!useMapServer) RenderServiceType.JAVA else RenderServiceType.NATIVE,
+            VideoPlayType.X11,
+        )
 
         screen.renderService = Optional.of(renderService)
         renderService.startRendering()

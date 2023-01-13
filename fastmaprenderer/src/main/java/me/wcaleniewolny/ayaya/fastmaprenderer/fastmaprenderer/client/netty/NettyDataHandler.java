@@ -25,6 +25,7 @@ public class NettyDataHandler extends SimpleChannelInboundHandler<byte[]> {
         //System.arraycopy(data.colors, 0, mapState.colors, data.startZ * data.width + data.startX, data.width * data.height);
 
         //TODO: FIX MSG STOPPING FROM GETING TO THE CLIENT (FIX = insecure atomic i32 in rust)
+        //What the fuck is this comment?
         //Potetnial mem leak:
         //reuse client when new server
 
@@ -33,24 +34,29 @@ public class NettyDataHandler extends SimpleChannelInboundHandler<byte[]> {
         for (int y = 0; y < metadata.allFramesY(); y++) {
             for (int x = 0; x < metadata.allFramesX(); x++) {
                 MapState state = mapStates.get(i);
-                //MapState state = mapStates.get(i);
 
                 int xFrameMargin = (x == 0) ? (metadata.xMargin() / 2) : 0;
                 int yFrameMargin = (y == 0) ? (metadata.yMargin() / 2) : 0;
 
                 int frameWidth = (x != metadata.allFramesX() - 1) ? 128 - xFrameMargin : 128 - (metadata.xMargin() / 2);
                 int frameHeight = (y != (metadata.allFramesY() - 1)) ? 128 - yFrameMargin : 128 - (metadata.yMargin() / 2);
+
                 int len = frameWidth * frameHeight;
 
-                //System.out.println("LEN: " + xFrameMargin + " " + yFrameMargin + " " + frameWidth + " " + frameHeight + " [" + (yFrameMargin * frameWidth + xFrameMargin));
-                //yFrameMargin * frameWidth + xFrameMargin
-                System.arraycopy(msg, offset, state.colors, yFrameMargin * frameWidth + xFrameMargin, len);
-                //System.arraycopy(data.colors, 0, mapState.colors, data.startZ * data.width + data.startX, data.width * data.height);
-                //data.startZ * data.width + data.startX
+                if (frameWidth == 128) {
+                    System.arraycopy(msg, offset, state.colors, yFrameMargin * 128 + xFrameMargin, len);
+                }else {
+                    int loopI = 0;
+                    for (int loopY = yFrameMargin; loopY < (frameHeight + yFrameMargin); loopY++) {
+                        System.arraycopy(msg, offset + (loopI * frameWidth), state.colors, loopY * 128 + xFrameMargin, frameWidth);
+                        loopI++;
+                    }
+                }
+
                 mapRenderer.updateTexture(metadata.startMapId() + i, state);
 
-                i++;
                 offset += len;
+                i++;
             }
         }
         mapRenderer.clearStateTextures();

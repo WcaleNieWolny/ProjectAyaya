@@ -1,7 +1,7 @@
 # See config in GitHub wiki for more info
 allowMapServer: false
-mapServerLocalIp: localhost
-mapServerRemoteIp: localhost
+mapServerLocalIp: 0.0.0.0
+mapServerRemoteIp: 0.0.0.0
 mapServerPort: 1965
 
 screenCreationFailed: <red>Couldn't create screen! Make sure that screen with that name DOES not exists!
@@ -21,4 +21,7 @@ unableToPausePlayback: <red>This screen is not playing any video!
 unableToStartPlayback: <red>This screen is playing video! It cannot start playing another one!
 seekToNegativeSecond: <red>You are trying to seek to a negative number. This is an absolute value!
 screenNoGaming: <red>This screen does not support gaming!
+x11NoScreenDetails: <red>No X11 screen details had been passed! Cannot capture unknown screen!
+x11WentWrong: <red>X11 screen creation went wrong! This might be due to invalid input string on en internal error. Please consult wiki before creating an issue!
+x11NotLinux: <red>X11 screen capture is supported only on linux!
 success: <green>Success!
