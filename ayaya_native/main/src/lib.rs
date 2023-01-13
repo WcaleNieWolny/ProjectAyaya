@@ -1,9 +1,3 @@
-#![feature(const_fn_floating_point_arithmetic)]
-#![feature(mem_copy_fn)]
-#![feature(strict_provenance)]
-#![feature(pointer_is_aligned)]
-#![feature(new_uninit)]
-
 extern crate core;
 extern crate ffmpeg_next as ffmpeg;
 extern crate lazy_static;

@@ -2,3 +2,15 @@
 name = "ayaya_native" # the name of the package
 members = ["main", "windows_bootstrap"]
 default-members = ["main"]
+
+[profile.release]
+strip = "symbols"
+opt-level = 3
+panic = "unwind"
+
+[profile.production]
+inherits = "release"
+codegen-units = 1
+
+[profile.test] 
+opt-level = 3
