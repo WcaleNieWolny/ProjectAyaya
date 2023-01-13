@@ -12,6 +12,7 @@ import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
+import java.util.regex.Pattern
 import kotlin.math.max
 import kotlin.math.min
 
@@ -21,6 +22,8 @@ class VideoCommand(
     private val fileConfiguration: FileConfiguration,
     private val plugin: JavaPlugin
 ) : BaseCommand() {
+
+    private val X11CaptureRegex = Pattern.compile("[0-9]+(?i-)x[0-9]+@[0-9]+")
 
     @HelpCommand
     fun onHelp(sender: CommandSender, help: CommandHelp) {
@@ -121,6 +124,51 @@ class VideoCommand(
             //This is safe due to rust mutex
             val renderService = screen.renderService.get()
             renderService.seekSecond(second)
+        }
+    }
+
+    @Subcommand("x11")
+    @Syntax("[screen_id]")
+    @CommandCompletion("@screens @nothing")
+    fun onX11(
+        sender: Player,
+        @Values("@screens") screenId: String,
+        screenDetails: String,
+        @Optional mapServerBool: Boolean?
+    ){
+        val mapServer = (mapServerBool != null) && mapServerBool
+
+        if (mapServer && !plugin.config.getBoolean("allowMapServer")) {
+            sender.sendColoredMessage(fileConfiguration.getString("mapServerPlaybackNotAllowed")!!)
+            return
+        }
+
+        if (!System.getProperty("os.name").contains("Linux")){
+            sender.sendColoredMessage(fileConfiguration.getString("x11NotLinux")!!)
+            return
+        }
+
+        if(!X11CaptureRegex.matcher(screenDetails).matches()){
+            sender.sendColoredMessage(fileConfiguration.getString("x11NoScreenDetails")!!)
+            return
+        }
+
+        val screenOptional = lookupScreen(sender, screenId)
+        if (screenOptional.isEmpty) {
+            return
+        }
+        val screen = screenOptional.get()
+        if(screen.renderService.isPresent){
+            sender.sendColoredMessage(fileConfiguration.getString("unableToStartPlayback")!!)
+            return
+        }
+
+        try {
+            screenController.startX11(screen, mapServer, screenDetails)
+            sender.sendColoredMessage(fileConfiguration.getString("success")!!)
+        }catch (e: Exception){
+            e.printStackTrace()
+            sender.sendColoredMessage(fileConfiguration.getString("x11WentWrong")!!)
         }
     }
 

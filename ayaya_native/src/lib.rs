@@ -22,6 +22,7 @@ use jni::JNIEnv;
 use map_server::ServerOptions;
 use player::game_player::{GameInputDirection, GamePlayer};
 use player::player_context::{self, NativeCommunication};
+use player::x11_player::X11Player;
 
 use crate::player::multi_video_player::MultiVideoPlayer;
 use crate::player::player_context::VideoPlayer;
@@ -149,6 +150,10 @@ fn init(
         }
         2 => {
             let player_context = GamePlayer::create(file_name, server_options)?;
+            Ok(player_context::wrap_to_ptr(player_context))
+        }
+        3 => {
+            let player_context = X11Player::create(file_name, server_options)?;
             Ok(player_context::wrap_to_ptr(player_context))
         }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({render_type})"))),

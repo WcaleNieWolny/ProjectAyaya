@@ -37,7 +37,6 @@ class NativeRenderServiceImpl(
     private var isRunning = AtomicBoolean(false);
 
     override fun init(plugin: JavaPlugin) {
-
         plugin.server.messenger.registerOutgoingPluginChannel(plugin, "fastmap:handshake")
         plugin.server.messenger.registerIncomingPluginChannel(plugin, "fastmap:handshake", this)
         plugin.server.messenger.registerOutgoingPluginChannel(plugin, "fastmap:acknowledgement")
