@@ -1,3 +1,0 @@
-[build.dockerfile]
-file = "./windows-cross/Dockerfile"
-context = "./windows-cross/"

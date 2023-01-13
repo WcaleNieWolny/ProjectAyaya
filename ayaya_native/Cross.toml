@@ -1,0 +1,3 @@
+[build.dockerfile]
+file = "./main/windows-cross/Dockerfile"
+context = "./main/windows-cross/"
