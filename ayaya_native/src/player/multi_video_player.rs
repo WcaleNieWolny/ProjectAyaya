@@ -4,8 +4,8 @@ use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::mpsc::TrySendError;
 use std::sync::{mpsc, Arc, Mutex};
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use ffmpeg::decoder::Video;

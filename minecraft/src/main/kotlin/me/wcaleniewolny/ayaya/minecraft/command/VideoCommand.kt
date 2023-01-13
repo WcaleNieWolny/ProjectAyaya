@@ -143,6 +143,11 @@ class VideoCommand(
             return
         }
 
+        if (!System.getProperty("os.name").contains("Linux")){
+            sender.sendColoredMessage(fileConfiguration.getString("x11NotLinux")!!)
+            return
+        }
+
         if(!X11CaptureRegex.matcher(screenDetails).matches()){
             sender.sendColoredMessage(fileConfiguration.getString("x11NoScreenDetails")!!)
             return

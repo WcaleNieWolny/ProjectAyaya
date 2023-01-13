@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
+use std::sync::Arc;
 use std::thread;
 
 use anyhow::anyhow;
@@ -12,21 +12,23 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::oneshot;
 
 use crate::colorlib::{get_cached_index, Color};
-use crate::map_server::{ServerOptions, MapServerData, MapServer};
+use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::SplittedFrame;
 
 use super::multi_video_player::FrameWithIdentifier;
 use super::player_context::NativeCommunication;
 
-//TODO: av_log_set_callback for passing messages!
+//av_log_set_callback could be used for passing messages (FFmpeg -> JVM)
+//We store runtime so it does not get dropped
+#[allow(dead_code)]
 pub struct X11Player {
     width: u32,
     height: u32,
     fps: i32,
     jvm_rx: Option<Receiver<FrameWithIdentifier>>,
     map_server: MapServerData,
-    runtime: Option<Runtime>
+    runtime: Option<Runtime>,
 }
 
 impl VideoPlayer for X11Player {
@@ -41,7 +43,7 @@ impl VideoPlayer for X11Player {
             ));
         };
 
-        let input_vec: Vec<&str> = input_string.split("@").collect();
+        let input_vec: Vec<&str> = input_string.split('@').collect();
 
         if input_vec.len() < 2 {
             return Err(anyhow!("Invalid input string for X11 capture"));
@@ -92,9 +94,9 @@ impl VideoPlayer for X11Player {
             //Small buffer due to fact that we are only decoding UP TO FPS frames per second
             let (jvm_tx, jvm_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(50);
 
-            let (server_tx, server_rx) = oneshot::channel::<(anyhow::Result<MapServerData>, Option<Runtime>)>();
-            let mut jvm_final_reciver: Option<Receiver<FrameWithIdentifier>> =
-                None;
+            let (server_tx, server_rx) =
+                oneshot::channel::<(anyhow::Result<MapServerData>, Option<Runtime>)>();
+            let mut jvm_final_reciver: Option<Receiver<FrameWithIdentifier>> = None;
 
             match map_server_options.use_server {
                 true => {
@@ -130,7 +132,6 @@ impl VideoPlayer for X11Player {
 
             let (map_server, runtime) = server_rx.blocking_recv()?;
             let map_server = map_server?;
-            
 
             //Threading is not a speed optymalisation. It is required to have support for map_server
             thread::Builder::new()
@@ -190,10 +191,13 @@ impl VideoPlayer for X11Player {
                                     }
                                 };
 
-                                if jvm_tx.blocking_send(FrameWithIdentifier{
-                                    id: frame_id,
-                                    data: transformed_frame
-                                }).is_err() {
+                                if jvm_tx
+                                    .blocking_send(FrameWithIdentifier {
+                                        id: frame_id,
+                                        data: transformed_frame,
+                                    })
+                                    .is_err()
+                                {
                                     //This is designed to fail
                                     println!("Unable to send JVM frame (X11) This is normal");
                                     break 'decoder_loop;
@@ -210,7 +214,7 @@ impl VideoPlayer for X11Player {
                 fps,
                 jvm_rx: jvm_final_reciver,
                 map_server,
-                runtime
+                runtime,
             };
 
             return Ok(single_video_player);
@@ -249,7 +253,7 @@ impl VideoPlayer for X11Player {
             Some(server) => {
                 let server = server.clone();
                 server.send_message(msg)?;
-            },
+            }
             None => {
                 return Err(anyhow!("X11 player does not support native messages!"));
             }
