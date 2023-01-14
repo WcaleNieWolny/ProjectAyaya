@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::mpsc::TrySendError;
@@ -23,7 +22,7 @@ use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
 use crate::{ffmpeg_set_multithreading, SplittedFrame, VideoPlayer};
 
-use super::player_context::NativeCommunication;
+use super::player_context::{FrameWithIdentifier, NativeCommunication};
 
 pub struct MultiVideoPlayer {
     width: i32,
@@ -36,20 +35,6 @@ pub struct MultiVideoPlayer {
     seek_tx: broadcast::Sender<i32>,
     seek_rx: broadcast::Receiver<i32>,
     runtime: Arc<Runtime>,
-}
-
-pub struct FrameWithIdentifier {
-    pub id: i64,
-    pub data: Vec<i8>,
-}
-
-//No data field
-impl Debug for FrameWithIdentifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FrameWithIdentifier")
-            .field("id", &self.id)
-            .finish()
-    }
 }
 
 impl MultiVideoPlayer {

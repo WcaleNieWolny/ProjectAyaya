@@ -1,3 +1,4 @@
+#[cfg(feature = "ffmpeg")]
 use std::{
     fmt::Debug,
     io::Write,
@@ -9,7 +10,10 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "ffmpeg")]
 use flate2::{write::ZlibEncoder, Compression};
+
+#[cfg(feature = "ffmpeg")]
 use tokio::{
     io::AsyncWriteExt,
     net::TcpListener,
@@ -20,7 +24,8 @@ use tokio::{
     time,
 };
 
-use crate::player::{multi_video_player::FrameWithIdentifier, player_context::NativeCommunication};
+#[cfg(feature = "ffmpeg")]
+use crate::player::player_context::{FrameWithIdentifier, NativeCommunication};
 
 #[derive(Debug, Clone)]
 pub struct ServerOptions {
@@ -29,6 +34,7 @@ pub struct ServerOptions {
     pub port: i32,
 }
 
+#[cfg(feature = "ffmpeg")]
 #[derive(Debug)]
 pub struct MapServer {
     options: ServerOptions,
@@ -36,8 +42,10 @@ pub struct MapServer {
     command_sender: Sender<NativeCommunication>,
 }
 
+#[cfg(feature = "ffmpeg")]
 pub type MapServerData = Option<Arc<MapServer>>;
 
+#[cfg(feature = "ffmpeg")]
 impl MapServer {
     pub async fn create(
         options: &ServerOptions,

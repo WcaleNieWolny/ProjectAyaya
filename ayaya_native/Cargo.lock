@@ -26,6 +26,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
+ "cfg-if",
  "ffmpeg-next",
  "flate2",
  "image",

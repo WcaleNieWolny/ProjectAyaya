@@ -1,9 +1,16 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    fmt::Debug,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::anyhow;
-use ffmpeg::frame::Video;
-use ffmpeg::software::scaling::Context;
-use ffmpeg::{Error, Packet};
+
+#[cfg(feature = "ffmpeg")]
+use {
+    ffmpeg::frame::Video,
+    ffmpeg::software::scaling::Context,
+    ffmpeg::{Error, Packet},
+};
 
 use crate::map_server::ServerOptions;
 
@@ -43,6 +50,20 @@ pub enum NativeCommunication {
     VideoSeek { second: i32 },
 }
 
+pub struct FrameWithIdentifier {
+    pub id: i64,
+    pub data: Vec<i8>,
+}
+
+//No data field
+impl Debug for FrameWithIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FrameWithIdentifier")
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
 //Thanks to https://github.com/alexschrod for helping me with getting this Arc pointer to work
 //He made this code much better!
 pub fn wrap_to_ptr<T>(to_wrap: T) -> i64
@@ -80,6 +101,7 @@ pub fn destroy(ptr: i64) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "ffmpeg")]
 pub fn receive_and_process_decoded_frames(
     decoder: &mut ffmpeg::decoder::Video,
     scaler: &mut Context,

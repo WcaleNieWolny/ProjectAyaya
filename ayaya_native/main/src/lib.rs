@@ -1,33 +1,44 @@
 extern crate core;
+
+#[cfg(feature = "ffmpeg")]
 extern crate ffmpeg_next as ffmpeg;
+
 extern crate lazy_static;
 
 use anyhow::anyhow;
-use ffmpeg::codec::Capabilities;
-use ffmpeg::decoder::Decoder;
-use ffmpeg::format::input;
-use ffmpeg::media::Type;
-use ffmpeg::threading::Config;
-use ffmpeg::threading::Type::{Frame, Slice};
-use ffmpeg::Error;
+
+#[cfg(feature = "ffmpeg")]
+use {
+    ffmpeg::codec::Capabilities,
+    ffmpeg::decoder::Decoder,
+    ffmpeg::format::input,
+    ffmpeg::media::Type,
+    ffmpeg::threading::Config,
+    ffmpeg::threading::Type::{Frame, Slice},
+    ffmpeg::Error,
+    player::multi_video_player::MultiVideoPlayer,
+    player::single_video_player::SingleVideoPlayer,
+    player::x11_player::X11Player,
+    splitting::SplittedFrame,
+};
+
 use jni::objects::*;
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
 use jni::JNIEnv;
-use map_server::ServerOptions;
-use player::game_player::{GameInputDirection, GamePlayer};
-use player::player_context::{self, NativeCommunication};
-use player::x11_player::X11Player;
 
-use crate::player::multi_video_player::MultiVideoPlayer;
-use crate::player::player_context::VideoPlayer;
-use crate::player::single_video_player::SingleVideoPlayer;
-use crate::splitting::SplittedFrame;
+use map_server::ServerOptions;
+
+use player::game_player::{GameInputDirection, GamePlayer};
+use player::player_context::VideoPlayer;
+use player::player_context::{self, NativeCommunication};
 
 mod colorlib;
 mod map_server;
+
 mod player;
 mod splitting;
 
+#[cfg(feature = "ffmpeg")]
 fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
     let copy_input = input(&file_name).unwrap();
     let copy_input = copy_input
@@ -69,39 +80,46 @@ fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
     copy_video.send_eof().expect("Couldn't close cloned codec");
 }
 
+#[allow(unused_variables)]
 fn verify_capabilities(
     env: JNIEnv,
     file_name: JString,
     width: jint,
     height: jint,
 ) -> anyhow::Result<jboolean> {
-    let file_name: String = env.get_string(file_name)?.into();
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "ffmpeg")] {
+            let file_name: String = env.get_string(file_name)?.into();
 
-    ffmpeg::init()?;
-    if let Ok(ictx) = input(&file_name) {
-        let input = ictx
-            .streams()
-            .best(Type::Video)
-            .ok_or(Error::StreamNotFound)?;
+            ffmpeg::init()?;
+            if let Ok(ictx) = input(&file_name) {
+                let input = ictx
+                    .streams()
+                    .best(Type::Video)
+                    .ok_or(Error::StreamNotFound)?;
 
-        let context_decoder = ffmpeg::codec::context::Context::from_parameters(input.parameters())?;
+                let context_decoder = ffmpeg::codec::context::Context::from_parameters(input.parameters())?;
 
-        let decoder = context_decoder.decoder();
-        let decoder = decoder.video()?;
+                let decoder = context_decoder.decoder();
+                let decoder = decoder.video()?;
 
-        let v_width = decoder.width();
-        let v_height = decoder.height();
+                let v_width = decoder.width();
+                let v_height = decoder.height();
 
-        if v_width % 2 != 0 || v_height % 2 != 0 {
-            return Ok(false.into());
+                if v_width % 2 != 0 || v_height % 2 != 0 {
+                    return Ok(false.into());
+                }
+
+                if v_width > width as u32 || v_height > height as u32 {
+                    return Ok(false.into());
+                }
+                return Ok(true.into());
+            };
+            return Err(anyhow!("Coudln't create ffmpeg decoder!"));
+        } else {
+            return Err(anyhow!("FFmpeg feature not compiled!"))
         }
-
-        if v_width > width as u32 || v_height > height as u32 {
-            return Ok(false.into());
-        }
-        return Ok(true.into());
-    };
-    Err(anyhow!("Coudln't create ffmpeg decoder!"))
+    }
 }
 
 //Init function
@@ -135,20 +153,39 @@ fn init(
 
     return match render_type {
         0 => {
-            let player_context = SingleVideoPlayer::create(file_name, server_options)?;
-            Ok(player_context::wrap_to_ptr(player_context))
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "ffmpeg")]
+                {
+                    let player_context = SingleVideoPlayer::create(file_name, server_options)?;
+                    Ok(player_context::wrap_to_ptr(player_context))
+                }else{
+                    return Err(anyhow!("FFmpeg feature not compiled!"))
+                }
+            }
         }
         1 => {
-            let player_context = MultiVideoPlayer::create(file_name, server_options)?;
-            Ok(player_context::wrap_to_ptr(player_context))
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "ffmpeg")]{
+                    let player_context = MultiVideoPlayer::create(file_name, server_options)?;
+                    Ok(player_context::wrap_to_ptr(player_context))
+                }else {
+                    return Err(anyhow!("FFmpeg feature not compiled!"))
+                }
+            }
         }
         2 => {
             let player_context = GamePlayer::create(file_name, server_options)?;
             Ok(player_context::wrap_to_ptr(player_context))
         }
         3 => {
-            let player_context = X11Player::create(file_name, server_options)?;
-            Ok(player_context::wrap_to_ptr(player_context))
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "ffmpeg")] {
+                    let player_context = X11Player::create(file_name, server_options)?;
+                    Ok(player_context::wrap_to_ptr(player_context))
+                }else {
+                    return Err(anyhow!("FFmpeg feature not compiled!"))
+                }
+            }
         }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({render_type})"))),
     };

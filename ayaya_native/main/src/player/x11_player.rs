@@ -1,3 +1,4 @@
+#[cfg(feature = "ffmpeg")]
 use std::sync::atomic::AtomicI64;
 use std::sync::Arc;
 use std::thread;
