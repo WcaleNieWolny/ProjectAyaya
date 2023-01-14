@@ -17,8 +17,7 @@ use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::SplittedFrame;
 
-use super::multi_video_player::FrameWithIdentifier;
-use super::player_context::NativeCommunication;
+use super::player_context::{NativeCommunication, FrameWithIdentifier};
 
 //av_log_set_callback could be used for passing messages (FFmpeg -> JVM)
 //We store runtime so it does not get dropped
