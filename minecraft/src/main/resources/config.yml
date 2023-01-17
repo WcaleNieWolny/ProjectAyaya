@@ -1,4 +1,5 @@
 # See config in GitHub wiki for more info
+useWindowsBootstrap: false
 allowMapServer: false
 mapServerLocalIp: 0.0.0.0
 mapServerRemoteIp: 0.0.0.0

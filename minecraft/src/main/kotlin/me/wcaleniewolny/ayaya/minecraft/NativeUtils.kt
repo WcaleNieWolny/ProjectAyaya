@@ -50,6 +50,7 @@ object NativeUtils {
      * Temporary directory which will contain the DLLs.
      */
     private var temporaryDir: File? = null
+    var latestPath: String? = null
 
     /**
      * Loads library from current JAR archive
@@ -105,9 +106,11 @@ object NativeUtils {
             if (isPosixCompliant) {
                 // Assume POSIX compliant file system, can be deleted after loading
                 temp.delete()
+                latestPath = null
             } else {
                 // Assume non-POSIX, and don't delete until last file descriptor closed
                 temp.deleteOnExit()
+                latestPath = temp.absolutePath
             }
         }
     }
