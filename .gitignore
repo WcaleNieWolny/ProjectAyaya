@@ -141,3 +141,4 @@ native_old/cmake-build-debug
 
 /ayaya_native/target/ffmpeg_win
 /minecraft/src/main/resources/ayaya_native.dll
+minecraft/src/main/resources/windows_bootstrap.dll
