@@ -1,7 +1,19 @@
-use std::{path::{Path, PathBuf}, ffi::{OsStr, c_void}, iter::once, os::windows::prelude::OsStrExt, mem::ManuallyDrop, fs::{File, self}, io::{Read, self}};
+use std::{
+    ffi::{c_void, OsStr},
+    fs::{self, File},
+    io::{self, Read},
+    iter::once,
+    mem::ManuallyDrop,
+    os::windows::prelude::OsStrExt,
+    path::{Path, PathBuf},
+};
 
-use jni::{JNIEnv, objects::{JClass, JString}, NativeMethod, sys::jlong};
 use anyhow::anyhow;
+use jni::{
+    objects::{JClass, JString},
+    sys::jlong,
+    JNIEnv, NativeMethod,
+};
 use libloading::Library;
 use winapi::um::winbase;
 
@@ -23,7 +35,7 @@ pub extern "system" fn Java_me_wcaleniewolny_ayaya_library_WindowsBootstrap_boot
     _class: JClass,
     lib_path: JString,
     app_folder: JString,
-) -> jlong{
+) -> jlong {
     let response = bootstrap(env, lib_path, app_folder);
 
     match response {
@@ -40,8 +52,8 @@ pub extern "system" fn Java_me_wcaleniewolny_ayaya_library_WindowsBootstrap_boot
 pub extern "system" fn Java_me_wcaleniewolny_ayaya_library_WindowsBootstrap_cleanup(
     env: JNIEnv,
     _class: JClass,
-    ptr: jlong
-){
+    ptr: jlong,
+) {
     let response = cleanup(env, ptr);
 
     if let Err(error) = response {
@@ -50,16 +62,12 @@ pub extern "system" fn Java_me_wcaleniewolny_ayaya_library_WindowsBootstrap_clea
     }
 }
 
-fn bootstrap(
-    env: JNIEnv,
-    lib_path: JString, 
-    app_folder: JString
-) -> anyhow::Result<jlong> {
+fn bootstrap(env: JNIEnv, lib_path: JString, app_folder: JString) -> anyhow::Result<jlong> {
     let lib_path: String = env.get_string(lib_path)?.into();
     let app_folder: String = env.get_string(app_folder)?.into();
 
-    if !Path::new(&lib_path).exists(){
-        return Err(anyhow!("DLL file does not exists!"))
+    if !Path::new(&lib_path).exists() {
+        return Err(anyhow!("DLL file does not exists!"));
     };
 
     let mut ffmpeg_folder_path_buf = PathBuf::new();
@@ -68,13 +76,13 @@ fn bootstrap(
 
     let ffmpeg_folder_path_buf_clone = ffmpeg_folder_path_buf.clone();
     let ffmpeg_folder_path = ffmpeg_folder_path_buf_clone.as_path();
-    
+
     if !ffmpeg_folder_path.exists() {
         fs::create_dir_all(ffmpeg_folder_path)?;
     }
 
     let mut ffmpeg_zip_path_buf = ffmpeg_folder_path_buf.clone();
-    ffmpeg_zip_path_buf.push("ffmpeg-zip.zip");    
+    ffmpeg_zip_path_buf.push("ffmpeg-zip.zip");
     let ffmpeg_zip_path = ffmpeg_zip_path_buf.as_path();
 
     if !ffmpeg_zip_path.exists() {
@@ -88,16 +96,20 @@ fn bootstrap(
 
     let ffmpeg_folder_path = match ffmpeg_folder_path_buf.to_str() {
         Some(val) => val,
-        None => return Err(anyhow!("Cannot get ffmpeg bin folder path to str"))
+        None => return Err(anyhow!("Cannot get ffmpeg bin folder path to str")),
     };
 
-    let wide: Vec<u16> = OsStr::new(ffmpeg_folder_path).encode_wide().chain(once(0)).collect();
-    let status_code = unsafe {
-        winbase::SetDllDirectoryW(wide.as_ptr())
-    };
+    let wide: Vec<u16> = OsStr::new(ffmpeg_folder_path)
+        .encode_wide()
+        .chain(once(0))
+        .collect();
+    let status_code = unsafe { winbase::SetDllDirectoryW(wide.as_ptr()) };
 
     if status_code != 1 {
-        return Err(anyhow!(format!("SetDllDirectoryW status code ({:?}) is not 1", status_code)));
+        return Err(anyhow!(format!(
+            "SetDllDirectoryW status code ({:?}) is not 1",
+            status_code
+        )));
     }
 
     println!("[AyayaNative Bootstrap] Lib path: {}", lib_path);
@@ -105,9 +117,12 @@ fn bootstrap(
         let lib = libloading::Library::new(lib_path)?;
         let jclass = env.find_class("me/wcaleniewolny/ayaya/library/NativeRenderControler")?;
 
-        for (symbol, name, sig) in EXTERNAL_METHODS{
+        for (symbol, name, sig) in EXTERNAL_METHODS {
             let symbol: libloading::Symbol<*mut c_void> = lib.get(symbol)?;
-            println!("[AyayaNative Bootstrap] Registering {:?} at {:?}", name, symbol);
+            println!(
+                "[AyayaNative Bootstrap] Registering {:?} at {:?}",
+                name, symbol
+            );
             let native_method = NativeMethod {
                 name: name.into(),
                 sig: sig.into(),
@@ -116,13 +131,13 @@ fn bootstrap(
 
             //There is no need to use only one register call - I don' that this is an expensive call
             env.register_native_methods(jclass, &[native_method])?;
-        };
+        }
 
         //Leak the lib so it does not unload
         let lib = ManuallyDrop::new(lib);
         let lib_box = Box::new(lib);
         let lib_ptr = Box::into_raw(lib_box) as *const () as i64;
-        return Ok(lib_ptr);  
+        return Ok(lib_ptr);
     };
 }
 
@@ -143,7 +158,7 @@ fn extract_zip(fname: &Path) -> anyhow::Result<()> {
     let file = fs::File::open(&fname)?;
     let fname = match fname.parent() {
         Some(val) => val,
-        None => return Err(anyhow!("Unable to get zip folder parrent!"))
+        None => return Err(anyhow!("Unable to get zip folder parrent!")),
     };
 
     let mut archive = zip::ZipArchive::new(file)?;
@@ -172,13 +187,14 @@ fn extract_zip(fname: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn cleanup(env: JNIEnv, ptr: jlong) -> anyhow::Result<()>{
+fn cleanup(env: JNIEnv, ptr: jlong) -> anyhow::Result<()> {
     let jclass = env.find_class("me/wcaleniewolny/ayaya/library/NativeRenderControler")?;
 
     env.unregister_native_methods(jclass)?;
 
     unsafe {
-        let lib_box: Box<ManuallyDrop<Library>> = Box::from_raw(ptr as *mut () as *mut ManuallyDrop<Library>);
+        let lib_box: Box<ManuallyDrop<Library>> =
+            Box::from_raw(ptr as *mut () as *mut ManuallyDrop<Library>);
         let lib = ManuallyDrop::into_inner(*lib_box);
         drop(lib);
     };
