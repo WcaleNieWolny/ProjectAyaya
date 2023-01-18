@@ -122,7 +122,8 @@ class ScreenController(
         videoPlayType: VideoPlayType,
         file: File,
         sender: CommandSender,
-        screen: Screen
+        screen: Screen,
+        useDiscord: Boolean
     ) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             val verify = NativeRenderControler.verifyScreenCapabilities(file.absolutePath, screen.width, screen.height)
@@ -139,7 +140,8 @@ class ScreenController(
                 screen.startID,
                 useMapServer,
                 if (useMapServer) RenderServiceType.NATIVE else RenderServiceType.JAVA,
-                videoPlayType
+                videoPlayType,
+                useDiscord = useDiscord
             )
 
             screen.renderService = Optional.of(renderService)

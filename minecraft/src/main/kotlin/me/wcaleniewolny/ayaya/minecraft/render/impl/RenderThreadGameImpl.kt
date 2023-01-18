@@ -18,7 +18,7 @@ class RenderThreadGameImpl(
 ): RenderThread() {
 
     private val timeWindow = TimeUnit.SECONDS.toNanos(1) / fps
-    private val debug = true
+    private val debug = false
     private val renderFrames = AtomicBoolean(false)
 
     override fun renderFrames(): AtomicBoolean {

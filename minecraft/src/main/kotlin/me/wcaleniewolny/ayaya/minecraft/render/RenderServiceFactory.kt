@@ -1,5 +1,6 @@
 package me.wcaleniewolny.ayaya.minecraft.render
 
+import me.wcaleniewolny.ayaya.library.DiscordOptions
 import me.wcaleniewolny.ayaya.library.MapServerOptions
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
@@ -10,6 +11,7 @@ import me.wcaleniewolny.ayaya.minecraft.render.impl.NativeRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadGameImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadVideoImpl
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.*
 
 enum class RenderServiceType {
     NATIVE,
@@ -26,8 +28,10 @@ object RenderServiceFactory {
         useServer: Boolean,
         serviceType: RenderServiceType,
         videoPlayType: VideoPlayType,
-        renderCallback: ((ptr: Long, screenName: String) -> Unit)? = null
+        renderCallback: ((ptr: Long, screenName: String) -> Unit)? = null,
+        useDiscord: Boolean = false
     ): RenderService {
+        println("FACKT: $useDiscord")
         val ptr = NativeRenderControler.init(
             filename,
             videoPlayType.toNativeRenderType(),
@@ -35,8 +39,12 @@ object RenderServiceFactory {
                 useServer,
                 plugin.config.getString("mapServerLocalIp")!!,
                 plugin.config.getInt("mapServerPort")
-            )
+            ),
+            if (useDiscord) Optional.of(DiscordOptions("token", "aa", "bb")) else Optional.empty()
         )
+
+        val a = Optional.empty<String>()
+        a.isPresent
         val videoData = NativeRenderControler.getVideoData(ptr)
 
         val width = videoData.width

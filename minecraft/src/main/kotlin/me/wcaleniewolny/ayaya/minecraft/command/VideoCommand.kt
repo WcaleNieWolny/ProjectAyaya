@@ -38,7 +38,8 @@ class VideoCommand(
         sender: CommandSender,
         @Values("@screens") screenId: String,
         @Values("@videoPlayType") playType: String,
-        @Values("@video") video: String
+        @Values("@video") video: String,
+        @Optional discord: Boolean?
     ) {
         val screenOptional = lookupScreen(sender, screenId)
         if (screenOptional.isEmpty) {
@@ -72,7 +73,8 @@ class VideoCommand(
         }
         //val allowMapServer = plugin.config.getBoolean("allowMapServer")
 
-        screenController.startPlayback(videoPlayType, file, sender, screen)
+        println("AAAA ${discord != null && discord}")
+        screenController.startPlayback(videoPlayType, file, sender, screen, discord != null && discord)
     }
 
     @Subcommand("game")

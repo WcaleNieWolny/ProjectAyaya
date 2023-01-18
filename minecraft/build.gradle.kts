@@ -44,7 +44,7 @@ compileKotlin.kotlinOptions {
 val runServer = tasks.runServer
 runServer {
     minecraftVersion("1.18.2")
-    jvmArgs = listOf("-Xmx20480M", "-Djava.library.path=${rootProject.rootDir.path}/ayaya_native/target/release")
+    jvmArgs = listOf("-Xmx20480M", "-Djava.library.path=${rootProject.rootDir.path}/ayaya_native/target/release", "-Dme.wcaleniewolny.ayaya.unsafe=true")
 }
 
 val shadowJar = tasks.shadowJar

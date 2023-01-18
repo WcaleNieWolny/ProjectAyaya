@@ -20,6 +20,7 @@ class MapMinecraftClient : JavaPlugin() {
     private var windowsBootstrapPtr: Long = 0
 
     override fun onEnable() {
+
         this.saveDefaultConfig()
 
         if(!loadNativeLib()){

@@ -28,9 +28,12 @@ use jni::JNIEnv;
 
 use map_server::ServerOptions;
 
-use player::game_player::{GameInputDirection, GamePlayer};
 use player::player_context::VideoPlayer;
 use player::player_context::{self, NativeCommunication};
+use player::{
+    discord_audio::DiscordOptions,
+    game_player::{GameInputDirection, GamePlayer},
+};
 
 mod colorlib;
 mod map_server;
@@ -128,6 +131,7 @@ fn init(
     file_name: JString,
     render_type: JObject,
     server_options: JObject,
+    discord_options: JObject,
 ) -> anyhow::Result<jlong> {
     let file_name: String = env.get_string(file_name)?.into();
 
@@ -146,6 +150,49 @@ fn init(
         use_server,
         bind_ip,
         port,
+    };
+
+    let use_discord = env
+        .call_method(discord_options, "isPresent", "()Z", &[])?
+        .z()?;
+
+    let discord_options: Option<DiscordOptions> = match use_discord {
+        false => None,
+        true => {
+            let discord_options = env
+                .call_method(discord_options, "get", "()Ljava/lang/Object;", &[])?
+                .l()?;
+
+            let discord_token = env
+                .call_method(
+                    discord_options,
+                    "getDiscordToken",
+                    "()Ljava/lang/String;",
+                    &[],
+                )?
+                .l()?;
+            let discord_token: String = env.get_string(discord_token.into())?.into();
+
+            let guild_id = env
+                .call_method(discord_options, "getGuildId", "()Ljava/lang/String;", &[])?
+                .l()?;
+            let guild_id: String = env.get_string(guild_id.into())?.into();
+
+            let channel_id = env
+                .call_method(discord_options, "getChannelId", "()Ljava/lang/String;", &[])?
+                .l()?;
+            let channel_id: String = env.get_string(channel_id.into())?.into();
+
+            let discord_options = DiscordOptions {
+                discord_token,
+                guild_id,
+                channel_id,
+            };
+
+            println!("DD: {:?}", discord_options);
+
+            None
+        }
     };
 
     let render_type = env.call_method(render_type, "ordinal", "()I", &[])?;
@@ -374,6 +421,7 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, 
     filename: JString,
     render_type: JObject,
     server_options: JObject,
+    discord_option: JObject,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,
