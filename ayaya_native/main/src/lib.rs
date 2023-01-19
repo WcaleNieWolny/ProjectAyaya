@@ -3,8 +3,6 @@ extern crate core;
 #[cfg(feature = "ffmpeg")]
 extern crate ffmpeg_next as ffmpeg;
 
-extern crate lazy_static;
-
 use anyhow::anyhow;
 
 #[cfg(feature = "ffmpeg")]
@@ -28,18 +26,31 @@ use jni::JNIEnv;
 
 use map_server::ServerOptions;
 
+use once_cell::sync::Lazy;
 use player::player_context::VideoPlayer;
 use player::player_context::{self, NativeCommunication};
 use player::{
     discord_audio::DiscordOptions,
     game_player::{GameInputDirection, GamePlayer},
 };
+use tokio::runtime::{Runtime, Builder};
 
 mod colorlib;
 mod map_server;
 
 mod player;
 mod splitting;
+
+static TOKIO_RUNTIME: Lazy<Runtime> = Lazy::new(|| {
+    Builder::new_multi_thread()
+        .worker_threads(8 as usize)
+        .thread_name("ProjectAyaya native worker thread")
+        .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
+        .enable_io()
+        .enable_time()
+        .build()
+        .expect("Couldn't create tokio runtime")
+});
 
 #[cfg(feature = "ffmpeg")]
 fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {

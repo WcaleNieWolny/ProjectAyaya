@@ -20,7 +20,7 @@ use tokio::sync::{broadcast, oneshot};
 use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
-use crate::{ffmpeg_set_multithreading, SplittedFrame, VideoPlayer};
+use crate::{ffmpeg_set_multithreading, SplittedFrame, VideoPlayer, TOKIO_RUNTIME};
 
 use super::player_context::{FrameWithIdentifier, NativeCommunication};
 
@@ -34,7 +34,6 @@ pub struct MultiVideoPlayer {
     stop_tx: oneshot::Sender<bool>,
     seek_tx: broadcast::Sender<i32>,
     seek_rx: broadcast::Receiver<i32>,
-    runtime: Arc<Runtime>,
 }
 
 impl MultiVideoPlayer {
@@ -58,17 +57,7 @@ impl MultiVideoPlayer {
 
 impl VideoPlayer for MultiVideoPlayer {
     fn create(file_name: String, map_server_options: ServerOptions) -> anyhow::Result<Self> {
-        let thread_pool_size = 24;
-        let runtime = Builder::new_multi_thread()
-            .worker_threads(thread_pool_size as usize)
-            .thread_name("ProjectAyaya native worker thread")
-            .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
-            .enable_io()
-            .enable_time()
-            .build()
-            .expect("Couldn't create tokio runtime");
-
-        let handle = runtime.handle().clone();
+        let handle = TOKIO_RUNTIME.handle().clone();
         let frame_index = Arc::new(AtomicI64::new(0));
 
         let (global_tx, global_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(100);
@@ -280,7 +269,6 @@ impl VideoPlayer for MultiVideoPlayer {
             stop_tx,
             seek_tx,
             seek_rx,
-            runtime: Arc::new(runtime),
         };
         Ok(multi_video_player)
     }
@@ -340,12 +328,6 @@ impl VideoPlayer for MultiVideoPlayer {
             }
         }
 
-        let runtime = match Arc::try_unwrap(self.runtime) {
-            Ok(val) => val,
-            Err(_) => return Err(anyhow!("Unable to get ownership of async runtime")),
-        };
-
-        runtime.shutdown_background();
         Ok(())
     }
 

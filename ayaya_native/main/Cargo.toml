@@ -9,7 +9,6 @@ edition = "2021"
 jni = "0.20.0"
 #ffmpeg-next = { git = "https://github.com/zmwangx/rust-ffmpeg", branch = "master" }
 ffmpeg-next = { version = "5.1.1", optional = true }
-lazy_static = "1.4.0"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 flate2 = { version = "1.0.17", features = ["zlib-ng"], default-features = false }
@@ -17,6 +16,7 @@ bytemuck = "1.12.3"
 rand = "0.8.5"
 cfg-if = "1.0.0"
 serenity = "0.11"
+once_cell = "1.17.0"
 
 [features]
 ffmpeg = ["dep:ffmpeg-next"]
