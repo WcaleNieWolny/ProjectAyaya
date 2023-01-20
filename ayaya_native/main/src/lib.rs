@@ -27,7 +27,7 @@ use jni::JNIEnv;
 use map_server::ServerOptions;
 
 use once_cell::sync::Lazy;
-use player::player_context::VideoPlayer;
+use player::{player_context::VideoPlayer, discord_audio::{self, DiscordPlayer}};
 use player::player_context::{self, NativeCommunication};
 use player::{
     discord_audio::DiscordOptions,
@@ -142,7 +142,7 @@ fn init(
     file_name: JString,
     render_type: JObject,
     server_options: JObject,
-    discord_options: JObject,
+    use_discord: bool
 ) -> anyhow::Result<jlong> {
     let file_name: String = env.get_string(file_name)?.into();
 
@@ -163,49 +163,6 @@ fn init(
         port,
     };
 
-    let use_discord = env
-        .call_method(discord_options, "isPresent", "()Z", &[])?
-        .z()?;
-
-    let discord_options: Option<DiscordOptions> = match use_discord {
-        false => None,
-        true => {
-            let discord_options = env
-                .call_method(discord_options, "get", "()Ljava/lang/Object;", &[])?
-                .l()?;
-
-            let discord_token = env
-                .call_method(
-                    discord_options,
-                    "getDiscordToken",
-                    "()Ljava/lang/String;",
-                    &[],
-                )?
-                .l()?;
-            let discord_token: String = env.get_string(discord_token.into())?.into();
-
-            let guild_id = env
-                .call_method(discord_options, "getGuildId", "()Ljava/lang/String;", &[])?
-                .l()?;
-            let guild_id: String = env.get_string(guild_id.into())?.into();
-
-            let channel_id = env
-                .call_method(discord_options, "getChannelId", "()Ljava/lang/String;", &[])?
-                .l()?;
-            let channel_id: String = env.get_string(channel_id.into())?.into();
-
-            let discord_options = DiscordOptions {
-                discord_token,
-                guild_id,
-                channel_id,
-            };
-
-            println!("DD: {:?}", discord_options);
-
-            None
-        }
-    };
-
     let render_type = env.call_method(render_type, "ordinal", "()I", &[])?;
     let render_type = render_type.i()?;
 
@@ -214,8 +171,15 @@ fn init(
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")]
                 {
-                    let player_context = SingleVideoPlayer::create(file_name, server_options)?;
-                    Ok(player_context::wrap_to_ptr(player_context))
+                    let player_context = SingleVideoPlayer::create(file_name.clone(), server_options)?;
+
+                    if use_discord {
+                        let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(player_context))?;
+                        Ok(player_context::wrap_to_ptr(player_context))
+                    }else {
+                        Ok(player_context::wrap_to_ptr(player_context))
+                    }
+
                 }else{
                     return Err(anyhow!("FFmpeg feature not compiled!"))
                 }
@@ -305,6 +269,46 @@ fn recive_jvm_msg(
     env.delete_local_ref(info.into())?;
     env.delete_local_ref(native_lib_communication)?;
     player_context::pass_jvm_msg(ptr, msg_type)?;
+    Ok(())
+}
+
+fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()>{
+    
+    let discord_options = {
+        let use_discord = env.call_method(discord_options, "getUseDiscord", "()Z", &[])?.z()?;
+
+        let discord_token = env
+            .call_method(
+                discord_options,
+                "getDiscordToken",
+                "()Ljava/lang/String;",
+                &[],
+            )?
+            .l()?;
+        let discord_token: String = env.get_string(discord_token.into())?.into();
+
+        let guild_id = env
+            .call_method(discord_options, "getGuildId", "()Ljava/lang/String;", &[])?
+            .l()?;
+        let guild_id: String = env.get_string(guild_id.into())?.into();
+
+        let channel_id = env
+            .call_method(discord_options, "getChannelId", "()Ljava/lang/String;", &[])?
+            .l()?;
+        let channel_id: String = env.get_string(channel_id.into())?.into();
+
+        DiscordOptions {
+            use_discord,
+            discord_token,
+            guild_id,
+            channel_id,
+        }
+    };
+
+    if discord_options.use_discord {
+        discord_audio::init(&discord_options)?;
+    }
+    
     Ok(())
 }
 
@@ -432,7 +436,7 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, 
     filename: JString,
     render_type: JObject,
     server_options: JObject,
-    discord_option: JObject,
+    use_discord: bool,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,
@@ -446,4 +450,7 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreen
     file_name: JString,
     width: jint,
     height: jint,
+});
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_initDiscordBot, init_discord_bot, {
+    file_name: JObject,
 });

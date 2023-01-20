@@ -31,7 +31,6 @@ object RenderServiceFactory {
         renderCallback: ((ptr: Long, screenName: String) -> Unit)? = null,
         useDiscord: Boolean = false
     ): RenderService {
-        println("FACKT: $useDiscord")
         val ptr = NativeRenderControler.init(
             filename,
             videoPlayType.toNativeRenderType(),
@@ -40,11 +39,9 @@ object RenderServiceFactory {
                 plugin.config.getString("mapServerLocalIp")!!,
                 plugin.config.getInt("mapServerPort")
             ),
-            if (useDiscord) Optional.of(DiscordOptions("token", "aa", "bb")) else Optional.empty()
+            useDiscord
         )
 
-        val a = Optional.empty<String>()
-        a.isPresent
         val videoData = NativeRenderControler.getVideoData(ptr)
 
         val width = videoData.width

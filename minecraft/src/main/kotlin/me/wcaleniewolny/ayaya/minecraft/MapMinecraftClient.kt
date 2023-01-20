@@ -1,6 +1,8 @@
 package me.wcaleniewolny.ayaya.minecraft
 
 import co.aikar.commands.PaperCommandManager
+import me.wcaleniewolny.ayaya.library.DiscordOptions
+import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.library.WindowsBootstrap
 import me.wcaleniewolny.ayaya.minecraft.command.VideoCommand
 import me.wcaleniewolny.ayaya.minecraft.command.VideoCommandCompletion
@@ -25,6 +27,10 @@ class MapMinecraftClient : JavaPlugin() {
 
         if(!loadNativeLib()){
             return
+        }
+
+        if (config.getBoolean("useDiscordBot")) {
+            NativeRenderControler.initDiscordBot(DiscordOptions(true, config.getString("discordToken")!!, config.getString("discordGuildId")!!, config.getString("discordChannelId")!!))
         }
 
         val nativeGameController = NativeGameController(this)

@@ -1,9 +1,15 @@
 # See config in GitHub wiki for more info
 useWindowsBootstrap: false
 allowMapServer: false
+useDiscordBot: false
+
 mapServerLocalIp: 0.0.0.0
 mapServerRemoteIp: 0.0.0.0
 mapServerPort: 1965
+
+discordToken: DISCORD_TOKEN
+discordGuildId: 0
+discordChannelId: channelId
 
 screenCreationFailed: <red>Couldn't create screen! Make sure that screen with that name DOES not exists!
 screenCreationSuccess: <green>Screen created!

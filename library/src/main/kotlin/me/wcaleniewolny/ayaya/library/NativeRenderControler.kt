@@ -23,11 +23,19 @@ object NativeRenderControler {
 
     /**
      * Initialize native library. Required to call [NativeRenderControler.loadFrame]
-     * @param multithreading If true underlying library will use multithreading
+     * @param fileName type specific string for initializing native resources
+     * @param type renderer type
+     * @param serverOptions options for native TCP map server
+     * @param useDiscord if discord bot should be used to play audio (Use only with SINGLE_THREADED, MULTI_THREADED mode)
      * @return returns pointer to native memory. WARNING!! CHANGING THAT POINTER WILL CORRUPT MEMORY!
      * @throws java.lang.RuntimeException if rust panics during native call
      */
-        external fun init(fileName: String, type: NativeRenderType, serverOptions: MapServerOptions, discordOption: Optional<DiscordOptions>): Long
+    external fun init(fileName: String, type: NativeRenderType, serverOptions: MapServerOptions, useDiscord: Boolean): Long
+
+    /**
+     *
+      */
+    external fun initDiscordBot(discordOptions: DiscordOptions)
 
     /**
      * Tell native library to free any native memory. After that calling [NativeRenderControler.loadFrame] is an illegal operation.
@@ -49,4 +57,6 @@ object NativeRenderControler {
      * @throws java.lang.RuntimeException if rust panics during native call
      */
     external fun communicate(ptr: Long, message: NativeLibCommunication, additionalInfo: String)
+
+
 }
