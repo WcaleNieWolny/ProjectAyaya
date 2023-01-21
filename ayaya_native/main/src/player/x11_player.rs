@@ -233,7 +233,7 @@ impl VideoPlayer for X11Player {
         })
     }
 
-    fn destroy(self: Box<Self>) -> anyhow::Result<()> {
+    fn destroy(&self) -> anyhow::Result<()> {
         Ok(()) //Nothing to do
     }
 

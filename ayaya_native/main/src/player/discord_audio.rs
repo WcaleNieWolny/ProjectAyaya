@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
 use serenity::{prelude::GatewayIntents, Client};
+use songbird::input::Restartable;
 use songbird::{Songbird, SerenityInit};
 
 use crate::{TOKIO_RUNTIME, map_server::ServerOptions};
@@ -15,8 +16,8 @@ static DISCORD_CLIENT: OnceCell<DiscordClient> = OnceCell::new();
 pub struct DiscordOptions {
     pub use_discord: bool,
     pub discord_token: String,
-    pub guild_id: String,
-    pub channel_id: String,
+    pub guild_id: u64,
+    pub channel_id: u64,
 }
 
 pub struct DiscordClient {
@@ -25,21 +26,55 @@ pub struct DiscordClient {
 }
 
 impl DiscordClient {
-    pub fn join_channel(&self) -> anyhow::Result<()> {
-
+    pub fn connect_and_play(&self, audio_path: String) -> anyhow::Result<()>{
         let songbird = self.songbird.clone();
+        let options = self.options.clone();
 
-        let guild_id: u64 = self.options.guild_id.parse()?;
-        let channel_id: u64 = self.options.channel_id.parse()?;
+        let handler_lock = songbird.get(self.options.guild_id);
+        if handler_lock.is_some() {
+            return Err(anyhow!("Discord client connected to a channel"));
+        }
 
         TOKIO_RUNTIME.handle().clone().spawn(async move {
-            let (_, join_result) = songbird.join(guild_id, channel_id).await;
+            let (handler_lock, join_result) = songbird.join(options.guild_id, options.channel_id).await;
             match join_result {
                 Ok(_) => {},
                 Err(err) => {
                     println!("[ProjectAyaya] Unable to connect to discord channel! Error: {:?}", err);
                 }
             }
+
+            let mut handler = handler_lock.lock().await;
+           
+            let source = Restartable::ffmpeg(audio_path, false).await;
+            if let Err(err) = source {
+                println!("Unable to create ffmpeg discord source! Err: {:?}", err);
+                return;
+            }
+            
+            handler.play_source(source.unwrap().into());
+        });
+
+        Ok(())
+    }
+
+    pub fn leave_channel(&self) -> anyhow::Result<()> {
+        let songbird = self.songbird.clone();
+        let options = self.options.clone();
+
+        TOKIO_RUNTIME.handle().clone().spawn(async move {
+            let handler_lock = songbird.get(options.guild_id);
+
+            if handler_lock.is_none() {
+                println!("[ProjectAyaya] Discord bot not connected! Cannot leave channel!");
+                return;
+            }
+
+            if let Err(err) = songbird.remove(options.guild_id).await {
+                println!("[ProjectAyaya] Cannot leave discord audio channel! Err: {:?}", err);
+                return;
+            }
+            
         });
 
         Ok(())
@@ -102,7 +137,11 @@ impl VideoPlayer for DiscordPlayer {
         self.inner.handle_jvm_msg(msg)
     }
 
-    fn destroy(self: Box<Self>) -> anyhow::Result<()> {
+    fn destroy(&self) -> anyhow::Result<()> {
+        if let Some(discord_client) = DISCORD_CLIENT.get(){
+            discord_client.leave_channel()?;
+        };
+
         self.inner.destroy()
     }
 }
@@ -114,8 +153,8 @@ impl DiscordPlayer {
             None => return Err(anyhow!("Discord client not initialized"))
         };
 
-        discord_client.join_channel()?;
-
+        discord_client.connect_and_play(filename)?;
+        
         Ok(Self {
             inner: player
         })

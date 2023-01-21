@@ -14,7 +14,7 @@ use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::Error::Eof;
 use ffmpeg::{rescale, Error, Rescale};
-use tokio::runtime::{Builder, Runtime};
+use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{broadcast, oneshot};
 
 use crate::colorlib::transform_frame_to_mc;
@@ -31,6 +31,7 @@ pub struct MultiVideoPlayer {
     pub frame_index: Arc<AtomicI64>,
     receiver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<FrameWithIdentifier>>>>,
     map_server: MapServerData,
+    #[allow(unused)]
     stop_tx: oneshot::Sender<bool>,
     seek_tx: broadcast::Sender<i32>,
     seek_rx: broadcast::Receiver<i32>,
@@ -142,14 +143,26 @@ impl VideoPlayer for MultiVideoPlayer {
                     if processing_sleep_rx.try_recv().is_ok() {
                         while processing_sleep_rx.try_recv().is_err() {
                             thread::sleep(Duration::from_millis(50));
-                            if stop_rx.try_recv().is_ok() {
-                                break 'main;
+
+                            match stop_rx.try_recv() {
+                                Ok(_) => {},
+                                Err(err) => {
+                                    if matches!(err, TryRecvError::Closed) {
+                                        break 'main;
+                                    }        
+                                }
                             }
+                            
                         }
                     }
 
-                    if stop_rx.try_recv().is_ok() {
-                        break 'main;
+                    match stop_rx.try_recv() {
+                        Ok(_) => {},
+                        Err(err) => {
+                            if matches!(err, TryRecvError::Closed) {
+                                break 'main;
+                            }        
+                        }
                     }
 
                     if let Ok(position) = seek_rx_clone.try_recv() {
@@ -318,16 +331,7 @@ impl VideoPlayer for MultiVideoPlayer {
         })
     }
 
-    fn destroy(self: Box<Self>) -> anyhow::Result<()> {
-        match self.stop_tx.send(true) {
-            Ok(_) => {}
-            Err(_) => {
-                return Err(anyhow!(
-                    "Couldn't send stop tx signal! Unable to destroy native resources"
-                ))
-            }
-        }
-
+    fn destroy(&self) -> anyhow::Result<()> {
         Ok(())
     }
 

@@ -96,9 +96,9 @@ pub fn pass_jvm_msg(ptr: i64, msg: NativeCommunication) -> anyhow::Result<()> {
 }
 
 pub fn destroy(ptr: i64) -> anyhow::Result<()> {
-    drop(unsafe { Box::from_raw(ptr as *mut Arc<Mutex<dyn VideoPlayer>>) });
-
-    Ok(())
+    let player_context = unsafe { Box::from_raw(ptr as *mut Arc<Mutex<dyn VideoPlayer>>) };
+    let player_context = lock_mutex!(player_context);
+    player_context.destroy()
 }
 
 #[cfg(feature = "ffmpeg")]
@@ -138,6 +138,6 @@ pub trait VideoPlayer {
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>>;
     fn video_data(&self) -> anyhow::Result<VideoData>;
     fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()>;
-    fn destroy(self: Box<Self>) -> anyhow::Result<()>;
+    fn destroy(&self) -> anyhow::Result<()>;
     //Note: This should free any resources of the implementation. Also self is being moved to the destroy fn so it will be dropped without drop call
 }

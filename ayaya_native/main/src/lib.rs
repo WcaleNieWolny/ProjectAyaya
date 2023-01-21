@@ -297,6 +297,9 @@ fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()>
             .l()?;
         let channel_id: String = env.get_string(channel_id.into())?.into();
 
+        let guild_id: u64 = guild_id.parse()?;
+        let channel_id: u64 = channel_id.parse()?;
+
         DiscordOptions {
             use_discord,
             discord_token,

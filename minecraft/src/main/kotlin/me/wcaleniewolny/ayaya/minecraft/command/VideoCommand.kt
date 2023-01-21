@@ -72,8 +72,7 @@ class VideoCommand(
             return
         }
         //val allowMapServer = plugin.config.getBoolean("allowMapServer")
-
-        println("AAAA ${discord != null && discord}")
+        
         screenController.startPlayback(videoPlayType, file, sender, screen, discord != null && discord)
     }
 
