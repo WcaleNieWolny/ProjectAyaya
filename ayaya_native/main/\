@@ -1,0 +1,509 @@
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling proc-macro2 v1.0.49
+   Compiling log v0.4.17
+   Compiling futures-util v0.3.25
+   Compiling regex-syntax v0.6.28
+   Compiling tracing-core v0.1.30
+   Compiling aho-corasick v0.7.20
+   Compiling serde_json v1.0.91
+   Compiling subtle v2.4.1
+   Compiling num-traits v0.1.43
+   Compiling cipher v0.3.0
+   Compiling crossbeam-utils v0.8.14
+   Compiling serenity v0.11.5
+   Compiling opaque-debug v0.3.0
+   Compiling pnet_base v0.28.0
+   Compiling zeroize v1.3.0
+   Compiling aead v0.4.3
+   Compiling nanorand v0.7.0
+   Compiling spin v0.9.4
+   Compiling arrayvec v0.7.2
+   Compiling songbird v0.3.0
+   Compiling uuid v0.8.2
+   Compiling enum_primitive v0.1.1
+   Compiling pnet_macros_support v0.28.0
+   Compiling universal-hash v0.4.1
+   Compiling salsa20 v0.9.0
+   Compiling poly1305 v0.7.2
+   Compiling mio v0.8.5
+   Compiling rustls v0.20.8
+   Compiling want v0.3.0
+   Compiling symphonia-core v0.5.2
+   Compiling audiopus_sys v0.2.2
+   Compiling xsalsa20poly1305 v0.8.0
+   Compiling quote v1.0.23
+   Compiling audiopus v0.3.0-rc.0
+   Compiling syn v1.0.107
+   Compiling regex v1.7.1
+   Compiling bindgen v0.59.2
+   Compiling serde_derive v1.0.152
+   Compiling futures-macro v0.3.25
+   Compiling pin-project-internal v1.0.12
+   Compiling tokio-macros v1.8.2
+   Compiling tracing-attributes v0.1.23
+   Compiling thiserror-impl v1.0.38
+   Compiling serde_repr v0.1.10
+   Compiling pnet_macros v0.28.0
+   Compiling async-trait v0.1.61
+   Compiling derivative v2.2.0
+   Compiling tokio v1.24.1
+   Compiling discortp v0.4.0
+   Compiling pin-project v1.0.12
+   Compiling thiserror v1.0.38
+   Compiling tracing v0.1.37
+   Compiling flume v0.10.14
+   Compiling jni v0.20.0
+   Compiling tracing-futures v0.2.5
+   Compiling exr v1.5.2
+   Compiling ffmpeg-sys-next v5.1.1 (https://github.com/FreezyLemon/rust-ffmpeg-sys?branch=non-exhaustive-enum#472f8efa)
+   Compiling serde v1.0.152
+   Compiling futures-executor v0.3.25
+   Compiling streamcatcher v1.0.1
+   Compiling futures v0.3.25
+   Compiling image v0.24.5
+   Compiling tokio-util v0.7.4
+   Compiling tokio-rustls v0.23.4
+   Compiling h2 v0.3.15
+   Compiling url v2.3.1
+   Compiling serde_urlencoded v0.7.1
+   Compiling serde-value v0.7.0
+   Compiling dashmap v5.4.0
+   Compiling time v0.3.17
+   Compiling tungstenite v0.17.3
+   Compiling serenity-voice-model v0.1.1
+   Compiling async-tungstenite v0.17.2
+   Compiling ffmpeg-next v5.1.1 (https://github.com/FreezyLemon/rust-ffmpeg?branch=non-exhaustive-enum#d6aa5a32)
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+   Compiling hyper v0.14.23
+   Compiling hyper-rustls v0.23.2
+   Compiling reqwest v0.11.13
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 1m 30s
+❯ cat ../Cargo.
+cat: ../Cargo.: No such file or directory
+❯ cat ../Cargo.toml
+[workspace]
+name = "ayaya_native" # the name of the package
+members = ["main", "windows_bootstrap"]
+default-members = ["main"]
+
+[profile.release]
+strip = "symbols"
+opt-level = 3
+panic = "unwind"
+
+[profile.production]
+inherits = "release"
+codegen-units = 1
+
+[profile.test] 
+opt-level = 3
+
+[patch.crates-io]
+ffmpeg-next = { git = "https://github.com/FreezyLemon/rust-ffmpeg", branch = "non-exhaustive-enum" }
+ffmpeg-sys-next = { git = "https://github.com/FreezyLemon/rust-ffmpeg-sys", branch = "non-exhaustive-enum" }
+❯ cat ../Cargo.toml
+[workspace]
+name = "ayaya_native" # the name of the package
+members = ["main", "windows_bootstrap"]
+default-members = ["main"]
+
+[profile.release]
+strip = "symbols"
+opt-level = 3
+panic = "unwind"
+
+[profile.production]
+inherits = "release"
+codegen-units = 1
+
+[profile.test] 
+opt-level = 3
+
+[patch.crates-io]
+ffmpeg-next = { git = "https://github.com/FreezyLemon/rust-ffmpeg", branch = "non-exhaustive-enum" }
+ffmpeg-sys-next = { git = "https://github.com/FreezyLemon/rust-ffmpeg-sys", branch = "non-exhaustive-enum" }
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 3.87s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 0.07s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 4.03s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused import: `songbird::input::Restartable`
+ --> main/src/player/discord_audio.rs:5:5
+  |
+5 | use songbird::input::Restartable;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+
+warning: `ayaya_native` (lib) generated 2 warnings (run `cargo fix --lib -p ayaya_native` to apply 2 suggestions)
+    Finished release [optimized] target(s) in 3.81s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused import: `songbird::input::Restartable`
+ --> main/src/player/discord_audio.rs:5:5
+  |
+5 | use songbird::input::Restartable;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+
+warning: `ayaya_native` (lib) generated 2 warnings (run `cargo fix --lib -p ayaya_native` to apply 2 suggestions)
+    Finished release [optimized] target(s) in 3.98s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused import: `songbird::input::Restartable`
+ --> main/src/player/discord_audio.rs:5:5
+  |
+5 | use songbird::input::Restartable;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+
+warning: `ayaya_native` (lib) generated 2 warnings (run `cargo fix --lib -p ayaya_native` to apply 2 suggestions)
+    Finished release [optimized] target(s) in 4.06s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+warning: unused import: `songbird::input::Restartable`
+ --> main/src/player/discord_audio.rs:5:5
+  |
+5 | use songbird::input::Restartable;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+
+warning: `ayaya_native` (lib) generated 2 warnings (run `cargo fix --lib -p ayaya_native` to apply 2 suggestions)
+    Finished release [optimized] target(s) in 0.07s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: associated function `leave_channel` is never used
+  --> main/src/player/discord_audio.rs:62:12
+   |
+62 |     pub fn leave_channel(&self) -> anyhow::Result<()> {
+   |            ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `ayaya_native` (lib) generated 2 warnings (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 4.14s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 4.80s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 4.07s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 4.45s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 4.52s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 3.98s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 4.09s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 3.81s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 0.07s
+❯ cargo build -r\
+> 
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+error[E0053]: method `destroy` has an incompatible type for trait
+   --> main/src/player/game_player.rs:286:22
+    |
+286 |     fn destroy(self: Box<Self>) -> anyhow::Result<()> {
+    |                ------^^^^^^^^^
+    |                |     |
+    |                |     expected `&GamePlayer`, found struct `Box`
+    |                help: change the self-receiver type to match the trait: `self: &GamePlayer`
+    |
+note: type in trait
+   --> main/src/player/player_context.rs:141:16
+    |
+141 |     fn destroy(&self) -> anyhow::Result<()>;
+    |                ^^^^^
+    = note: expected fn pointer `fn(&GamePlayer) -> Result<_, _>`
+               found fn pointer `fn(Box<GamePlayer>) -> Result<_, _>`
+
+For more information about this error, try `rustc --explain E0053`.
+warning: `ayaya_native` (lib) generated 1 warning
+error: could not compile `ayaya_native` due to previous error; 1 warning emitted
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: unused imports: `Builder`, `Runtime`
+  --> main/src/player/multi_video_player.rs:17:22
+   |
+17 | use tokio::runtime::{Builder, Runtime};
+   |                      ^^^^^^^  ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: variable does not need to be mutable
+   --> main/src/player/player_context.rs:100:9
+    |
+100 |     let mut player_context = lock_mutex!(player_context);
+    |         ----^^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+error[E0507]: cannot move out of `self.stop_tx` which is behind a shared reference
+   --> main/src/player/multi_video_player.rs:322:15
+    |
+322 |         match self.stop_tx.send(true) {
+    |               ^^^^^^^^^^^^ ---------- `self.stop_tx` moved due to this method call
+    |               |
+    |               move occurs because `self.stop_tx` has type `tokio::sync::oneshot::Sender<bool>`, which does not implement the `Copy` trait
+    |
+note: this function takes ownership of the receiver `self`, which moves `self.stop_tx`
+   --> /home/wolny/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.24.1/src/sync/oneshot.rs:590:21
+    |
+590 |     pub fn send(mut self, t: T) -> Result<(), T> {
+    |                     ^^^^
+
+For more information about this error, try `rustc --explain E0507`.
+warning: `ayaya_native` (lib) generated 2 warnings
+error: could not compile `ayaya_native` due to previous error; 2 warnings emitted
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+warning: variable does not need to be mutable
+   --> main/src/player/player_context.rs:100:9
+    |
+100 |     let mut player_context = lock_mutex!(player_context);
+    |         ----^^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `ayaya_native` (lib) generated 1 warning (run `cargo fix --lib -p ayaya_native` to apply 1 suggestion)
+    Finished release [optimized] target(s) in 4.33s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+    Finished release [optimized] target(s) in 4.00s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+    Finished release [optimized] target(s) in 4.46s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+    Finished release [optimized] target(s) in 4.15s
+❯ cargo build -r
+warning: /home/wolny/dev/project_ayaya/ayaya_native/Cargo.toml: unused manifest key: workspace.name
+   Compiling ayaya_native v0.1.0 (/home/wolny/dev/project_ayaya/ayaya_native/main)
+    Finished release [optimized] target(s) in 3.97s
+❯ cd ../..
+❯ git add .
+❯ git commit -m "Add playing audio, leave at player kill"
+error: gpg failed to sign the data
+fatal: failed to write commit object
+❯ git commit -m "Add playing audio, leave at player destruction"
+[discord_audio a9b5303] Add playing audio, leave at player destruction
+ 8 files changed, 80 insertions(+), 35 deletions(-)
+❯ git push
+Merge branch 'discord_audio' of github.com:WcaleNieWolny/ProjectAyaya into discord_audio
+# Please enter a commit message to explain why this merge is necessary,
+# especially if it merges an updated upstream into a topic branch.
+#
+# Lines starting with '#' will be ignored, and an empty message aborts
+# the commit.
+Merge remote main branch
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+~                                                                                                                                                                                                                                                                                                                                                                                      
+-- INSERT --                                                                                                                                                                                                                                                                                                                                                         7,19          All
