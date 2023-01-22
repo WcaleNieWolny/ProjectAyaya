@@ -3,6 +3,7 @@ use std::sync::Arc;
 use once_cell::sync::OnceCell;
 use serenity::{prelude::GatewayIntents, Client};
 use songbird::input::Restartable;
+use songbird::tracks::TrackHandle;
 use songbird::{Songbird, SerenityInit};
 
 use crate::{TOKIO_RUNTIME, map_server::ServerOptions};
@@ -26,7 +27,7 @@ pub struct DiscordClient {
 }
 
 impl DiscordClient {
-    pub fn connect_and_play(&self, audio_path: String) -> anyhow::Result<()>{
+    pub fn connect_and_play(&self, audio_path: String, use_map_server: bool) -> anyhow::Result<TrackHandle>{
         let songbird = self.songbird.clone();
         let options = self.options.clone();
 
@@ -35,27 +36,21 @@ impl DiscordClient {
             return Err(anyhow!("Discord client connected to a channel"));
         }
 
-        TOKIO_RUNTIME.handle().clone().spawn(async move {
+        let join_handle: anyhow::Result<TrackHandle> = TOKIO_RUNTIME.handle().clone().block_on(async move {
             let (handler_lock, join_result) = songbird.join(options.guild_id, options.channel_id).await;
-            match join_result {
-                Ok(_) => {},
-                Err(err) => {
-                    println!("[ProjectAyaya] Unable to connect to discord channel! Error: {:?}", err);
-                }
-            }
+            join_result?;
 
             let mut handler = handler_lock.lock().await;
            
-            let source = Restartable::ffmpeg(audio_path, false).await;
-            if let Err(err) = source {
-                println!("Unable to create ffmpeg discord source! Err: {:?}", err);
-                return;
-            }
+            let source = Restartable::ffmpeg(audio_path, false).await?;
             
-            handler.play_source(source.unwrap().into());
+            let track = handler.play_source(source.into());
+            if use_map_server {
+                track.pause()?;
+            }
+            Ok(track)
         });
-
-        Ok(())
+        Ok(join_handle?)
     }
 
     pub fn leave_channel(&self) -> anyhow::Result<()> {
@@ -115,7 +110,9 @@ pub fn init(options: &DiscordOptions) -> anyhow::Result<()>{
 }
 
 pub struct DiscordPlayer {
-    inner: Box<dyn VideoPlayer>
+    inner: Box<dyn VideoPlayer>,
+    track_handle: TrackHandle,
+    use_map_server: bool
 }
 
 impl VideoPlayer for DiscordPlayer {
@@ -134,6 +131,22 @@ impl VideoPlayer for DiscordPlayer {
     }
 
     fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()> {
+        match msg {
+            NativeCommunication::StartRendering { .. } => {
+                self.track_handle.play()?;
+                if !self.use_map_server {
+                    return Ok(());
+                }
+            }
+            NativeCommunication::StopRendering { .. } => {
+                self.track_handle.pause()?;
+                if !self.use_map_server {
+                    return Ok(());
+                }
+            }
+            _ => {}
+       };
+
         self.inner.handle_jvm_msg(msg)
     }
 
@@ -147,16 +160,18 @@ impl VideoPlayer for DiscordPlayer {
 }
 
 impl DiscordPlayer {
-    pub fn create_with_discord(filename: String, player: Box<dyn VideoPlayer>) -> anyhow::Result<Self>{
+    pub fn create_with_discord(filename: String, player: Box<dyn VideoPlayer>, use_map_server: bool) -> anyhow::Result<Self>{
         let discord_client = match DISCORD_CLIENT.get(){
             Some(val) => val,
             None => return Err(anyhow!("Discord client not initialized"))
         };
 
-        discord_client.connect_and_play(filename)?;
+        let track_handle = discord_client.connect_and_play(filename, use_map_server)?;
         
         Ok(Self {
-            inner: player
+            inner: player,
+            track_handle,
+            use_map_server
         })
     }
 }

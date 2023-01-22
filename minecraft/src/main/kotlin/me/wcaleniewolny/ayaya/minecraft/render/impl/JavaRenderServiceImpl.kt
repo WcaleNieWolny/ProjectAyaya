@@ -7,7 +7,8 @@ import me.wcaleniewolny.ayaya.minecraft.render.RenderThread
 import org.bukkit.plugin.java.JavaPlugin
 
 open class JavaRenderServiceImpl(
-    private val renderThread: RenderThread
+    private val renderThread: RenderThread,
+    private val useDiscord: Boolean
 ) : RenderService {
 
     private var initialized = false
@@ -33,8 +34,14 @@ open class JavaRenderServiceImpl(
         val isRunning = renderThread.renderFrames()
         if (isRunning.get()) {
             isRunning.set(false)
+            if (useDiscord) {
+                NativeRenderControler.communicate(renderThread.ptr(), NativeLibCommunication.STOP_RENDERING, "1")
+            }
         } else {
             isRunning.set(true)
+            if (useDiscord) {
+                NativeRenderControler.communicate(renderThread.ptr(), NativeLibCommunication.START_RENDERING, "1")
+            }
         }
     }
 

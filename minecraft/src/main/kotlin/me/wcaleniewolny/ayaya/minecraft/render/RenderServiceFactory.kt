@@ -71,7 +71,8 @@ object RenderServiceFactory {
         )
 
         val service = if (serviceType == RenderServiceType.JAVA) JavaRenderServiceImpl(
-            thread
+            thread,
+            useDiscord,
         ) else NativeRenderServiceImpl(
             plugin,
             videoData,

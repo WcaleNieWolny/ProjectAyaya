@@ -176,13 +176,19 @@ impl VideoPlayer for MultiVideoPlayer {
                         frame_id = 0;
                     }
 
-                    let frame = MultiVideoPlayer::decode_frame(
+                    let frame = match MultiVideoPlayer::decode_frame(
                         &mut ictx,
                         video_stream_index,
                         &mut decoder,
                         &mut scaler,
-                    )
-                    .expect("Couldn't create async frame");
+                    ) {
+                        Ok(val) => val,
+                        Err(err) => {
+                            println!("[ProjectAyaya] Creating async frame failed! Reason: {:?}", err);
+                            break 'main;
+                        }
+                    };
+
                     let splitted_frames = splitted_frames.clone();
 
                     let sender = frames_tx.clone();
@@ -222,17 +228,19 @@ impl VideoPlayer for MultiVideoPlayer {
             let mut frame_hash_map: HashMap<u64, FrameWithIdentifier> = HashMap::new();
             let mut last_id: i64 = 0;
 
-            loop {
+            'decode_loop: loop {
                 if last_id - frame_index.load(Relaxed) > 80 {
-                    processing_sleep_tx
-                        .send(true)
-                        .expect("Couldnt send sleep request");
+                    if let Err(_) = processing_sleep_tx.send(true) {
+                        println!("[ProjectAyaya] Unable to send sleep request!");
+                        break 'decode_loop;
+                    }
                     while last_id - frame_index.load(Relaxed) > 80 {
                         thread::sleep(Duration::from_millis(50))
                     }
-                    processing_sleep_tx
-                        .send(false)
-                        .expect("Couldnt send sleep disable request");
+                    if let Err(_) = processing_sleep_tx.send(false) {
+                        println!("[ProjectAyaya] Unable to send disable sleep request!");
+                        break 'decode_loop;
+                    }
                 }
 
                 let cached_frame = frame_hash_map.remove(&(last_id as u64 + 1_u64));
@@ -246,7 +254,13 @@ impl VideoPlayer for MultiVideoPlayer {
                     continue;
                 }
 
-                let frame = frames_rx.recv().expect("Couldn't recive with identifier");
+                let frame = match frames_rx.recv() {
+                    Ok(val) => val,
+                    Err(err) => {
+                        println!("[ProjectAyaya] Unable to recive frames with identifier! Error: {:?}", err);
+                        break 'decode_loop;
+                    }
+                };
 
                 if frame.id == last_id + 1 || frame.id == 0 {
                     if frame.id == 0 {

@@ -174,7 +174,7 @@ fn init(
                     let player_context = SingleVideoPlayer::create(file_name.clone(), server_options)?;
 
                     if use_discord {
-                        let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(player_context))?;
+                        let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(player_context), false)?;
                         Ok(player_context::wrap_to_ptr(player_context))
                     }else {
                         Ok(player_context::wrap_to_ptr(player_context))
@@ -188,20 +188,31 @@ fn init(
         1 => {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")]{
-                    let player_context = MultiVideoPlayer::create(file_name, server_options)?;
-                    Ok(player_context::wrap_to_ptr(player_context))
+                    let player_context = MultiVideoPlayer::create(file_name.clone(), server_options)?;
+                    if use_discord {
+                        let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(player_context), false)?;
+                        Ok(player_context::wrap_to_ptr(player_context))
+                    }else {
+                        Ok(player_context::wrap_to_ptr(player_context))
+                    }
                 }else {
                     return Err(anyhow!("FFmpeg feature not compiled!"))
                 }
             }
         }
         2 => {
+            if use_discord {
+                return Err(anyhow!("Game player does not suport discord audio!"));
+            }
             let player_context = GamePlayer::create(file_name, server_options)?;
             Ok(player_context::wrap_to_ptr(player_context))
         }
         3 => {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")] {
+                    if use_discord {
+                        return Err(anyhow!("X11 player does not suport discord audio!"));
+                    }
                     let player_context = X11Player::create(file_name, server_options)?;
                     Ok(player_context::wrap_to_ptr(player_context))
                 }else {
