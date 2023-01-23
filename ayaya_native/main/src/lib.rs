@@ -21,13 +21,13 @@ use {
 };
 
 use jni::objects::*;
-use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
+use jni::sys::{jbyteArray, jint, jlong, jobject, jsize};
 use jni::JNIEnv;
 
 use map_server::ServerOptions;
 
 use once_cell::sync::Lazy;
-use player::{player_context::VideoPlayer, discord_audio::{self, DiscordPlayer}};
+use player::{player_context::VideoPlayer, discord_audio::{self, DiscordPlayer, DiscordClient}};
 use player::player_context::{self, NativeCommunication};
 use player::{
     discord_audio::DiscordOptions,
@@ -100,11 +100,23 @@ fn verify_capabilities(
     file_name: JString,
     width: jint,
     height: jint,
-) -> anyhow::Result<jboolean> {
+    use_discord: bool
+) -> anyhow::Result<jobject> {
+
+    if width % 128 != 0 || height % 128 != 0 {
+        return Err(anyhow!("Width or height of the request not divisble by 128"));
+    }
+
+    if use_discord && DiscordClient::is_used()? {
+        let discord_in_use = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("DISCORD_IN_USE")?.into()])?.l()?;
+        return Ok(discord_in_use.into_raw());
+
+    }
+
     cfg_if::cfg_if! {
         if #[cfg(feature = "ffmpeg")] {
             let file_name: String = env.get_string(file_name)?.into();
-
+            
             ffmpeg::init()?;
             if let Ok(ictx) = input(&file_name) {
                 let input = ictx
@@ -121,13 +133,29 @@ fn verify_capabilities(
                 let v_height = decoder.height();
 
                 if v_width % 2 != 0 || v_height % 2 != 0 {
-                    return Ok(false.into());
+                    let invalid_dimenstions = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("INVALID_DIMENSIONS")?.into()])?.l()?;
+                    return Ok(invalid_dimenstions.into_raw());
                 }
 
                 if v_width > width as u32 || v_height > height as u32 {
-                    return Ok(false.into());
+                    let to_small = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("TO_SMALL")?.into()])?.l()?;
+                    return Ok(to_small.into_raw());
                 }
-                return Ok(true.into());
+
+                let required_frames_x: i32 = (v_width as f32 / 128.0).ceil() as i32;
+                let required_frames_y: i32 = (v_height as f32 / 128.0).ceil() as i32;
+
+                let frames_x  = width / 128;
+                let frames_y = height / 128;
+
+
+                if required_frames_x != frames_x || required_frames_y != frames_y {
+                    let to_large = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("TO_LARGE")?.into()])?.l()?;
+                    return Ok(to_large.into_raw());
+                }
+
+                let ok = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("OK")?.into()])?.l()?;
+                return Ok(ok.into_raw());
             };
             return Err(anyhow!("Coudln't create ffmpeg decoder!"));
         } else {
@@ -460,10 +488,11 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_communicate,
     native_lib_communication: JObject,
     info: JString,
 });
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreenCapabilities, verify_capabilities, jboolean, {
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreenCapabilities, verify_capabilities, jobject, {
     file_name: JString,
     width: jint,
     height: jint,
+    use_discord: bool,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_initDiscordBot, init_discord_bot, {
     file_name: JObject,

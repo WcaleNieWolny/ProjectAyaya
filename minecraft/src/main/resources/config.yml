@@ -22,7 +22,10 @@ screenLookupHeight: "<green>Screen height:<white> $"
 screenLookupFacing: "<green>Screen facing:<white> $"
 fileDoesNotExist: <red>This file does not exist!
 pathTraversalAttempt: <red>Hey! Very smart of you, but that is illegal!
-videoVerificationFailed: <red>Couldn't play this video on this screen. It is likely that the screen is to small or the selected video width or height is not divisible by 2
+videoVerificationInvalidDimensions: <red>The requested video has asymmetric width or height!
+videoVerificationToSmall: <red>The requested screen is to small to play this video!
+videoVerificationToLarge: <red>The requested screen is to large to play this video!
+videoVerificationDiscordInUse: <red>Cannot use discord to play audio! Other screen is already using it!
 mapServerPlaybackNotAllowed: <red>Map server playback is disabled in the config!
 unableToPausePlayback: <red>This screen is not playing any video!
 unableToStartPlayback: <red>This screen is playing video! It cannot start playing another one!

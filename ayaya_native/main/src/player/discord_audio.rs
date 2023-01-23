@@ -74,6 +74,17 @@ impl DiscordClient {
 
         Ok(())
     }
+
+    pub fn is_used() -> anyhow::Result<bool> {
+        let client = DISCORD_CLIENT.get();
+
+        let client = match client {
+            Some(val) => val,
+            None => return Err(anyhow!("Discord client not initialized"))
+        };
+
+        return Ok(client.songbird.get(client.options.guild_id).is_some());
+    }
 }
 
 //We assume that caller checked if use_discord == true

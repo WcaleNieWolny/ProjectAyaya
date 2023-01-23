@@ -1,6 +1,7 @@
 package me.wcaleniewolny.ayaya.minecraft.screen
 
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
+import me.wcaleniewolny.ayaya.library.VideoRequestCapablyResponse
 import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.MinecraftNativeBroadcaster
 import me.wcaleniewolny.ayaya.minecraft.extenstion.forEachIn
@@ -126,10 +127,33 @@ class ScreenController(
         useDiscord: Boolean
     ) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
-            val verify = NativeRenderControler.verifyScreenCapabilities(file.absolutePath, screen.width, screen.height)
-            if (!verify) {
-                sender.sendColoredMessage(plugin.config.getString("videoVerificationFailed")!!)
-                return@Runnable
+            val verify = NativeRenderControler.verifyScreenCapabilities(file.absolutePath, screen.width, screen.height, useDiscord)
+            when (verify) {
+                VideoRequestCapablyResponse.OK -> {}
+                VideoRequestCapablyResponse.INVALID_DIMENSIONS -> {
+                    Bukkit.getScheduler().runTask(plugin, Runnable {
+                        sender.sendColoredMessage(plugin.config.getString("videoVerificationInvalidDimensions")!!)
+                    })
+                    return@Runnable
+                }
+                VideoRequestCapablyResponse.TO_SMALL -> {
+                    Bukkit.getScheduler().runTask(plugin, Runnable {
+                        sender.sendColoredMessage(plugin.config.getString("videoVerificationToSmall")!!)
+                    })
+                    return@Runnable
+                }
+                VideoRequestCapablyResponse.TO_LARGE -> {
+                    Bukkit.getScheduler().runTask(plugin, Runnable {
+                        sender.sendColoredMessage(plugin.config.getString("videoVerificationToLarge")!!)
+                    })
+                    return@Runnable
+                }
+                VideoRequestCapablyResponse.DISCORD_IN_USE -> {
+                    Bukkit.getScheduler().runTask(plugin, Runnable {
+                        sender.sendColoredMessage(plugin.config.getString("videoVerificationDiscordInUse")!!)
+                    })
+                    return@Runnable
+                }
             }
 
             val useMapServer = videoPlayType == VideoPlayType.MAP_SERVER

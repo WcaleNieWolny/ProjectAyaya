@@ -9,6 +9,7 @@ edition = "2021"
 jni = "0.20.0"
 #ffmpeg-next = { git = "https://github.com/zmwangx/rust-ffmpeg", branch = "master" }
 ffmpeg-next = { version = "5.1.1", optional = true }
+lazy_static = "1.4.0"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 flate2 = { version = "1.0.17", features = ["zlib-ng"], default-features = false }
@@ -28,4 +29,3 @@ image = "0.24.5"
 
 [lib]
 crate_type = ["cdylib"]
-

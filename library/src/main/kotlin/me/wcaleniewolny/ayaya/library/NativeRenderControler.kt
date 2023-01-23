@@ -19,7 +19,7 @@ object NativeRenderControler {
      * @return true if the target screen can handle the resolution and file is valid
      * @throws java.lang.RuntimeException if rust panics during native call
      */
-    external fun verifyScreenCapabilities(fileName: String, width: Int, height: Int): Boolean
+    external fun verifyScreenCapabilities(fileName: String, width: Int, height: Int, discord: Boolean): VideoRequestCapablyResponse
 
     /**
      * Initialize native library. Required to call [NativeRenderControler.loadFrame]
