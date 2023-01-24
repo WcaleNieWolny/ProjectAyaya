@@ -18,11 +18,11 @@ use libloading::Library;
 use winapi::um::winbase;
 
 static EXTERNAL_METHODS: [(&[u8], &str, &str); 6] = [
-    (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreenCapabilities", "verifyScreenCapabilities", "(Ljava/lang/String;II)Z"),
+    (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreenCapabilities", "verifyScreenCapabilities", "(Ljava/lang/String;IIZ)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;"),
     (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy", "destroy", "(J)V"),
     (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame", "loadFrame", "(J)[B"),
     (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_communicate", "communicate", "(JLme/wcaleniewolny/ayaya/library/NativeLibCommunication;Ljava/lang/String;)V"),
-    (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init", "init", "(Ljava/lang/String;Lme/wcaleniewolny/ayaya/library/NativeRenderType;Lme/wcaleniewolny/ayaya/library/MapServerOptions;)J"),
+    (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init", "init", "(Ljava/lang/String;Lme/wcaleniewolny/ayaya/library/NativeRenderType;Lme/wcaleniewolny/ayaya/library/MapServerOptions;Z)J"),
     (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getVideoData", "getVideoData", "(J)Lme/wcaleniewolny/ayaya/library/VideoData;")
 ];
 
