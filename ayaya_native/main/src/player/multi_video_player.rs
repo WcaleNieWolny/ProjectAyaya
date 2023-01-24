@@ -14,13 +14,13 @@ use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::Error::Eof;
 use ffmpeg::{rescale, Error, Rescale};
-use tokio::runtime::{Builder, Runtime};
+use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::{broadcast, oneshot};
 
 use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
-use crate::{ffmpeg_set_multithreading, SplittedFrame, VideoPlayer};
+use crate::{ffmpeg_set_multithreading, SplittedFrame, VideoPlayer, TOKIO_RUNTIME};
 
 use super::player_context::{FrameWithIdentifier, NativeCommunication};
 
@@ -31,10 +31,10 @@ pub struct MultiVideoPlayer {
     pub frame_index: Arc<AtomicI64>,
     receiver: Option<Arc<Mutex<tokio::sync::mpsc::Receiver<FrameWithIdentifier>>>>,
     map_server: MapServerData,
+    #[allow(unused)]
     stop_tx: oneshot::Sender<bool>,
     seek_tx: broadcast::Sender<i32>,
     seek_rx: broadcast::Receiver<i32>,
-    runtime: Arc<Runtime>,
 }
 
 impl MultiVideoPlayer {
@@ -58,17 +58,7 @@ impl MultiVideoPlayer {
 
 impl VideoPlayer for MultiVideoPlayer {
     fn create(file_name: String, map_server_options: ServerOptions) -> anyhow::Result<Self> {
-        let thread_pool_size = 24;
-        let runtime = Builder::new_multi_thread()
-            .worker_threads(thread_pool_size as usize)
-            .thread_name("ProjectAyaya native worker thread")
-            .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
-            .enable_io()
-            .enable_time()
-            .build()
-            .expect("Couldn't create tokio runtime");
-
-        let handle = runtime.handle().clone();
+        let handle = TOKIO_RUNTIME.handle().clone();
         let frame_index = Arc::new(AtomicI64::new(0));
 
         let (global_tx, global_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(100);
@@ -153,14 +143,26 @@ impl VideoPlayer for MultiVideoPlayer {
                     if processing_sleep_rx.try_recv().is_ok() {
                         while processing_sleep_rx.try_recv().is_err() {
                             thread::sleep(Duration::from_millis(50));
-                            if stop_rx.try_recv().is_ok() {
-                                break 'main;
+
+                            match stop_rx.try_recv() {
+                                Ok(_) => {},
+                                Err(err) => {
+                                    if matches!(err, TryRecvError::Closed) {
+                                        break 'main;
+                                    }        
+                                }
                             }
+                            
                         }
                     }
 
-                    if stop_rx.try_recv().is_ok() {
-                        break 'main;
+                    match stop_rx.try_recv() {
+                        Ok(_) => {},
+                        Err(err) => {
+                            if matches!(err, TryRecvError::Closed) {
+                                break 'main;
+                            }        
+                        }
                     }
 
                     if let Ok(position) = seek_rx_clone.try_recv() {
@@ -174,13 +176,19 @@ impl VideoPlayer for MultiVideoPlayer {
                         frame_id = 0;
                     }
 
-                    let frame = MultiVideoPlayer::decode_frame(
+                    let frame = match MultiVideoPlayer::decode_frame(
                         &mut ictx,
                         video_stream_index,
                         &mut decoder,
                         &mut scaler,
-                    )
-                    .expect("Couldn't create async frame");
+                    ) {
+                        Ok(val) => val,
+                        Err(err) => {
+                            println!("[ProjectAyaya] Creating async frame failed! Reason: {:?}", err);
+                            break 'main;
+                        }
+                    };
+
                     let splitted_frames = splitted_frames.clone();
 
                     let sender = frames_tx.clone();
@@ -220,17 +228,19 @@ impl VideoPlayer for MultiVideoPlayer {
             let mut frame_hash_map: HashMap<u64, FrameWithIdentifier> = HashMap::new();
             let mut last_id: i64 = 0;
 
-            loop {
+            'decode_loop: loop {
                 if last_id - frame_index.load(Relaxed) > 80 {
-                    processing_sleep_tx
-                        .send(true)
-                        .expect("Couldnt send sleep request");
+                    if let Err(_) = processing_sleep_tx.send(true) {
+                        println!("[ProjectAyaya] Unable to send sleep request!");
+                        break 'decode_loop;
+                    }
                     while last_id - frame_index.load(Relaxed) > 80 {
                         thread::sleep(Duration::from_millis(50))
                     }
-                    processing_sleep_tx
-                        .send(false)
-                        .expect("Couldnt send sleep disable request");
+                    if let Err(_) = processing_sleep_tx.send(false) {
+                        println!("[ProjectAyaya] Unable to send disable sleep request!");
+                        break 'decode_loop;
+                    }
                 }
 
                 let cached_frame = frame_hash_map.remove(&(last_id as u64 + 1_u64));
@@ -244,7 +254,13 @@ impl VideoPlayer for MultiVideoPlayer {
                     continue;
                 }
 
-                let frame = frames_rx.recv().expect("Couldn't recive with identifier");
+                let frame = match frames_rx.recv() {
+                    Ok(val) => val,
+                    Err(err) => {
+                        println!("[ProjectAyaya] Unable to recive frames with identifier! Error: {:?}", err);
+                        break 'decode_loop;
+                    }
+                };
 
                 if frame.id == last_id + 1 || frame.id == 0 {
                     if frame.id == 0 {
@@ -280,7 +296,6 @@ impl VideoPlayer for MultiVideoPlayer {
             stop_tx,
             seek_tx,
             seek_rx,
-            runtime: Arc::new(runtime),
         };
         Ok(multi_video_player)
     }
@@ -330,22 +345,7 @@ impl VideoPlayer for MultiVideoPlayer {
         })
     }
 
-    fn destroy(self: Box<Self>) -> anyhow::Result<()> {
-        match self.stop_tx.send(true) {
-            Ok(_) => {}
-            Err(_) => {
-                return Err(anyhow!(
-                    "Couldn't send stop tx signal! Unable to destroy native resources"
-                ))
-            }
-        }
-
-        let runtime = match Arc::try_unwrap(self.runtime) {
-            Ok(val) => val,
-            Err(_) => return Err(anyhow!("Unable to get ownership of async runtime")),
-        };
-
-        runtime.shutdown_background();
+    fn destroy(&self) -> anyhow::Result<()> {
         Ok(())
     }
 

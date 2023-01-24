@@ -8,14 +8,13 @@ use ffmpeg::format::Pixel;
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::{Dictionary, Error, Format};
-use tokio::runtime::{Builder, Runtime};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::oneshot;
 
 use crate::colorlib::{get_cached_index, Color};
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
-use crate::SplittedFrame;
+use crate::{SplittedFrame, TOKIO_RUNTIME};
 
 use super::player_context::{FrameWithIdentifier, NativeCommunication};
 
@@ -28,7 +27,6 @@ pub struct X11Player {
     fps: i32,
     jvm_rx: Option<Receiver<FrameWithIdentifier>>,
     map_server: MapServerData,
-    runtime: Option<Runtime>,
 }
 
 impl VideoPlayer for X11Player {
@@ -95,23 +93,15 @@ impl VideoPlayer for X11Player {
             let (jvm_tx, jvm_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(50);
 
             let (server_tx, server_rx) =
-                oneshot::channel::<(anyhow::Result<MapServerData>, Option<Runtime>)>();
+                oneshot::channel::<anyhow::Result<MapServerData>>();
             let mut jvm_final_reciver: Option<Receiver<FrameWithIdentifier>> = None;
 
             match map_server_options.use_server {
                 true => {
                     let frame_index_clone = Arc::new(AtomicI64::new(0));
 
-                    let runtime = Builder::new_multi_thread()
-                        .worker_threads(2usize) //We do not need more
-                        .thread_name("ProjectAyaya native X11 worker thread")
-                        .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
-                        .enable_io()
-                        .enable_time()
-                        .build()
-                        .expect("Couldn't create tokio runtime");
 
-                    let handle = runtime.handle().clone();
+                    let handle = TOKIO_RUNTIME.handle().clone();
                     handle.spawn(async move {
                         let result = MapServer::create(
                             &map_server_options.clone(),
@@ -120,17 +110,17 @@ impl VideoPlayer for X11Player {
                         )
                         .await;
                         server_tx
-                            .send((result, Some(runtime)))
+                            .send(result)
                             .expect("Cannot send map server creation result");
                     });
                 }
                 false => {
                     jvm_final_reciver = Some(jvm_rx);
-                    server_tx.send((Ok(None), None)).unwrap();
+                    server_tx.send(Ok(None)).unwrap();
                 }
             };
 
-            let (map_server, runtime) = server_rx.blocking_recv()?;
+            let map_server = server_rx.blocking_recv()?;
             let map_server = map_server?;
 
             //Threading is not a speed optymalisation. It is required to have support for map_server
@@ -214,7 +204,6 @@ impl VideoPlayer for X11Player {
                 fps,
                 jvm_rx: jvm_final_reciver,
                 map_server,
-                runtime,
             };
 
             return Ok(single_video_player);
@@ -244,7 +233,7 @@ impl VideoPlayer for X11Player {
         })
     }
 
-    fn destroy(self: Box<Self>) -> anyhow::Result<()> {
+    fn destroy(&self) -> anyhow::Result<()> {
         Ok(()) //Nothing to do
     }
 

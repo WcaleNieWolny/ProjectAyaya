@@ -283,7 +283,7 @@ impl VideoPlayer for GamePlayer {
         Ok(())
     }
 
-    fn destroy(self: Box<Self>) -> anyhow::Result<()> {
-        todo!()
+    fn destroy(&self) -> anyhow::Result<()> {
+        Ok(())
     }
 }

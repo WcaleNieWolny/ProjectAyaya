@@ -20,7 +20,7 @@ class RenderThreadVideoImpl(
     private var frame: ByteArray = ByteArray(0)
     private val timeWindow = oneFrameTimeWindow()
 
-    private val debug = true
+    private val debug = false
 
     override fun run() {
         displayService.init()

@@ -163,7 +163,6 @@ impl MapServer {
 
         tokio::spawn(async move {
             loop {
-                println!("HELLO!");
                 let (mut socket, addr) = listener
                     .accept()
                     .await

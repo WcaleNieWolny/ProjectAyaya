@@ -1,5 +1,7 @@
 package me.wcaleniewolny.ayaya.library
 
+import java.util.Optional
+
 object NativeRenderControler {
     /**
      * @return Byte array of transformed frame (color index)
@@ -17,15 +19,23 @@ object NativeRenderControler {
      * @return true if the target screen can handle the resolution and file is valid
      * @throws java.lang.RuntimeException if rust panics during native call
      */
-    external fun verifyScreenCapabilities(fileName: String, width: Int, height: Int): Boolean
+    external fun verifyScreenCapabilities(fileName: String, width: Int, height: Int, discord: Boolean): VideoRequestCapablyResponse
 
     /**
      * Initialize native library. Required to call [NativeRenderControler.loadFrame]
-     * @param multithreading If true underlying library will use multithreading
+     * @param fileName type specific string for initializing native resources
+     * @param type renderer type
+     * @param serverOptions options for native TCP map server
+     * @param useDiscord if discord bot should be used to play audio (Use only with SINGLE_THREADED, MULTI_THREADED mode)
      * @return returns pointer to native memory. WARNING!! CHANGING THAT POINTER WILL CORRUPT MEMORY!
      * @throws java.lang.RuntimeException if rust panics during native call
      */
-        external fun init(fileName: String, type: NativeRenderType, serverOptions: MapServerOptions): Long
+    external fun init(fileName: String, type: NativeRenderType, serverOptions: MapServerOptions, useDiscord: Boolean): Long
+
+    /**
+     *
+      */
+    external fun initDiscordBot(discordOptions: DiscordOptions)
 
     /**
      * Tell native library to free any native memory. After that calling [NativeRenderControler.loadFrame] is an illegal operation.
@@ -47,4 +57,6 @@ object NativeRenderControler {
      * @throws java.lang.RuntimeException if rust panics during native call
      */
     external fun communicate(ptr: Long, message: NativeLibCommunication, additionalInfo: String)
+
+
 }

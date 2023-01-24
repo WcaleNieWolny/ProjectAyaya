@@ -1,3 +1,4 @@
+pub mod discord_audio;
 pub mod falling_blocks;
 pub mod game_player;
 pub(crate) mod player_context;

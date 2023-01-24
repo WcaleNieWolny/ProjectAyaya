@@ -3,7 +3,7 @@ extern crate core;
 #[cfg(feature = "ffmpeg")]
 extern crate ffmpeg_next as ffmpeg;
 
-extern crate lazy_static;
+use std::num::NonZeroU64;
 
 use anyhow::anyhow;
 
@@ -23,20 +23,37 @@ use {
 };
 
 use jni::objects::*;
-use jni::sys::{jboolean, jbyteArray, jint, jlong, jobject, jsize};
+use jni::sys::{jbyteArray, jint, jlong, jobject, jsize};
 use jni::JNIEnv;
 
 use map_server::ServerOptions;
 
-use player::game_player::{GameInputDirection, GamePlayer};
-use player::player_context::VideoPlayer;
+use once_cell::sync::Lazy;
+use player::{player_context::VideoPlayer, discord_audio::{self, DiscordPlayer, DiscordClient}};
 use player::player_context::{self, NativeCommunication};
+use player::{
+    discord_audio::DiscordOptions,
+    game_player::{GameInputDirection, GamePlayer},
+};
+use serenity::model::guild;
+use tokio::runtime::{Runtime, Builder};
 
 mod colorlib;
 mod map_server;
 
 mod player;
 mod splitting;
+
+static TOKIO_RUNTIME: Lazy<Runtime> = Lazy::new(|| {
+    Builder::new_multi_thread()
+        .worker_threads(8 as usize)
+        .thread_name("ProjectAyaya native worker thread")
+        .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
+        .enable_io()
+        .enable_time()
+        .build()
+        .expect("Couldn't create tokio runtime")
+});
 
 #[cfg(feature = "ffmpeg")]
 fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
@@ -86,11 +103,23 @@ fn verify_capabilities(
     file_name: JString,
     width: jint,
     height: jint,
-) -> anyhow::Result<jboolean> {
+    use_discord: bool
+) -> anyhow::Result<jobject> {
+
+    if width % 128 != 0 || height % 128 != 0 {
+        return Err(anyhow!("Width or height of the request not divisble by 128"));
+    }
+
+    if use_discord && DiscordClient::is_used()? {
+        let discord_in_use = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("DISCORD_IN_USE")?.into()])?.l()?;
+        return Ok(discord_in_use.into_raw());
+
+    }
+
     cfg_if::cfg_if! {
         if #[cfg(feature = "ffmpeg")] {
             let file_name: String = env.get_string(file_name)?.into();
-
+            
             ffmpeg::init()?;
             if let Ok(ictx) = input(&file_name) {
                 let input = ictx
@@ -107,13 +136,29 @@ fn verify_capabilities(
                 let v_height = decoder.height();
 
                 if v_width % 2 != 0 || v_height % 2 != 0 {
-                    return Ok(false.into());
+                    let invalid_dimenstions = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("INVALID_DIMENSIONS")?.into()])?.l()?;
+                    return Ok(invalid_dimenstions.into_raw());
                 }
 
                 if v_width > width as u32 || v_height > height as u32 {
-                    return Ok(false.into());
+                    let to_small = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("TO_SMALL")?.into()])?.l()?;
+                    return Ok(to_small.into_raw());
                 }
-                return Ok(true.into());
+
+                let required_frames_x: i32 = (v_width as f32 / 128.0).ceil() as i32;
+                let required_frames_y: i32 = (v_height as f32 / 128.0).ceil() as i32;
+
+                let frames_x  = width / 128;
+                let frames_y = height / 128;
+
+
+                if required_frames_x != frames_x || required_frames_y != frames_y {
+                    let to_large = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("TO_LARGE")?.into()])?.l()?;
+                    return Ok(to_large.into_raw());
+                }
+
+                let ok = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("OK")?.into()])?.l()?;
+                return Ok(ok.into_raw());
             };
             return Err(anyhow!("Coudln't create ffmpeg decoder!"));
         } else {
@@ -128,6 +173,7 @@ fn init(
     file_name: JString,
     render_type: JObject,
     server_options: JObject,
+    use_discord: bool
 ) -> anyhow::Result<jlong> {
     let file_name: String = env.get_string(file_name)?.into();
 
@@ -156,8 +202,15 @@ fn init(
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")]
                 {
-                    let player_context = SingleVideoPlayer::create(file_name, server_options)?;
-                    Ok(player_context::wrap_to_ptr(player_context))
+                    let player_context = SingleVideoPlayer::create(file_name.clone(), server_options)?;
+
+                    if use_discord {
+                        let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(player_context), false)?;
+                        Ok(player_context::wrap_to_ptr(player_context))
+                    }else {
+                        Ok(player_context::wrap_to_ptr(player_context))
+                    }
+
                 }else{
                     return Err(anyhow!("FFmpeg feature not compiled!"))
                 }
@@ -166,20 +219,31 @@ fn init(
         1 => {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")]{
-                    let player_context = MultiVideoPlayer::create(file_name, server_options)?;
-                    Ok(player_context::wrap_to_ptr(player_context))
+                    let player_context = MultiVideoPlayer::create(file_name.clone(), server_options)?;
+                    if use_discord {
+                        let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(player_context), false)?;
+                        Ok(player_context::wrap_to_ptr(player_context))
+                    }else {
+                        Ok(player_context::wrap_to_ptr(player_context))
+                    }
                 }else {
                     return Err(anyhow!("FFmpeg feature not compiled!"))
                 }
             }
         }
         2 => {
+            if use_discord {
+                return Err(anyhow!("Game player does not suport discord audio!"));
+            }
             let player_context = GamePlayer::create(file_name, server_options)?;
             Ok(player_context::wrap_to_ptr(player_context))
         }
         3 => {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")] {
+                    if use_discord {
+                        return Err(anyhow!("X11 player does not suport discord audio!"));
+                    }
                     let player_context = X11Player::create(file_name, server_options)?;
                     Ok(player_context::wrap_to_ptr(player_context))
                 }else {
@@ -247,6 +311,59 @@ fn recive_jvm_msg(
     env.delete_local_ref(info.into())?;
     env.delete_local_ref(native_lib_communication)?;
     player_context::pass_jvm_msg(ptr, msg_type)?;
+    Ok(())
+}
+
+fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()>{
+    
+    let discord_options = {
+        let use_discord = env.call_method(discord_options, "getUseDiscord", "()Z", &[])?.z()?;
+
+        let discord_token = env
+            .call_method(
+                discord_options,
+                "getDiscordToken",
+                "()Ljava/lang/String;",
+                &[],
+            )?
+            .l()?;
+        let discord_token: String = env.get_string(discord_token.into())?.into();
+
+        let guild_id = env
+            .call_method(discord_options, "getGuildId", "()Ljava/lang/String;", &[])?
+            .l()?;
+        let guild_id: String = env.get_string(guild_id.into())?.into();
+
+        let channel_id = env
+            .call_method(discord_options, "getChannelId", "()Ljava/lang/String;", &[])?
+            .l()?;
+        let channel_id: String = env.get_string(channel_id.into())?.into();
+
+        let guild_id: u64 = guild_id.parse()?;
+        let channel_id: u64 = channel_id.parse()?;
+
+        let guild_id = match NonZeroU64::new(guild_id) {
+            Some(val) => val,
+            None => return Err(anyhow!("Guild ID is zero"))
+        };
+        
+        let channel_id = match NonZeroU64::new(channel_id) {
+            Some(val) => val,
+            None => return Err(anyhow!("Channel ID is zero"))
+        };
+
+        DiscordOptions {
+            use_discord,
+            discord_token,
+            guild_id,
+            channel_id,
+        }
+    };
+
+    if discord_options.use_discord {
+        discord_audio::init(&discord_options)?;
+    }
+    
     Ok(())
 }
 
@@ -374,6 +491,7 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, 
     filename: JString,
     render_type: JObject,
     server_options: JObject,
+    use_discord: bool,
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,
@@ -383,8 +501,12 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_communicate,
     native_lib_communication: JObject,
     info: JString,
 });
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreenCapabilities, verify_capabilities, jboolean, {
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreenCapabilities, verify_capabilities, jobject, {
     file_name: JString,
     width: jint,
     height: jint,
+    use_discord: bool,
+});
+jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_initDiscordBot, init_discord_bot, {
+    file_name: JObject,
 });

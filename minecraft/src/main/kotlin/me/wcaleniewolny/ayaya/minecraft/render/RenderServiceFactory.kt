@@ -1,5 +1,6 @@
 package me.wcaleniewolny.ayaya.minecraft.render
 
+import me.wcaleniewolny.ayaya.library.DiscordOptions
 import me.wcaleniewolny.ayaya.library.MapServerOptions
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
@@ -10,6 +11,7 @@ import me.wcaleniewolny.ayaya.minecraft.render.impl.NativeRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadGameImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadVideoImpl
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.*
 
 enum class RenderServiceType {
     NATIVE,
@@ -26,7 +28,8 @@ object RenderServiceFactory {
         useServer: Boolean,
         serviceType: RenderServiceType,
         videoPlayType: VideoPlayType,
-        renderCallback: ((ptr: Long, screenName: String) -> Unit)? = null
+        renderCallback: ((ptr: Long, screenName: String) -> Unit)? = null,
+        useDiscord: Boolean = false
     ): RenderService {
         val ptr = NativeRenderControler.init(
             filename,
@@ -35,8 +38,10 @@ object RenderServiceFactory {
                 useServer,
                 plugin.config.getString("mapServerLocalIp")!!,
                 plugin.config.getInt("mapServerPort")
-            )
+            ),
+            useDiscord
         )
+
         val videoData = NativeRenderControler.getVideoData(ptr)
 
         val width = videoData.width
@@ -66,7 +71,8 @@ object RenderServiceFactory {
         )
 
         val service = if (serviceType == RenderServiceType.JAVA) JavaRenderServiceImpl(
-            thread
+            thread,
+            useDiscord,
         ) else NativeRenderServiceImpl(
             plugin,
             videoData,
