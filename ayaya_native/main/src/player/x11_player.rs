@@ -92,14 +92,12 @@ impl VideoPlayer for X11Player {
             //Small buffer due to fact that we are only decoding UP TO FPS frames per second
             let (jvm_tx, jvm_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(50);
 
-            let (server_tx, server_rx) =
-                oneshot::channel::<anyhow::Result<MapServerData>>();
+            let (server_tx, server_rx) = oneshot::channel::<anyhow::Result<MapServerData>>();
             let mut jvm_final_reciver: Option<Receiver<FrameWithIdentifier>> = None;
 
             match map_server_options.use_server {
                 true => {
                     let frame_index_clone = Arc::new(AtomicI64::new(0));
-
 
                     let handle = TOKIO_RUNTIME.handle().clone();
                     handle.spawn(async move {

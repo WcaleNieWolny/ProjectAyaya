@@ -29,14 +29,17 @@ use jni::JNIEnv;
 use map_server::ServerOptions;
 
 use once_cell::sync::Lazy;
-use player::{player_context::VideoPlayer, discord_audio::{self, DiscordPlayer, DiscordClient}};
 use player::player_context::{self, NativeCommunication};
 use player::{
     discord_audio::DiscordOptions,
     game_player::{GameInputDirection, GamePlayer},
 };
+use player::{
+    discord_audio::{self, DiscordClient, DiscordPlayer},
+    player_context::VideoPlayer,
+};
 use serenity::model::guild;
-use tokio::runtime::{Runtime, Builder};
+use tokio::runtime::{Builder, Runtime};
 
 mod colorlib;
 mod map_server;
@@ -103,23 +106,30 @@ fn verify_capabilities(
     file_name: JString,
     width: jint,
     height: jint,
-    use_discord: bool
+    use_discord: bool,
 ) -> anyhow::Result<jobject> {
-
     if width % 128 != 0 || height % 128 != 0 {
-        return Err(anyhow!("Width or height of the request not divisble by 128"));
+        return Err(anyhow!(
+            "Width or height of the request not divisble by 128"
+        ));
     }
 
     if use_discord && DiscordClient::is_used()? {
-        let discord_in_use = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("DISCORD_IN_USE")?.into()])?.l()?;
+        let discord_in_use = env
+            .call_static_method(
+                "me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse",
+                "valueOf",
+                "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;",
+                &[env.new_string("DISCORD_IN_USE")?.into()],
+            )?
+            .l()?;
         return Ok(discord_in_use.into_raw());
-
     }
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "ffmpeg")] {
             let file_name: String = env.get_string(file_name)?.into();
-            
+
             ffmpeg::init()?;
             if let Ok(ictx) = input(&file_name) {
                 let input = ictx
@@ -173,7 +183,7 @@ fn init(
     file_name: JString,
     render_type: JObject,
     server_options: JObject,
-    use_discord: bool
+    use_discord: bool,
 ) -> anyhow::Result<jlong> {
     let file_name: String = env.get_string(file_name)?.into();
 
@@ -314,10 +324,11 @@ fn recive_jvm_msg(
     Ok(())
 }
 
-fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()>{
-    
+fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()> {
     let discord_options = {
-        let use_discord = env.call_method(discord_options, "getUseDiscord", "()Z", &[])?.z()?;
+        let use_discord = env
+            .call_method(discord_options, "getUseDiscord", "()Z", &[])?
+            .z()?;
 
         let discord_token = env
             .call_method(
@@ -344,12 +355,12 @@ fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()>
 
         let guild_id = match NonZeroU64::new(guild_id) {
             Some(val) => val,
-            None => return Err(anyhow!("Guild ID is zero"))
+            None => return Err(anyhow!("Guild ID is zero")),
         };
-        
+
         let channel_id = match NonZeroU64::new(channel_id) {
             Some(val) => val,
-            None => return Err(anyhow!("Channel ID is zero"))
+            None => return Err(anyhow!("Channel ID is zero")),
         };
 
         DiscordOptions {
@@ -363,7 +374,7 @@ fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()>
     if discord_options.use_discord {
         discord_audio::init(&discord_options)?;
     }
-    
+
     Ok(())
 }
 

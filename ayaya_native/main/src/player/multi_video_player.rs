@@ -145,23 +145,22 @@ impl VideoPlayer for MultiVideoPlayer {
                             thread::sleep(Duration::from_millis(50));
 
                             match stop_rx.try_recv() {
-                                Ok(_) => {},
+                                Ok(_) => {}
                                 Err(err) => {
                                     if matches!(err, TryRecvError::Closed) {
                                         break 'main;
-                                    }        
+                                    }
                                 }
                             }
-                            
                         }
                     }
 
                     match stop_rx.try_recv() {
-                        Ok(_) => {},
+                        Ok(_) => {}
                         Err(err) => {
                             if matches!(err, TryRecvError::Closed) {
                                 break 'main;
-                            }        
+                            }
                         }
                     }
 
@@ -184,7 +183,10 @@ impl VideoPlayer for MultiVideoPlayer {
                     ) {
                         Ok(val) => val,
                         Err(err) => {
-                            println!("[ProjectAyaya] Creating async frame failed! Reason: {:?}", err);
+                            println!(
+                                "[ProjectAyaya] Creating async frame failed! Reason: {:?}",
+                                err
+                            );
                             break 'main;
                         }
                     };
@@ -257,7 +259,10 @@ impl VideoPlayer for MultiVideoPlayer {
                 let frame = match frames_rx.recv() {
                     Ok(val) => val,
                     Err(err) => {
-                        println!("[ProjectAyaya] Unable to recive frames with identifier! Error: {:?}", err);
+                        println!(
+                            "[ProjectAyaya] Unable to recive frames with identifier! Error: {:?}",
+                            err
+                        );
                         break 'decode_loop;
                     }
                 };

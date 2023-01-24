@@ -6,12 +6,12 @@ use once_cell::sync::OnceCell;
 use serenity::{prelude::GatewayIntents, Client};
 use songbird::input::File;
 use songbird::tracks::TrackHandle;
-use songbird::{Songbird, SerenityInit};
+use songbird::{SerenityInit, Songbird};
 
-use crate::{TOKIO_RUNTIME, map_server::ServerOptions};
 use crate::anyhow;
+use crate::{map_server::ServerOptions, TOKIO_RUNTIME};
 
-use super::player_context::{VideoPlayer, NativeCommunication, VideoData};
+use super::player_context::{NativeCommunication, VideoData, VideoPlayer};
 
 static DISCORD_CLIENT: OnceCell<DiscordClient> = OnceCell::new();
 
@@ -25,11 +25,15 @@ pub struct DiscordOptions {
 
 pub struct DiscordClient {
     options: DiscordOptions,
-    songbird: Arc<Songbird>
+    songbird: Arc<Songbird>,
 }
 
 impl DiscordClient {
-    pub fn connect_and_play(&self, audio_path: String, use_map_server: bool) -> anyhow::Result<TrackHandle>{
+    pub fn connect_and_play(
+        &self,
+        audio_path: String,
+        use_map_server: bool,
+    ) -> anyhow::Result<TrackHandle> {
         let songbird = self.songbird.clone();
         let options = self.options.clone();
 
@@ -38,21 +42,22 @@ impl DiscordClient {
             return Err(anyhow!("Discord client connected to a channel"));
         }
 
-        let join_handle: anyhow::Result<TrackHandle> = TOKIO_RUNTIME.handle().clone().block_on(async move {
-            let join_result = songbird.join(options.guild_id, options.channel_id).await;
-            let handler_lock = join_result?;
-            let mut handler = handler_lock.lock().await;
-          
-            let input = File::new(audio_path);
-            let track = handler.play_input(input.into());
+        let join_handle: anyhow::Result<TrackHandle> =
+            TOKIO_RUNTIME.handle().clone().block_on(async move {
+                let join_result = songbird.join(options.guild_id, options.channel_id).await;
+                let handler_lock = join_result?;
+                let mut handler = handler_lock.lock().await;
 
-            if use_map_server {
-                track.pause()?;
-            }else {
-                track.make_playable_async().await?;
-            }
-            Ok(track)
-        });
+                let input = File::new(audio_path);
+                let track = handler.play_input(input.into());
+
+                if use_map_server {
+                    track.pause()?;
+                } else {
+                    track.make_playable_async().await?;
+                }
+                Ok(track)
+            });
         Ok(join_handle?)
     }
 
@@ -69,10 +74,12 @@ impl DiscordClient {
             }
 
             if let Err(err) = songbird.remove(options.guild_id).await {
-                println!("[ProjectAyaya] Cannot leave discord audio channel! Err: {:?}", err);
+                println!(
+                    "[ProjectAyaya] Cannot leave discord audio channel! Err: {:?}",
+                    err
+                );
                 return;
             }
-            
         });
 
         Ok(())
@@ -83,7 +90,7 @@ impl DiscordClient {
 
         let client = match client {
             Some(val) => val,
-            None => return Err(anyhow!("Discord client not initialized"))
+            None => return Err(anyhow!("Discord client not initialized")),
         };
 
         return Ok(client.songbird.get(client.options.guild_id).is_some());
@@ -91,14 +98,13 @@ impl DiscordClient {
 }
 
 //We assume that caller checked if use_discord == true
-pub fn init(options: &DiscordOptions) -> anyhow::Result<()>{
+pub fn init(options: &DiscordOptions) -> anyhow::Result<()> {
     let handle = TOKIO_RUNTIME.handle().clone();
     let options_clone = options.clone();
 
     handle.spawn(async move {
         println!("[ProjectAyaya] initializing discord bot!");
-        let intents = GatewayIntents::non_privileged()
-            | GatewayIntents::MESSAGE_CONTENT;
+        let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
 
         let songbird = Songbird::serenity();
 
@@ -109,31 +115,35 @@ pub fn init(options: &DiscordOptions) -> anyhow::Result<()>{
 
         let discord_static_client = DiscordClient {
             songbird,
-            options: options_clone.clone()
+            options: options_clone.clone(),
         };
 
-        if let Err(_) = DISCORD_CLIENT.set(discord_static_client){
+        if let Err(_) = DISCORD_CLIENT.set(discord_static_client) {
             println!("Unable to set static discord client!");
             return;
         }
 
-        let _ = client.start().await.map_err(|why| println!("Discord client ended: {:?}", why));
+        let _ = client
+            .start()
+            .await
+            .map_err(|why| println!("Discord client ended: {:?}", why));
     });
 
-    Ok(())   
+    Ok(())
 }
 
 pub struct DiscordPlayer {
     inner: Box<dyn VideoPlayer>,
     track_handle: TrackHandle,
-    use_map_server: bool
+    use_map_server: bool,
 }
 
 impl VideoPlayer for DiscordPlayer {
     fn create(_file_name: String, _server_options: ServerOptions) -> anyhow::Result<Self>
     where
-        Self: Sized {
-        return Err(anyhow!("Please use the other init function!"))
+        Self: Sized,
+    {
+        return Err(anyhow!("Please use the other init function!"));
     }
 
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
@@ -159,16 +169,18 @@ impl VideoPlayer for DiscordPlayer {
                 }
             }
             NativeCommunication::VideoSeek { second } => {
-                self.track_handle.seek(Duration::from_secs(second as u64)).result()?;
+                self.track_handle
+                    .seek(Duration::from_secs(second as u64))
+                    .result()?;
             }
             _ => {}
-       };
+        };
 
         self.inner.handle_jvm_msg(msg)
     }
 
     fn destroy(&self) -> anyhow::Result<()> {
-        if let Some(discord_client) = DISCORD_CLIENT.get(){
+        if let Some(discord_client) = DISCORD_CLIENT.get() {
             discord_client.leave_channel()?;
         };
 
@@ -177,18 +189,22 @@ impl VideoPlayer for DiscordPlayer {
 }
 
 impl DiscordPlayer {
-    pub fn create_with_discord(filename: String, player: Box<dyn VideoPlayer>, use_map_server: bool) -> anyhow::Result<Self>{
-        let discord_client = match DISCORD_CLIENT.get(){
+    pub fn create_with_discord(
+        filename: String,
+        player: Box<dyn VideoPlayer>,
+        use_map_server: bool,
+    ) -> anyhow::Result<Self> {
+        let discord_client = match DISCORD_CLIENT.get() {
             Some(val) => val,
-            None => return Err(anyhow!("Discord client not initialized"))
+            None => return Err(anyhow!("Discord client not initialized")),
         };
 
         let track_handle = discord_client.connect_and_play(filename, use_map_server)?;
-        
+
         Ok(Self {
             inner: player,
             track_handle,
-            use_map_server
+            use_map_server,
         })
     }
 }
