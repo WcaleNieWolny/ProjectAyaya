@@ -3,6 +3,8 @@ extern crate core;
 #[cfg(feature = "ffmpeg")]
 extern crate ffmpeg_next as ffmpeg;
 
+use std::num::NonZeroU64;
+
 use anyhow::anyhow;
 
 #[cfg(feature = "ffmpeg")]
@@ -33,6 +35,7 @@ use player::{
     discord_audio::DiscordOptions,
     game_player::{GameInputDirection, GamePlayer},
 };
+use serenity::model::guild;
 use tokio::runtime::{Runtime, Builder};
 
 mod colorlib;
@@ -338,6 +341,16 @@ fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()>
 
         let guild_id: u64 = guild_id.parse()?;
         let channel_id: u64 = channel_id.parse()?;
+
+        let guild_id = match NonZeroU64::new(guild_id) {
+            Some(val) => val,
+            None => return Err(anyhow!("Guild ID is zero"))
+        };
+        
+        let channel_id = match NonZeroU64::new(channel_id) {
+            Some(val) => val,
+            None => return Err(anyhow!("Channel ID is zero"))
+        };
 
         DiscordOptions {
             use_discord,

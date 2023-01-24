@@ -1,8 +1,10 @@
+use std::num::NonZeroU64;
 use std::sync::Arc;
+use std::time::Duration;
 
 use once_cell::sync::OnceCell;
 use serenity::{prelude::GatewayIntents, Client};
-use songbird::input::Restartable;
+use songbird::input::File;
 use songbird::tracks::TrackHandle;
 use songbird::{Songbird, SerenityInit};
 
@@ -17,8 +19,8 @@ static DISCORD_CLIENT: OnceCell<DiscordClient> = OnceCell::new();
 pub struct DiscordOptions {
     pub use_discord: bool,
     pub discord_token: String,
-    pub guild_id: u64,
-    pub channel_id: u64,
+    pub guild_id: NonZeroU64,
+    pub channel_id: NonZeroU64,
 }
 
 pub struct DiscordClient {
@@ -37,16 +39,17 @@ impl DiscordClient {
         }
 
         let join_handle: anyhow::Result<TrackHandle> = TOKIO_RUNTIME.handle().clone().block_on(async move {
-            let (handler_lock, join_result) = songbird.join(options.guild_id, options.channel_id).await;
-            join_result?;
-
+            let join_result = songbird.join(options.guild_id, options.channel_id).await;
+            let handler_lock = join_result?;
             let mut handler = handler_lock.lock().await;
-           
-            let source = Restartable::ffmpeg(audio_path, false).await?;
-            
-            let track = handler.play_source(source.into());
+          
+            let input = File::new(audio_path);
+            let track = handler.play_input(input.into());
+
             if use_map_server {
                 track.pause()?;
+            }else {
+                track.make_playable_async().await?;
             }
             Ok(track)
         });
@@ -154,6 +157,9 @@ impl VideoPlayer for DiscordPlayer {
                 if !self.use_map_server {
                     return Ok(());
                 }
+            }
+            NativeCommunication::VideoSeek { second } => {
+                self.track_handle.seek(Duration::from_secs(second as u64)).result()?;
             }
             _ => {}
        };
