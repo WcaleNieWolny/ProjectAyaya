@@ -18,3 +18,4 @@ opt-level = 3
 [patch.crates-io]
 ffmpeg-next = { git = "https://github.com/FreezyLemon/rust-ffmpeg", branch = "non-exhaustive-enum" }
 ffmpeg-sys-next = { git = "https://github.com/FreezyLemon/rust-ffmpeg-sys", branch = "non-exhaustive-enum" }
+audiopus_sys = { git = "https://github.com/WcaleNieWolny/audiopus_sys.git", branch = "stable-changes" }
