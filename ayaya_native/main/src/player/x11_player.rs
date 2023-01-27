@@ -11,7 +11,7 @@ use ffmpeg::{Dictionary, Error, Format};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::oneshot;
 
-use crate::colorlib::{get_cached_index, Color};
+use crate::colorlib::{get_cached_index, Color, self};
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{SplittedFrame, TOKIO_RUNTIME};
@@ -160,7 +160,7 @@ impl VideoPlayer for X11Player {
                                     }
                                 };
 
-                                let transformed_frame = Self::transform_frame_to_mc(
+                                let transformed_frame = colorlib::transform_frame_to_mc(
                                     frame_data.data(0),
                                     width,
                                     height,
@@ -246,30 +246,5 @@ impl VideoPlayer for X11Player {
             }
         }
         Ok(())
-    }
-}
-
-impl X11Player {
-    //We need a custom implemenetaion due to ffmpeg not using the same linewidth as the width. It
-    //makes the whole calculation wrong. That is why we have "add_width"
-    pub fn transform_frame_to_mc(
-        data: &[u8],
-        width: u32,
-        height: u32,
-        add_width: usize,
-    ) -> Vec<i8> {
-        let mut buffer = Vec::<i8>::with_capacity((width * height) as usize);
-
-        for y in 0..height as usize {
-            for x in 0..width as usize {
-                buffer.push(get_cached_index(&Color::new(
-                    data[((y * add_width) + (x * 3))],
-                    data[((y * add_width) + (x * 3) + 1)],
-                    data[((y * add_width) + (x * 3) + 2)],
-                )));
-            }
-        }
-
-        buffer
     }
 }

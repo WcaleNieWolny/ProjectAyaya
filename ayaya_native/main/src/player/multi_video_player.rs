@@ -183,6 +183,12 @@ impl VideoPlayer for MultiVideoPlayer {
                     ) {
                         Ok(val) => val,
                         Err(err) => {
+                            if let Some(downcast) = err.downcast_ref::<ffmpeg::Error>() {
+                                if matches!(downcast, ffmpeg::Error::Eof) {
+                                    println!("[ProjectAyaya] End of file (stream). This is normal!");
+                                    break 'main;
+                                }
+                            };
                             println!(
                                 "[ProjectAyaya] Creating async frame failed! Reason: {:?}",
                                 err
@@ -196,7 +202,7 @@ impl VideoPlayer for MultiVideoPlayer {
                     let sender = frames_tx.clone();
 
                     handle.spawn(async move {
-                        let vec = transform_frame_to_mc(frame.data(0), width, height);
+                        let vec = transform_frame_to_mc(frame.data(0), width, height, frame.stride(0));
                         let vec = SplittedFrame::split_frames(vec.as_slice(), &splitted_frames, width as i32).expect("Couldn't split frames async");
 
                         let frame_with_id = FrameWithIdentifier {

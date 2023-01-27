@@ -105,7 +105,7 @@ impl VideoPlayer for SingleVideoPlayer {
                     &packet,
                 )?;
                 let transformed_frame =
-                    transform_frame_to_mc(frame_data.data(0), self.width, self.height);
+                    transform_frame_to_mc(frame_data.data(0), self.width, self.height, frame_data.stride(0));
 
                 let transformed_frame = SplittedFrame::split_frames(
                     transformed_frame.as_slice(),
