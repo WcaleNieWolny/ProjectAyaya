@@ -172,7 +172,8 @@ impl VideoPlayer for MultiVideoPlayer {
                         }
                         //We do not flush the decoder due to some wierd bug that causes "End of
                         //file" when we do. It SHOULD be fine! (It causes a small lag but it is ok)
-                        frame_id = 0;
+                        //We start at zero so -1 is fine
+                        frame_id = -1;
                     }
 
                     let frame = match MultiVideoPlayer::decode_frame(
@@ -185,7 +186,9 @@ impl VideoPlayer for MultiVideoPlayer {
                         Err(err) => {
                             if let Some(downcast) = err.downcast_ref::<ffmpeg::Error>() {
                                 if matches!(downcast, ffmpeg::Error::Eof) {
-                                    println!("[ProjectAyaya] End of file (stream). This is normal!");
+                                    println!(
+                                        "[ProjectAyaya] End of file (stream). This is normal!"
+                                    );
                                     break 'main;
                                 }
                             };
@@ -254,7 +257,7 @@ impl VideoPlayer for MultiVideoPlayer {
                 let cached_frame = frame_hash_map.remove(&(last_id as u64 + 1_u64));
 
                 if let Some(cached_frame) = cached_frame {
-                    last_id = cached_frame.id;
+                    last_id += 1;
                     global_tx
                         .blocking_send(cached_frame)
                         .expect("Couldn't send cached global frame");
@@ -266,19 +269,25 @@ impl VideoPlayer for MultiVideoPlayer {
                     Ok(val) => val,
                     Err(err) => {
                         println!(
-                            "[ProjectAyaya] Unable to recive frames with identifier! Error: {:?}",
+                            "[ProjectAyaya] Unable to recive frames with identifier! Cache Size: {:?}  {} Error: {:?}",
+                            frame_hash_map.len(),
+                            last_id,
                             err
                         );
+
                         break 'decode_loop;
                     }
                 };
 
-                if frame.id == last_id + 1 || frame.id == 0 {
-                    if frame.id == 0 {
+                //We have a single dropped frame somewhere here but I don't care enough to fix this
+                if frame.id == last_id + 1 || frame.id == -1 {
+                    if frame.id == -1 {
                         frame_hash_map.clear();
+                        last_id = -1;
+                    } else {
+                        last_id += 1;
                     }
 
-                    last_id = frame.id;
                     match global_tx.blocking_send(frame) {
                         Ok(_) => {}
                         Err(_) => {
@@ -327,12 +336,12 @@ impl VideoPlayer for MultiVideoPlayer {
         //Recive so we can do next frame normaly. is_empty does not recive
         if self.seek_rx.try_recv().is_ok() {
             'frame_recv_loop: while let Some(frame) = reciver.blocking_recv() {
-                if frame.id != 0 {
+                if frame.id != -1 {
                     self.frame_index
                         .store(self.frame_index.load(Relaxed) + 1, Relaxed);
                     continue 'frame_recv_loop;
                 };
-                self.frame_index.store(1, Relaxed);
+                self.frame_index.store(0, Relaxed);
                 return Ok(frame.data);
             }
         } else {

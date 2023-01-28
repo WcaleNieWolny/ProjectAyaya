@@ -12,7 +12,7 @@ class RenderThreadGameImpl(
     private val displayService: DisplayService,
     private val startID: Int,
     private val renderCallback: ((ptr: Long, screenName: String) -> Unit)?,
-    private val fps: Int,
+    fps: Int,
     private val screenName: String,
     private val ptr: Long
 ): RenderThread() {

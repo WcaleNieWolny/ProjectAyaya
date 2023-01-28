@@ -52,12 +52,7 @@ pub fn get_cached_index(color: &Color) -> i8 {
 }
 
 #[cfg(feature = "ffmpeg")]
-pub fn transform_frame_to_mc(
-    data: &[u8],
-    width: u32,
-    height: u32,
-    add_width: usize,
-) -> Vec<i8> {
+pub fn transform_frame_to_mc(data: &[u8], width: u32, height: u32, add_width: usize) -> Vec<i8> {
     let mut buffer = Vec::<i8>::with_capacity((width * height) as usize);
 
     for y in 0..height as usize {

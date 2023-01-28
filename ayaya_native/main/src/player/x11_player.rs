@@ -11,7 +11,7 @@ use ffmpeg::{Dictionary, Error, Format};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::oneshot;
 
-use crate::colorlib::{get_cached_index, Color, self};
+use crate::colorlib::{self, get_cached_index, Color};
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{SplittedFrame, TOKIO_RUNTIME};
