@@ -1,4 +1,4 @@
-package me.wcaleniewolny.ayaya.minecraft.command;
+package me.wcaleniewolny.ayaya.minecraft.command
 
 import co.aikar.commands.BaseCommand
 import co.aikar.commands.CommandHelp
@@ -47,7 +47,7 @@ class VideoCommand(
         }
         val screen = screenOptional.get()
 
-        if(screen.renderService.isPresent){
+        if (screen.renderService.isPresent) {
             sender.sendColoredMessage(fileConfiguration.getString("unableToStartPlayback")!!)
             return
         }
@@ -72,7 +72,7 @@ class VideoCommand(
             return
         }
         //val allowMapServer = plugin.config.getBoolean("allowMapServer")
-        
+
         screenController.startPlayback(videoPlayType, file, sender, screen, discord != null && discord)
     }
 
@@ -84,19 +84,19 @@ class VideoCommand(
         sender: Player,
         @Values("@screens") screenId: String,
         @Values("@games") game: String
-    ){
+    ) {
         val screenOptional = lookupScreen(sender, screenId)
         if (screenOptional.isEmpty) {
             return
         }
         val screen = screenOptional.get()
 
-        if (!screen.useGame){
+        if (!screen.useGame) {
             sender.sendColoredMessage(fileConfiguration.getString("screenNoGaming")!!)
             return
         }
 
-        if(screen.renderService.isPresent){
+        if (screen.renderService.isPresent) {
             sender.sendColoredMessage(fileConfiguration.getString("unableToStartPlayback")!!)
             return
         }
@@ -111,7 +111,7 @@ class VideoCommand(
         sender: Player,
         @Values("@screens") screenId: String,
         second: Int
-    ){
+    ) {
         if (0 > second) {
             sender.sendColoredMessage(fileConfiguration.getString("seekToNegativeSecond")!!)
             return
@@ -121,7 +121,7 @@ class VideoCommand(
             return
         }
         val screen = screenOptional.get()
-        if(screen.renderService.isPresent){
+        if (screen.renderService.isPresent) {
             //This is safe due to rust mutex
             val renderService = screen.renderService.get()
             renderService.seekSecond(second)
@@ -136,7 +136,7 @@ class VideoCommand(
         @Values("@screens") screenId: String,
         screenDetails: String,
         @Optional mapServerBool: Boolean?
-    ){
+    ) {
         val mapServer = (mapServerBool != null) && mapServerBool
 
         if (mapServer && !plugin.config.getBoolean("allowMapServer")) {
@@ -144,12 +144,12 @@ class VideoCommand(
             return
         }
 
-        if (!System.getProperty("os.name").contains("Linux")){
+        if (!System.getProperty("os.name").contains("Linux")) {
             sender.sendColoredMessage(fileConfiguration.getString("x11NotLinux")!!)
             return
         }
 
-        if(!X11CaptureRegex.matcher(screenDetails).matches()){
+        if (!X11CaptureRegex.matcher(screenDetails).matches()) {
             sender.sendColoredMessage(fileConfiguration.getString("x11NoScreenDetails")!!)
             return
         }
@@ -159,7 +159,7 @@ class VideoCommand(
             return
         }
         val screen = screenOptional.get()
-        if(screen.renderService.isPresent){
+        if (screen.renderService.isPresent) {
             sender.sendColoredMessage(fileConfiguration.getString("unableToStartPlayback")!!)
             return
         }
@@ -167,7 +167,7 @@ class VideoCommand(
         try {
             screenController.startX11(screen, mapServer, screenDetails)
             sender.sendColoredMessage(fileConfiguration.getString("success")!!)
-        }catch (e: Exception){
+        } catch (e: Exception) {
             e.printStackTrace()
             sender.sendColoredMessage(fileConfiguration.getString("x11WentWrong")!!)
         }
@@ -261,7 +261,7 @@ class VideoCommand(
         val useGame = gameX != null && gameY != null && gameZ != null
 
         try {
-            if(screenFacing == ScreenFacing.SOUTH || screenFacing == ScreenFacing.WEST){
+            if (screenFacing == ScreenFacing.SOUTH || screenFacing == ScreenFacing.WEST) {
                 screenController.createScreen(
                     name,
                     screenFacing,
@@ -278,7 +278,7 @@ class VideoCommand(
                     sender.world
                 )
 
-            }else {
+            } else {
                 screenController.createScreen(
                     name,
                     screenFacing,

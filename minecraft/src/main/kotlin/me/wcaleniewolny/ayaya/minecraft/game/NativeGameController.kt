@@ -19,7 +19,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
 import java.util.concurrent.ConcurrentLinkedQueue
 
-class NativeGameController(private val plugin: JavaPlugin): Listener {
+class NativeGameController(private val plugin: JavaPlugin) : Listener {
 
     private val games = mutableListOf<NativeGame>()
 
@@ -31,24 +31,24 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
         direction2: MoveDirection,
         direction3: MoveDirection,
         direction4: MoveDirection
-    ): MoveDirection?{
-        return if(yDelta > 0){
+    ): MoveDirection? {
+        return if (yDelta > 0) {
             MoveDirection.UP
-        }else if (zDelta < 0) {
+        } else if (zDelta < 0) {
             direction1
-        }else if (zDelta > 0){
+        } else if (zDelta > 0) {
             direction2
-        }else if (xDelta < 0) {
+        } else if (xDelta < 0) {
             direction3
-        }else if (xDelta > 0){
+        } else if (xDelta > 0) {
             direction4
-        }else {
+        } else {
             return null
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
-    private fun onMoveEvent(event: PlayerMoveEvent){
+    private fun onMoveEvent(event: PlayerMoveEvent) {
         val game = games.firstOrNull { it.player == event.player } ?: return
         event.isCancelled = true
 
@@ -56,25 +56,61 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
         val from = event.from
         val to = event.to
 
-        if (from.x != to.x  || from.y != to.y || from.z != to.z){
+        if (from.x != to.x || from.y != to.y || from.z != to.z) {
             val playerDirection = player.facing
             val xDelta = to.x - from.x
             val yDelta = to.y - from.y
             val zDelta = to.z - from.z
 
-            val direction = when(playerDirection) {
+            val direction = when (playerDirection) {
                 BlockFace.NORTH -> {
-                    verifyMove(xDelta, yDelta, zDelta, MoveDirection.FORWARD, MoveDirection.BACKWARDS, MoveDirection.LEFT, MoveDirection.RIGHT) ?: return
+                    verifyMove(
+                        xDelta,
+                        yDelta,
+                        zDelta,
+                        MoveDirection.FORWARD,
+                        MoveDirection.BACKWARDS,
+                        MoveDirection.LEFT,
+                        MoveDirection.RIGHT
+                    ) ?: return
                 }
+
                 BlockFace.SOUTH -> {
-                    verifyMove(xDelta, yDelta, zDelta, MoveDirection.BACKWARDS, MoveDirection.FORWARD, MoveDirection.RIGHT, MoveDirection.LEFT) ?: return
+                    verifyMove(
+                        xDelta,
+                        yDelta,
+                        zDelta,
+                        MoveDirection.BACKWARDS,
+                        MoveDirection.FORWARD,
+                        MoveDirection.RIGHT,
+                        MoveDirection.LEFT
+                    ) ?: return
                 }
+
                 BlockFace.WEST -> {
-                    verifyMove(xDelta, yDelta, zDelta, MoveDirection.RIGHT, MoveDirection.LEFT, MoveDirection.FORWARD, MoveDirection.BACKWARDS) ?: return
+                    verifyMove(
+                        xDelta,
+                        yDelta,
+                        zDelta,
+                        MoveDirection.RIGHT,
+                        MoveDirection.LEFT,
+                        MoveDirection.FORWARD,
+                        MoveDirection.BACKWARDS
+                    ) ?: return
                 }
+
                 BlockFace.EAST -> {
-                    verifyMove(xDelta, yDelta, zDelta, MoveDirection.LEFT, MoveDirection.RIGHT, MoveDirection.BACKWARDS, MoveDirection.FORWARD) ?: return
+                    verifyMove(
+                        xDelta,
+                        yDelta,
+                        zDelta,
+                        MoveDirection.LEFT,
+                        MoveDirection.RIGHT,
+                        MoveDirection.BACKWARDS,
+                        MoveDirection.FORWARD
+                    ) ?: return
                 }
+
                 else -> return
             }
 
@@ -83,43 +119,43 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGH)
-    private fun onDropEvent(event: PlayerDropItemEvent){
+    private fun onDropEvent(event: PlayerDropItemEvent) {
         games.firstOrNull { it.player == event.player } ?: return
 
         event.isCancelled = true
     }
 
     @EventHandler(priority = EventPriority.HIGH)
-    private fun onDestroyEvent(event: BlockBreakEvent){
+    private fun onDestroyEvent(event: BlockBreakEvent) {
         games.firstOrNull { it.player == event.player } ?: return
 
         event.isCancelled = true
     }
 
     @EventHandler(priority = EventPriority.HIGH)
-    private fun onPlayerDamage(event: EntityDamageEvent){
-        val player = if (event.entity is Player) event.entity as Player else return;
+    private fun onPlayerDamage(event: EntityDamageEvent) {
+        val player = if (event.entity is Player) event.entity as Player else return
         games.firstOrNull { it.player == player } ?: return
 
         event.isCancelled = true
     }
 
     @EventHandler(priority = EventPriority.HIGH)
-    private fun onPlayerAttack(event: EntityDamageByEntityEvent){
-        val player = if (event.damager is Player) event.damager as Player else return;
+    private fun onPlayerAttack(event: EntityDamageByEntityEvent) {
+        val player = if (event.damager is Player) event.damager as Player else return
         games.firstOrNull { it.player == player } ?: return
 
         event.isCancelled = true
     }
 
-    fun init(){
+    fun init() {
         Bukkit.getServer().pluginManager.registerEvents(this, plugin)
     }
 
-    fun registerGamer(player: Player, screen: Screen){
+    fun registerGamer(player: Player, screen: Screen) {
         games.add(NativeGame(screen, player, ConcurrentLinkedQueue()))
 
-        val facing = when (screen.mapFace){
+        val facing = when (screen.mapFace) {
             BlockFace.NORTH -> BlockFace.SOUTH
             BlockFace.SOUTH -> BlockFace.NORTH
             BlockFace.EAST -> BlockFace.WEST
@@ -139,9 +175,9 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
         player.teleport(location)
     }
 
-    fun unregisterScreen(screen: Screen){
+    fun unregisterScreen(screen: Screen) {
         val gameIndex = games.indexOfFirst { it.screen == screen }
-        if(gameIndex == -1) {
+        if (gameIndex == -1) {
             return
         }
         games.removeAt(gameIndex)
@@ -151,12 +187,12 @@ class NativeGameController(private val plugin: JavaPlugin): Listener {
         val game = games.firstOrNull { it.screen.name == screenName } ?: return
         val stringBuilder = StringBuilder()
 
-        while (true){
+        while (true) {
             val element = game.moveEventQueue.poll() ?: break
             stringBuilder.append("_${element.shortName}")
         }
 
-        if(stringBuilder.isEmpty()){
+        if (stringBuilder.isEmpty()) {
             return
         }
 

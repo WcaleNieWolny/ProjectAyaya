@@ -1,6 +1,5 @@
 package me.wcaleniewolny.ayaya.minecraft.render
 
-import me.wcaleniewolny.ayaya.library.DiscordOptions
 import me.wcaleniewolny.ayaya.library.MapServerOptions
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
@@ -11,7 +10,6 @@ import me.wcaleniewolny.ayaya.minecraft.render.impl.NativeRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadGameImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadVideoImpl
 import org.bukkit.plugin.java.JavaPlugin
-import java.util.*
 
 enum class RenderServiceType {
     NATIVE,
@@ -49,26 +47,27 @@ object RenderServiceFactory {
 
         val fps = videoData.fps
 
-        val thread = if (videoPlayType != VideoPlayType.GAME && videoPlayType != VideoPlayType.X11) RenderThreadVideoImpl(
-            DisplayServiceImpl(
-                MinecraftNativeBroadcaster(startID),
-                width, height
-            ),
-            renderCallback,
-            fps,
-            screenName,
-            ptr
-        ) else RenderThreadGameImpl(
-            DisplayServiceImpl(
-                MinecraftNativeBroadcaster(startID),
-                width, height
-            ),
-            startID,
-            renderCallback,
-            fps,
-            screenName,
-            ptr
-        )
+        val thread =
+            if (videoPlayType != VideoPlayType.GAME && videoPlayType != VideoPlayType.X11) RenderThreadVideoImpl(
+                DisplayServiceImpl(
+                    MinecraftNativeBroadcaster(startID),
+                    width, height
+                ),
+                renderCallback,
+                fps,
+                screenName,
+                ptr
+            ) else RenderThreadGameImpl(
+                DisplayServiceImpl(
+                    MinecraftNativeBroadcaster(startID),
+                    width, height
+                ),
+                startID,
+                renderCallback,
+                fps,
+                screenName,
+                ptr
+            )
 
         val service = if (serviceType == RenderServiceType.JAVA) JavaRenderServiceImpl(
             thread,

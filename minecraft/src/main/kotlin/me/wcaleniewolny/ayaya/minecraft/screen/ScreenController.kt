@@ -8,15 +8,7 @@ import me.wcaleniewolny.ayaya.minecraft.extenstion.forEachIn
 import me.wcaleniewolny.ayaya.minecraft.game.NativeGameController
 import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceFactory
 import me.wcaleniewolny.ayaya.minecraft.render.RenderServiceType
-import me.wcaleniewolny.ayaya.minecraft.render.impl.JavaRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.sendColoredMessage
-import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket
-import net.minecraft.network.syncher.EntityDataAccessor
-import net.minecraft.network.syncher.EntityDataSerializers
-import net.minecraft.network.syncher.SynchedEntityData
-import net.minecraft.world.entity.Entity
-import net.minecraft.world.item.Item
-import net.minecraft.world.level.ItemLike
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -24,13 +16,10 @@ import org.bukkit.World
 import org.bukkit.block.BlockFace
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
-import org.bukkit.craftbukkit.v1_18_R2.entity.CraftItemFrame
 import org.bukkit.craftbukkit.v1_18_R2.entity.CraftPlayer
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.ItemFrame
 import org.bukkit.entity.Player
-import org.bukkit.inventory.ItemStack
-import org.bukkit.inventory.meta.MapMeta
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
 import java.io.File
@@ -68,8 +57,25 @@ class ScreenController(
                 val gZ = screenYaml.getInt("gz")
                 val useGame = screenYaml.getBoolean("useGame")
 
-                screens.add(Screen(startID, file.nameWithoutExtension, facing.toBlockFace(), x1, y1, z1, x2, y2, z2, gX, gY, gZ, useGame, world))
-        }
+                screens.add(
+                    Screen(
+                        startID,
+                        file.nameWithoutExtension,
+                        facing.toBlockFace(),
+                        x1,
+                        y1,
+                        z1,
+                        x2,
+                        y2,
+                        z2,
+                        gX,
+                        gY,
+                        gZ,
+                        useGame,
+                        world
+                    )
+                )
+            }
     }
 
     fun createScreen(
@@ -94,7 +100,7 @@ class ScreenController(
         }
 
         val face = facing.toBlockFace()
-        val startID = buildScreen(world, Vector(x1, y1, z1), Vector(x2, y2, z2), face)
+        val startID = buildScreen(world, Vector(x1, y1, z1), Vector(x2, y2, z2), face, facing)
 
         val screen = Screen(startID, name, face, x1, y1, z1, x2, y2, z2, gameX, gameY, gameZ, useGame, world)
 
@@ -127,7 +133,12 @@ class ScreenController(
         useDiscord: Boolean
     ) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
-            val verify = NativeRenderControler.verifyScreenCapabilities(file.absolutePath, screen.width, screen.height, useDiscord)
+            val verify = NativeRenderControler.verifyScreenCapabilities(
+                file.absolutePath,
+                screen.width,
+                screen.height,
+                useDiscord
+            )
             when (verify) {
                 VideoRequestCapablyResponse.OK -> {}
                 VideoRequestCapablyResponse.INVALID_DIMENSIONS -> {
@@ -136,18 +147,21 @@ class ScreenController(
                     })
                     return@Runnable
                 }
+
                 VideoRequestCapablyResponse.TO_SMALL -> {
                     Bukkit.getScheduler().runTask(plugin, Runnable {
                         sender.sendColoredMessage(plugin.config.getString("videoVerificationToSmall")!!)
                     })
                     return@Runnable
                 }
+
                 VideoRequestCapablyResponse.TO_LARGE -> {
                     Bukkit.getScheduler().runTask(plugin, Runnable {
                         sender.sendColoredMessage(plugin.config.getString("videoVerificationToLarge")!!)
                     })
                     return@Runnable
                 }
+
                 VideoRequestCapablyResponse.DISCORD_IN_USE -> {
                     Bukkit.getScheduler().runTask(plugin, Runnable {
                         sender.sendColoredMessage(plugin.config.getString("videoVerificationDiscordInUse")!!)
@@ -180,7 +194,7 @@ class ScreenController(
         game: String,
         screen: Screen,
         player: Player
-    ){
+    ) {
         val renderService = RenderServiceFactory.create(
             plugin,
             game, //Note: in game mode this will load selected game
@@ -202,7 +216,7 @@ class ScreenController(
         screen: Screen,
         useMapServer: Boolean,
         screenDetails: String
-    ){
+    ) {
         //"$" is the splitting sign of the X11 player
         val renderService = RenderServiceFactory.create(
             plugin,
@@ -242,8 +256,8 @@ class ScreenController(
         return screens
     }
 
-    fun restartVideoScreen(screen: Screen){
-        for(i in screen.startID until screen.startID + (screen.width * screen.height) / 16384){
+    fun restartVideoScreen(screen: Screen) {
+        for (i in screen.startID until screen.startID + (screen.width * screen.height) / 16384) {
             val mapPacket = MinecraftNativeBroadcaster.makeMapPacket(
                 i,
                 0,
@@ -259,8 +273,14 @@ class ScreenController(
         }
     }
 
-    private fun buildScreen(world: World, loc1: Vector, loc2: Vector, blockFace: BlockFace): Int {
-        world.forEachIn(loc1, loc2) {
+    private fun buildScreen(
+        world: World,
+        loc1: Vector,
+        loc2: Vector,
+        blockFace: BlockFace,
+        screenFacing: ScreenFacing
+    ): Int {
+        world.forEachIn(loc1, loc2, screenFacing) {
             it.type = Material.SEA_LANTERN
         }
 
@@ -275,7 +295,7 @@ class ScreenController(
 
         var i = preMap
 
-        world.forEachIn(cloneLoc1, cloneLoc2) {
+        world.forEachIn(cloneLoc1, cloneLoc2, screenFacing) {
             it.type = Material.AIR
 
             val location = it.location

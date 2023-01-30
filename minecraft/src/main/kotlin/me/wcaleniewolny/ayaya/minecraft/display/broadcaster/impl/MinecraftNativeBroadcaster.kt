@@ -3,7 +3,6 @@ package me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl
 import me.wcaleniewolny.ayaya.library.SplittedFrame
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.Broadcaster
 import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket
-import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData
 import org.bukkit.craftbukkit.v1_18_R2.entity.CraftPlayer
 import org.bukkit.entity.Player
@@ -36,7 +35,7 @@ class MinecraftNativeBroadcaster(
             )
         }
 
-        fun sendPacket(player: Player, packet: ClientboundMapItemDataPacket){
+        fun sendPacket(player: Player, packet: ClientboundMapItemDataPacket) {
             (player as CraftPlayer).handle.connection.send(packet)
         }
     }

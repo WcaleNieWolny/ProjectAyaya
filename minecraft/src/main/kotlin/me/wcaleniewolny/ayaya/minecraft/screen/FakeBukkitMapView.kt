@@ -5,7 +5,7 @@ import org.bukkit.map.MapRenderer
 import org.bukkit.map.MapView
 import org.bukkit.map.MapView.Scale
 
-class FakeBukkitMapView(private val id: Int): MapView {
+class FakeBukkitMapView(private val id: Int) : MapView {
     override fun getId(): Int {
         return id
     }
@@ -14,11 +14,11 @@ class FakeBukkitMapView(private val id: Int): MapView {
         return true
     }
 
-    override fun getScale(): MapView.Scale {
+    override fun getScale(): Scale {
         return Scale.valueOf("0")
     }
 
-    override fun setScale(scale: MapView.Scale) {}
+    override fun setScale(scale: Scale) {}
 
     override fun getCenterX(): Int {
         return 0

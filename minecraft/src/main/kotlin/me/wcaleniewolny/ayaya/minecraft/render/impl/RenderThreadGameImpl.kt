@@ -15,7 +15,7 @@ class RenderThreadGameImpl(
     fps: Int,
     private val screenName: String,
     private val ptr: Long
-): RenderThread() {
+) : RenderThread() {
 
     private val timeWindow = TimeUnit.SECONDS.toNanos(1) / fps
     private val debug = false
@@ -43,8 +43,8 @@ class RenderThreadGameImpl(
 
             //We use a magic value - 0 is a transparent color, and it is not possible to get when using normal video splitting
             //It is safe to assume that if we have a full frame 0 will never be present
-            if(frame[0].toInt() != 0){
-                if(frame.size != 1) {
+            if (frame[0].toInt() != 0) {
+                if (frame.size != 1) {
                     displayService.displayFrame(frame)
                 }
 
@@ -58,8 +58,8 @@ class RenderThreadGameImpl(
                 if (debug) {
                     println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
                 }
-            }else{
-                if(frame.size != 1) {
+            } else {
+                if (frame.size != 1) {
                     //https://stackoverflow.com/questions/2840190/java-convert-4-bytes-to-int
                     val dataStringLen = 0xFF and frame[1].toInt() shl 24 or (0xFF and frame[2].toInt() shl 16) or
                             (0xFF and frame[3].toInt() shl 8) or (0xFF and frame[4].toInt())
@@ -92,8 +92,8 @@ class RenderThreadGameImpl(
                             height,
                             data
                         )
-                        displayService.allPlayers().forEach{
-                                player -> MinecraftNativeBroadcaster.sendPacket(player, packet)
+                        displayService.allPlayers().forEach { player ->
+                            MinecraftNativeBroadcaster.sendPacket(player, packet)
                         }
 
                         offset += length

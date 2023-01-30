@@ -10,7 +10,7 @@ data class NativeGame(
     val moveEventQueue: ConcurrentLinkedQueue<MoveDirection>
 )
 
-enum class MoveDirection(val shortName: String){
+enum class MoveDirection(val shortName: String) {
     FORWARD("F"),
     BACKWARDS("B"),
     LEFT("L"),

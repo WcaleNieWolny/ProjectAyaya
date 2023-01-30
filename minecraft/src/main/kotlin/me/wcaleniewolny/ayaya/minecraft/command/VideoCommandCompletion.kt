@@ -21,7 +21,7 @@ class VideoCommandCompletion(
 
         manager.commandCompletions.registerAsyncCompletion("lookingAt") {
 
-            val lookingAt = it.player.getTargetBlock(4) ?: return@registerAsyncCompletion mutableListOf();
+            val lookingAt = it.player.getTargetBlock(4) ?: return@registerAsyncCompletion mutableListOf()
 
             return@registerAsyncCompletion mutableListOf("${lookingAt.x} ${lookingAt.y} ${lookingAt.z}")
         }

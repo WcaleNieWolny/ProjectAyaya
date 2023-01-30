@@ -33,8 +33,8 @@ class NativeRenderServiceImpl(
 
     private val responders = ArrayList<UUID>()
     private val handshakeNumber = AtomicInteger(0)
-    private var isInitialized = false;
-    private var isRunning = AtomicBoolean(false);
+    private var isInitialized = false
+    private var isRunning = AtomicBoolean(false)
 
     override fun init(plugin: JavaPlugin) {
         plugin.server.messenger.registerOutgoingPluginChannel(plugin, "fastmap:handshake")
@@ -68,13 +68,13 @@ class NativeRenderServiceImpl(
             broadcaster.init(players)
             broadcaster.blackoutFrames(
                 FrameSplitter.initializeFrames(videoData.width, videoData.height).toMutableList(), players
-            );
+            )
 
             var timeout = 0
             while (handshakeNumber.get() != requiredHandshakes) {
                 if (timeout == 300) {
                     Bukkit.getLogger()
-                        .warning("Couldn't start map render server! Only ${handshakeNumber.get()} responded but $requiredHandshakes were required!");
+                        .warning("Couldn't start map render server! Only ${handshakeNumber.get()} responded but $requiredHandshakes were required!")
                     return@Runnable
                 }
                 timeout++
@@ -134,7 +134,7 @@ class NativeRenderServiceImpl(
         data.forEach {
             buffer.writeVarInt(it)
         }
-        buffer.writeVarInt(startID); //Starting map id data (will get refactored later)
+        buffer.writeVarInt(startID) //Starting map id data (will get refactored later)
 
         players.forEach {
             it.sendPluginMessage(plugin, "fastmap:handshake", buffer.array())
@@ -151,6 +151,7 @@ class NativeRenderServiceImpl(
                     responders.add(player.uniqueId)
                 }
             }
+
             "fastmap:handshake" -> {
                 if (status != 0) {
                     Bukkit.getPluginManager()

@@ -4,7 +4,6 @@ import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.display.DisplayService
 import me.wcaleniewolny.ayaya.minecraft.render.RenderThread
 import org.bukkit.Bukkit
-import java.lang.RuntimeException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
@@ -45,9 +44,9 @@ class RenderThreadVideoImpl(
             renderCallback?.invoke(ptr, screenName)
             var frame: ByteArray? = null
 
-            try{
-                 frame = if (this.frame.isNotEmpty()) this.frame else NativeRenderControler.loadFrame(ptr)
-            }catch (exception: RuntimeException) {
+            try {
+                frame = if (this.frame.isNotEmpty()) this.frame else NativeRenderControler.loadFrame(ptr)
+            } catch (exception: RuntimeException) {
                 if (exception.message?.contains("JVM frame reciver closed!") == true) {
                     Bukkit.getLogger().warning("Unable to receive frame from native code! End of file!")
                     break
@@ -60,9 +59,9 @@ class RenderThreadVideoImpl(
 
             displayService.displayFrame(frame)
 
-            try{
+            try {
                 this.frame = NativeRenderControler.loadFrame(ptr)
-            }catch (exception: RuntimeException) {
+            } catch (exception: RuntimeException) {
                 if (exception.message?.contains("JVM frame reciver closed!") == true) {
                     Bukkit.getLogger().warning("Unable to receive frame from native code! End of file!")
                     break

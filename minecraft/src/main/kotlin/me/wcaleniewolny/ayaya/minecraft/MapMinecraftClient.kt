@@ -3,7 +3,6 @@ package me.wcaleniewolny.ayaya.minecraft
 import co.aikar.commands.PaperCommandManager
 import me.wcaleniewolny.ayaya.library.DiscordOptions
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
-import me.wcaleniewolny.ayaya.library.VideoRequestCapablyResponse
 import me.wcaleniewolny.ayaya.library.WindowsBootstrap
 import me.wcaleniewolny.ayaya.minecraft.command.VideoCommand
 import me.wcaleniewolny.ayaya.minecraft.command.VideoCommandCompletion
@@ -13,8 +12,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
-import java.io.InputStream
-import java.lang.RuntimeException
 import java.util.logging.Level
 
 
@@ -26,15 +23,22 @@ class MapMinecraftClient : JavaPlugin() {
 
         this.saveDefaultConfig()
 
-        if(!loadNativeLib()){
+        if (!loadNativeLib()) {
             return
         }
 
         if (config.getBoolean("useDiscordBot")) {
-            NativeRenderControler.initDiscordBot(DiscordOptions(true, config.getString("discordToken")!!, config.getString("discordGuildId")!!, config.getString("discordChannelId")!!))
+            NativeRenderControler.initDiscordBot(
+                DiscordOptions(
+                    true,
+                    config.getString("discordToken")!!,
+                    config.getString("discordGuildId")!!,
+                    config.getString("discordChannelId")!!
+                )
+            )
         }
         val nativeGameController = NativeGameController(this)
-        val screenController = ScreenController(this, nativeGameController);
+        val screenController = ScreenController(this, nativeGameController)
 
         screenController.init()
         nativeGameController.init()
@@ -55,7 +59,7 @@ class MapMinecraftClient : JavaPlugin() {
 
     }
 
-    fun loadNativeLib(): Boolean{
+    fun loadNativeLib(): Boolean {
 
         val unsafe = System.getProperty("me.wcaleniewolny.ayaya.unsafe") != null
         val windowsBootstrap = config.getBoolean("useWindowsBootstrap")
@@ -63,7 +67,7 @@ class MapMinecraftClient : JavaPlugin() {
         val os = System.getProperty("os.name")
         logger.info("Detected os: $os")
 
-        if(unsafe) {
+        if (unsafe) {
             logger.log(Level.WARNING, "UNSAFE LIB LOADING ENABLED")
             try {
                 System.loadLibrary("ayaya_native")
@@ -73,33 +77,39 @@ class MapMinecraftClient : JavaPlugin() {
                 return false
             }
         } else if (windowsBootstrap) {
-            logger.log(Level.WARNING, "ProjectAyaya will now try to use windows bootstrap! Please read the wiki so you know what you are doing!!!")
+            logger.log(
+                Level.WARNING,
+                "ProjectAyaya will now try to use windows bootstrap! Please read the wiki so you know what you are doing!!!"
+            )
 
             try {
                 System.loadLibrary("windows_bootstrap")
                 windowsBootstrapPtr = WindowsBootstrap.bootstrap(NativeUtils.latestPath!!, dataFolder.absolutePath)
-            }catch (t: Throwable){
+            } catch (t: Throwable) {
                 Bukkit.getPluginManager().disablePlugin(this)
                 logger.log(Level.SEVERE, "Unable to use windows boostrap! Quiting!")
                 t.printStackTrace()
                 return false
             }
         } else {
-            if(os.contains("Linux", true)){
+            if (os.contains("Linux", true)) {
                 try {
                     NativeUtils.loadLibraryFromJar("/libayaya_native.so")
-                }catch (throwable: Throwable){
+                } catch (throwable: Throwable) {
                     logger.log(Level.SEVERE, "Unable to load native library! AyayaNative will now get disabled")
                     Bukkit.getPluginManager().disablePlugin(this)
                     throwable.printStackTrace()
                     return false
                 }
-            }else if(os.contains("Windows", true)){
+            } else if (os.contains("Windows", true)) {
                 try {
                     NativeUtils.loadLibraryFromJar("/ayaya_native.dll")
-                }catch (throwable: Throwable){
+                } catch (throwable: Throwable) {
                     logger.log(Level.SEVERE, "Unable to load native library! AyayaNative will now get disabled")
-                    logger.log(Level.SEVERE, "If you got a \"Can't find dependent libraries\" error and you are on windows you can set \"useWindowsBootstrap: true\" in the config.yml to try to solve this")
+                    logger.log(
+                        Level.SEVERE,
+                        "If you got a \"Can't find dependent libraries\" error and you are on windows you can set \"useWindowsBootstrap: true\" in the config.yml to try to solve this"
+                    )
                     Bukkit.getPluginManager().disablePlugin(this)
                     throwable.printStackTrace()
                     return false
