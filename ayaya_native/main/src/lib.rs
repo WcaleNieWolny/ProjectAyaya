@@ -38,7 +38,6 @@ use player::{
     discord_audio::{self, DiscordClient, DiscordPlayer},
     player_context::VideoPlayer,
 };
-use serenity::model::guild;
 use tokio::runtime::{Builder, Runtime};
 
 mod colorlib;

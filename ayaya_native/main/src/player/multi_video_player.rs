@@ -123,7 +123,7 @@ impl VideoPlayer for MultiVideoPlayer {
                 data_tx.send(height as i32).unwrap();
                 data_tx.send(input.rate().0 / input.rate().1).unwrap();
 
-                let splitted_frames = SplittedFrame::initialize_frames(width as i32, height as i32)
+                let frame_initial_split = SplittedFrame::initialize_frames(width as i32, height as i32)
                     .expect("Couldn't initialize frame splitting");
 
                 let mut scaler = Context::get(
@@ -200,13 +200,13 @@ impl VideoPlayer for MultiVideoPlayer {
                         }
                     };
 
-                    let splitted_frames = splitted_frames.clone();
+                    let (splitted_frames, all_frames_x, all_frames_y) = frame_initial_split.clone();
 
                     let sender = frames_tx.clone();
 
                     handle.spawn(async move {
                         let vec = transform_frame_to_mc(frame.data(0), width, height, frame.stride(0));
-                        let vec = SplittedFrame::split_frames(vec.as_slice(), &splitted_frames, width as i32).expect("Couldn't split frames async");
+                        let vec = SplittedFrame::split_frames(vec.as_slice(), &splitted_frames, width as i32, all_frames_x, all_frames_y).expect("Couldn't split frames async");
 
                         let frame_with_id = FrameWithIdentifier {
                             id: frame_id,

@@ -23,6 +23,8 @@ pub struct SingleVideoPlayer {
     input: Input,
     decoder: Video,
     splitted_frames: Vec<SplittedFrame>,
+    all_frames_x: i32,
+    all_frames_y: i32,
     seek_tx: Sender<i32>,
     seek_rx: Receiver<i32>,
     width: u32,
@@ -69,13 +71,16 @@ impl VideoPlayer for SingleVideoPlayer {
             )?;
 
             let (seek_tx, seek_rx) = channel::<i32>();
+            let (splitted_frames, all_frames_x, all_frames_y) = SplittedFrame::initialize_frames(width as i32, height as i32)?;
 
             let single_video_player = Self {
                 video_stream_index,
                 scaler,
                 input: ictx,
                 decoder,
-                splitted_frames: SplittedFrame::initialize_frames(width as i32, height as i32)?,
+                splitted_frames,
+                all_frames_x,
+                all_frames_y,
                 seek_tx,
                 seek_rx,
                 width,
@@ -115,6 +120,8 @@ impl VideoPlayer for SingleVideoPlayer {
                     transformed_frame.as_slice(),
                     &self.splitted_frames,
                     self.width as i32,
+                    self.all_frames_x,
+                    self.all_frames_y
                 )?;
 
                 return Ok(transformed_frame);

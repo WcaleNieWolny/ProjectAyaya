@@ -11,7 +11,7 @@ use ffmpeg::{Dictionary, Error, Format};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::oneshot;
 
-use crate::colorlib::{self, get_cached_index, Color};
+use crate::colorlib;
 use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{SplittedFrame, TOKIO_RUNTIME};
@@ -87,7 +87,7 @@ impl VideoPlayer for X11Player {
             let height = decoder.height();
 
             let fps = input.rate().0 / input.rate().1;
-            let splitted_frames = SplittedFrame::initialize_frames(width as i32, height as i32)?;
+            let (splitted_frames, all_frames_x, all_frames_y) = SplittedFrame::initialize_frames(width as i32, height as i32)?;
 
             //Small buffer due to fact that we are only decoding UP TO FPS frames per second
             let (jvm_tx, jvm_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(50);
@@ -171,6 +171,8 @@ impl VideoPlayer for X11Player {
                                     transformed_frame.as_slice(),
                                     &splitted_frames,
                                     width as i32,
+                                    all_frames_x,
+                                    all_frames_y
                                 ) {
                                     Ok(val) => val,
                                     Err(err) => {

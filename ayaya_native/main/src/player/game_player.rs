@@ -69,11 +69,15 @@ impl VideoCanvas {
     fn draw_to_minecraft(
         &self,
         splitted_frames: &mut Vec<SplittedFrame>,
+        all_frames_x: i32,
+        all_frames_y: i32
     ) -> anyhow::Result<Vec<i8>> {
         SplittedFrame::split_frames(
             bytemuck::cast_slice(self.vec.as_slice()),
             splitted_frames,
             self.width as i32,
+            all_frames_x,
+            all_frames_y,
         )
     }
 }
@@ -134,6 +138,8 @@ pub struct GamePlayer {
     pub height: i32,
     fps: i32,
     splitted_frames: Vec<SplittedFrame>,
+    all_frames_x: i32,
+    all_frames_y: i32,
     game: Box<dyn Game>,
     input_rx: Receiver<GameInputDirection>,
     input_tx: Sender<GameInputDirection>,
@@ -151,11 +157,15 @@ impl VideoPlayer for GamePlayer {
         let (width, height, fps) = (game.width(), game.height(), game.fps());
         let (input_tx, input_rx) = channel::<GameInputDirection>();
 
+        let (splitted_frames, all_frames_x, all_frames_y) = SplittedFrame::initialize_frames(width, height)?;
+
         Ok(Self {
             width,
             height,
             fps,
-            splitted_frames: SplittedFrame::initialize_frames(width, height)?,
+            splitted_frames,
+            all_frames_x,
+            all_frames_y,
             game,
             input_rx,
             input_tx,
@@ -167,7 +177,7 @@ impl VideoPlayer for GamePlayer {
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
         let frame = if self.frame_counter == 0 {
             let canvas = self.game.draw(&self.input_rx)?;
-            let frame = canvas.draw_to_minecraft(&mut self.splitted_frames)?;
+            let frame = canvas.draw_to_minecraft(&mut self.splitted_frames, self.all_frames_x, self.all_frames_y)?;
             self.last_frame = frame.clone();
 
             Ok(frame)
@@ -175,7 +185,7 @@ impl VideoPlayer for GamePlayer {
             let new_frame = self
                 .game
                 .draw(&self.input_rx)?
-                .draw_to_minecraft(&mut self.splitted_frames)?;
+                .draw_to_minecraft(&mut self.splitted_frames, self.all_frames_x, self.all_frames_y)?;
             let mut frame_str_info = String::new();
             let mut frame_data = Vec::<i8>::with_capacity(65536);
 
