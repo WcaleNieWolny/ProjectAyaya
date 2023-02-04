@@ -71,7 +71,8 @@ impl VideoPlayer for SingleVideoPlayer {
             )?;
 
             let (seek_tx, seek_rx) = channel::<i32>();
-            let (splitted_frames, all_frames_x, all_frames_y) = SplittedFrame::initialize_frames(width as i32, height as i32)?;
+            let (splitted_frames, all_frames_x, all_frames_y) =
+                SplittedFrame::initialize_frames(width as i32, height as i32)?;
 
             let single_video_player = Self {
                 video_stream_index,
@@ -121,7 +122,7 @@ impl VideoPlayer for SingleVideoPlayer {
                     &self.splitted_frames,
                     self.width as i32,
                     self.all_frames_x,
-                    self.all_frames_y
+                    self.all_frames_y,
                 )?;
 
                 return Ok(transformed_frame);

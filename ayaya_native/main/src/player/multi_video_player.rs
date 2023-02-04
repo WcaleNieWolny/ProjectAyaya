@@ -123,8 +123,9 @@ impl VideoPlayer for MultiVideoPlayer {
                 data_tx.send(height as i32).unwrap();
                 data_tx.send(input.rate().0 / input.rate().1).unwrap();
 
-                let frame_initial_split = SplittedFrame::initialize_frames(width as i32, height as i32)
-                    .expect("Couldn't initialize frame splitting");
+                let frame_initial_split =
+                    SplittedFrame::initialize_frames(width as i32, height as i32)
+                        .expect("Couldn't initialize frame splitting");
 
                 let mut scaler = Context::get(
                     decoder.format(),

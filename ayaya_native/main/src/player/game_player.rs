@@ -70,7 +70,7 @@ impl VideoCanvas {
         &self,
         splitted_frames: &mut Vec<SplittedFrame>,
         all_frames_x: i32,
-        all_frames_y: i32
+        all_frames_y: i32,
     ) -> anyhow::Result<Vec<i8>> {
         SplittedFrame::split_frames(
             bytemuck::cast_slice(self.vec.as_slice()),
@@ -157,7 +157,8 @@ impl VideoPlayer for GamePlayer {
         let (width, height, fps) = (game.width(), game.height(), game.fps());
         let (input_tx, input_rx) = channel::<GameInputDirection>();
 
-        let (splitted_frames, all_frames_x, all_frames_y) = SplittedFrame::initialize_frames(width, height)?;
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height)?;
 
         Ok(Self {
             width,
@@ -177,15 +178,20 @@ impl VideoPlayer for GamePlayer {
     fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
         let frame = if self.frame_counter == 0 {
             let canvas = self.game.draw(&self.input_rx)?;
-            let frame = canvas.draw_to_minecraft(&mut self.splitted_frames, self.all_frames_x, self.all_frames_y)?;
+            let frame = canvas.draw_to_minecraft(
+                &mut self.splitted_frames,
+                self.all_frames_x,
+                self.all_frames_y,
+            )?;
             self.last_frame = frame.clone();
 
             Ok(frame)
         } else {
-            let new_frame = self
-                .game
-                .draw(&self.input_rx)?
-                .draw_to_minecraft(&mut self.splitted_frames, self.all_frames_x, self.all_frames_y)?;
+            let new_frame = self.game.draw(&self.input_rx)?.draw_to_minecraft(
+                &mut self.splitted_frames,
+                self.all_frames_x,
+                self.all_frames_y,
+            )?;
             let mut frame_str_info = String::new();
             let mut frame_data = Vec::<i8>::with_capacity(65536);
 

@@ -12,7 +12,10 @@ pub static FRAME_SPLITTER_ALL_FRAMES_X: AtomicI32 = AtomicI32::new(0);
 pub static FRAME_SPLITTER_ALL_FRAMES_Y: AtomicI32 = AtomicI32::new(0);
 
 impl SplittedFrame {
-    pub fn initialize_frames(width: i32, height: i32) -> anyhow::Result<(Vec<SplittedFrame>, i32, i32)> {
+    pub fn initialize_frames(
+        width: i32,
+        height: i32,
+    ) -> anyhow::Result<(Vec<SplittedFrame>, i32, i32)> {
         let mut frames: Vec<SplittedFrame> = Vec::new();
 
         if width % 2 != 0 {
@@ -76,7 +79,7 @@ impl SplittedFrame {
         frames: &Vec<SplittedFrame>,
         width: i32,
         all_frames_x: i32,
-        all_frames_y: i32
+        all_frames_y: i32,
     ) -> anyhow::Result<Vec<i8>> {
         if all_frames_y * all_frames_x != frames.len() as i32 {
             return Err(anyhow::Error::msg(
