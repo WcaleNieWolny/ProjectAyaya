@@ -16,7 +16,7 @@ class VideoCommandCompletion(
         }
 
         manager.commandCompletions.registerAsyncCompletion("video") {
-            return@registerAsyncCompletion dir.listFiles().map { it.name }
+            return@registerAsyncCompletion dir.listFiles()?.map { it.name } ?: mutableListOf()
         }
 
         manager.commandCompletions.registerAsyncCompletion("lookingAt") {
@@ -39,7 +39,7 @@ class VideoCommandCompletion(
         }
 
         manager.commandCompletions.registerAsyncCompletion("games") {
-            return@registerAsyncCompletion mutableListOf("falling_blocks")
+            return@registerAsyncCompletion mutableListOf("falling_blocks", "snake")
         }
     }
 

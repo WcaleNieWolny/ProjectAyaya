@@ -4,7 +4,7 @@ use anyhow::anyhow;
 
 use super::{
     falling_blocks::FallingBlocks,
-    player_context::{NativeCommunication, VideoData, VideoPlayer},
+    player_context::{NativeCommunication, VideoData, VideoPlayer}, snake::SnakeGame,
 };
 use crate::{colorlib::Color, map_server::ServerOptions, splitting::SplittedFrame};
 
@@ -151,6 +151,7 @@ impl VideoPlayer for GamePlayer {
     fn create(file_name: String, _server_options: ServerOptions) -> anyhow::Result<Self> {
         let game: Box<dyn Game> = match file_name.as_str() {
             "falling_blocks" => Box::new(FallingBlocks::new()),
+            "snake" => Box::new(SnakeGame::new()),
             _ => return Err(anyhow!("This game is not implemented!")),
         };
 
