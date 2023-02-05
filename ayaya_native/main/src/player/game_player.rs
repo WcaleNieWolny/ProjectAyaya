@@ -44,10 +44,10 @@ impl VideoCanvas {
 
         let width = x2 - x1;
 
-        let data_to_copy: Vec<u8> = vec![color.convert_to_mc(); width];
+        let data_to_copy: Vec<u8> = vec![color.convert_to_mc(); width + 1];
 
-        for y in y1..y2 + 1 {
-            self.vec[((y * self.width) + x1)..((y * self.width) + x2)]
+        for y in y1..=y2 {
+            self.vec[((y * self.width) + x1)..=((y * self.width) + x2)]
                 .copy_from_slice(&data_to_copy);
         }
     }

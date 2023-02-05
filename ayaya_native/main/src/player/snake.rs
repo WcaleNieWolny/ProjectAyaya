@@ -1,4 +1,4 @@
-use std::sync::mpsc::Receiver;
+use std::{sync::mpsc::Receiver, collections::LinkedList};
 
 use anyhow::anyhow;
 use crate::colorlib::Color;
@@ -16,22 +16,21 @@ static CELL_SIZE_Y: usize = CANVAS_HEIGHT / BOARD_HEIGHT;
 
 static SNAKE_COLOR: Color = Color::new(50, 95, 95);
 
-#[derive(Clone)]
-enum SnakeCell {
-    None,
+static DEATH_FRAMES: i8 = 1;
+
+enum SnakeDirection {
     Up,
     Down,
     Right,
     Left
 }
 
-impl SnakeCell{
+impl SnakeDirection {
     fn to_x_diff(&self) -> i32 {
         match self {
             Self::Up | Self::Down => 0,
             Self::Right => 1,
             Self::Left => -1,
-            _ => unreachable!()
         }
     }
     fn to_y_diff(&self) -> i32 {
@@ -39,25 +38,27 @@ impl SnakeCell{
             Self::Left | Self::Right => 0,
             Self::Up => -1,
             Self::Down => 1,
-            _ => unreachable!()
-        }
-    }
-    fn reverse(&self) -> Self {
-        match self {
-            SnakeCell::None => Self::None,
-            SnakeCell::Up => Self::Down,
-            SnakeCell::Down => Self::Up,
-            SnakeCell::Right => Self::Left,
-            SnakeCell::Left => Self::Right,
         }
     }
 }
 
+#[derive(Clone)]
+struct SnakeCell {
+    x: usize,
+    y: usize
+}
+
+impl SnakeCell {
+    fn new(x: usize, y: usize) -> Self{
+        Self { x, y }
+    }
+}
+
 pub struct SnakeGame {
-    board: Vec<SnakeCell>,
-    head_x: usize,
-    head_y: usize,
-    direction: SnakeCell, //None is unreachable
+    snake: LinkedList<SnakeCell>,
+    direction: SnakeDirection,
+    death_timer: i8,
+    is_game_over: bool
 }
 
 impl Game for  SnakeGame {
@@ -70,109 +71,104 @@ impl Game for  SnakeGame {
     }
 
     fn fps(&self) -> i32 {
-        10
+        6
     }
 
     fn new() -> Self
     where
         Self: Sized {
        
-        let mut board = vec![SnakeCell::None; BOARD_WIDTH * BOARD_HEIGHT];
-        board[21] = SnakeCell::Up; //Head
-        board[11] = SnakeCell::Up;
-        board[2] = SnakeCell::Left;
-        board[1] = SnakeCell::Left;
         
         //For now static start possition
         Self {
-            board,
-            head_x: 1,
-            head_y: 2,
-            direction: SnakeCell::Right,
+            snake: LinkedList::from([SnakeCell::new(0, 0)]),
+            direction: SnakeDirection::Right,
+            death_timer: DEATH_FRAMES, 
+            is_game_over: false
         }
     }
 
-    fn draw(&mut self, _input_rx: &Receiver<GameInputDirection>) -> anyhow::Result<VideoCanvas> {
+    fn draw(&mut self, input_rx: &Receiver<GameInputDirection>) -> anyhow::Result<VideoCanvas> {
+        if self.is_game_over {
+            return self.draw_lose_screen();
+        }
+
+        while let Ok(val) = input_rx.try_recv() {
+            match val {
+                GameInputDirection::Forward => self.direction = SnakeDirection::Up,
+                GameInputDirection::Backwards => self.direction = SnakeDirection::Down,
+                GameInputDirection::Left =>  self.direction = SnakeDirection::Left,
+                GameInputDirection::Right =>  self.direction = SnakeDirection::Right,
+                GameInputDirection::Up => {},
+            }
+        }
+
+        let head_cell = match self.snake.front() {
+            Some(val) => val,
+            None => return Err(anyhow!("Snake is empty"))
+        };
+
+        let head_x = head_cell.x;
+        let head_y = head_cell.y;
+
+        //edge cases
+        if let SnakeDirection::Left = self.direction{
+            if head_x == 0 {
+                println!("LEFT ED");
+                return self.draw_lose_screen();
+            }
+        }
+        if let SnakeDirection::Right = self.direction{
+            if head_x == BOARD_WIDTH - 1 {
+                println!("RIGHT ED");
+                return self.draw_lose_screen();
+            }
+        }
+        if let SnakeDirection::Up = self.direction{
+            if head_y == 0 {
+                println!("UP ED");
+                return self.draw_lose_screen();
+            }
+        }
+        if let SnakeDirection::Down = self.direction{
+            if head_y == BOARD_HEIGHT - 1 {
+                println!("DOWN ED");
+                return self.draw_lose_screen();
+            }
+        }
+
+        let new_head_x = (head_x as i32 + self.direction.to_x_diff() as i32) as usize;
+        let new_head_y = (head_y as i32 + self.direction.to_y_diff() as i32) as usize;
+
+        println!("NEW HEAD: {}, {}", new_head_x, new_head_y);
+
+        //We might lose at some point and then we need the original snake
+        let mut snake_clone = self.snake.clone();
+        snake_clone.push_front(SnakeCell::new(new_head_x, new_head_y));
+        snake_clone.pop_back();
+
+        //Late init of canvas to save memory if we quit early
         let mut canvas = VideoCanvas::new(
             self.width() as usize,
             self.height() as usize,
             &Color::hex("464B46")?,
         );
 
-        let mut cell = match self.board.get_mut(BOARD_WIDTH * self.head_y + self.head_x) {
-            Some(val) => val.clone(),
-            None => return Err(anyhow!("Unable to get none cell in snake"))
-        };
-
-        let mut cell_x = self.head_x;
-        let mut cell_y = self.head_y;
-
-        if let SnakeCell::None = cell {
-            return Err(anyhow!("Snake cell is none"));
-        }
-
-        //edge cases
-        if let SnakeCell::Left = self.direction{
-            if self.head_x == 0 {
-                println!("LEFT ED");
+        for cell in snake_clone.iter().skip(1) {
+            if cell.x == new_head_x && cell.y == new_head_y {
+                println!("Colis");
                 return self.draw_lose_screen();
             }
-        }
-        if let SnakeCell::Right = self.direction{
-            if self.head_x == BOARD_WIDTH - 1 {
-                println!("RIGHT ED");
-                return self.draw_lose_screen();
-            }
-        }
-        if let SnakeCell::Up = self.direction{
-            if self.head_y == 0 {
-                println!("UP ED");
-                return self.draw_lose_screen();
-            }
-        }
-        if let SnakeCell::Down = self.direction{
-            if self.head_y == BOARD_HEIGHT - 1 {
-                println!("DOWN ED");
-                return self.draw_lose_screen();
-            }
+
+            canvas.draw_square(cell.x * CELL_SIZE_X, cell.y * CELL_SIZE_Y, (cell.x + 1) * CELL_SIZE_X - 1, (cell.y + 1) * CELL_SIZE_Y - 1, &SNAKE_COLOR);
         }
 
-        loop {
-            //This is safe, we handled edge cases
-            let pointing_y = (cell_y as i32 + cell.to_y_diff()) as usize;
-            let pointing_x = (cell_x as i32 + cell.to_x_diff()) as usize;
-            let pointing_cell = &self.board[pointing_y * BOARD_WIDTH + pointing_x];
-
-            if let SnakeCell::None = pointing_cell {
-                self.board[BOARD_WIDTH * cell_y + cell_x] = SnakeCell::None;
-                break;
-            }else {
-                canvas.draw_square(cell_x * CELL_SIZE_X, cell_y * CELL_SIZE_Y, (cell_x + 1) * CELL_SIZE_X, (cell_y + 1) * CELL_SIZE_Y, &SNAKE_COLOR); 
-
-                cell_x = pointing_x;
-                cell_y = pointing_y;
-                cell = pointing_cell.clone();
-                continue;
-            }
-        }
-
-        let new_head_x = (self.head_x as i32 + self.direction.to_x_diff()) as usize;
-        let new_head_y = (self.head_y as i32 + self.direction.to_y_diff()) as usize;
-        let new_head_cell = self.board.get_mut(new_head_y * BOARD_WIDTH + new_head_x);
-
-        if let Some(new_head_cell) = new_head_cell {
-            if let SnakeCell::None = new_head_cell {
-                *new_head_cell = self.direction.reverse();
-                self.head_y = new_head_y;
-                self.head_x = new_head_x;
-                canvas.draw_square(new_head_x * CELL_SIZE_X, new_head_y * CELL_SIZE_Y, (new_head_x + 1) * CELL_SIZE_X, (new_head_y + 1) * CELL_SIZE_Y, &SNAKE_COLOR); 
-            }else {
-                println!("LOOSE SCR");
-                return self.draw_lose_screen();
-            }
-        }else {
-            return Err(anyhow!("Cannot get none value when getting new head cell"));
-        }
+        //We start drawing at 0. (9 + 1) * 64 = 10 * 64 * 640
+        //640 is out of bounds
+        canvas.draw_square(new_head_x * CELL_SIZE_X, new_head_y * CELL_SIZE_Y, (new_head_x + 1) * CELL_SIZE_X - 1, (new_head_y + 1) * CELL_SIZE_Y - 1, &SNAKE_COLOR);
+       
+        self.death_timer = DEATH_FRAMES;
+        self.snake = snake_clone;
 
         Ok(canvas)
     }
@@ -181,11 +177,27 @@ impl Game for  SnakeGame {
 
 impl SnakeGame {
     fn draw_lose_screen(&mut self) -> anyhow::Result<VideoCanvas> {
-        Ok(VideoCanvas::new(
-            self.width() as usize,
-            self.height() as usize,
-            &Color::new(0, 0, 0),
-        ))
+        if self.death_timer == 0 {
+            self.is_game_over = true;
+            return Ok(VideoCanvas::new(
+                self.width() as usize,
+                self.height() as usize,
+                &Color::new(0, 0, 0),
+            ));
+        }else {
+            let mut canvas = VideoCanvas::new(
+                self.width() as usize,
+                self.height() as usize,
+                &Color::hex("464B46")?,
+            );
+
+            for cell in &self.snake {
+                canvas.draw_square(cell.x * CELL_SIZE_X, cell.y * CELL_SIZE_Y, (cell.x + 1) * CELL_SIZE_X - 1, (cell.y + 1) * CELL_SIZE_Y - 1, &SNAKE_COLOR);
+            }
+
+            self.death_timer -= 1;
+            return Ok(canvas);
+        }
     }
 }
 
