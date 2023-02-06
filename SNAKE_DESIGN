@@ -1,0 +1,43 @@
+Variables:
+ - Map: (width * height ENUM array)
+ - Head: (x, y)
+ - direction: ENUM
+
+Move procedure:
+ - get value from map at head
+ - get value pointing by the head (if possible, if not loose)
+ - do step 2 until pointing is no longer possible
+ - remove the tail if no apple has been eaten in this move
+ - add new value pointing in the oposite drection of directon on (head + directiob) if possible else loose
+
+how game is represented:
+---------
+| | | | |
+---------
+| |H| | |
+---------
+| |$| |^|
+---------
+| |>|>|^|
+---------
+
+in this example H = head (H = ^, $ points down)
+
+==========
+
+
+edge case:
+---------
+| | | | |
+---------
+| |H|<|<|
+---------
+| |$| |^|
+---------
+| |>|>|^|
+---------
+
+tail points to head
+solution:
+Check if value points to head, if so loose
+
