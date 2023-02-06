@@ -4,7 +4,8 @@ use anyhow::anyhow;
 
 use super::{
     falling_blocks::FallingBlocks,
-    player_context::{NativeCommunication, VideoData, VideoPlayer}, snake::SnakeGame,
+    player_context::{NativeCommunication, VideoData, VideoPlayer},
+    snake::SnakeGame,
 };
 use crate::{colorlib::Color, map_server::ServerOptions, splitting::SplittedFrame};
 
