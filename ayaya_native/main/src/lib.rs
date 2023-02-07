@@ -1,3 +1,5 @@
+#![feature(linked_list_cursors)]
+
 extern crate core;
 
 #[cfg(feature = "ffmpeg")]

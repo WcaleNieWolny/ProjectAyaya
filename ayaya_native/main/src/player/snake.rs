@@ -12,10 +12,16 @@ static BOARD_HEIGHT: usize = 10;
 static CANVAS_WIDTH: usize = 640;
 static CANVAS_HEIGHT: usize = 640;
 
+static HEAD_OFFSET: usize = 6;
+
 static CELL_SIZE_X: usize = CANVAS_WIDTH / BOARD_WIDTH;
 static CELL_SIZE_Y: usize = CANVAS_HEIGHT / BOARD_HEIGHT;
+static DRAW_CELL_SIZE_X: usize = CELL_SIZE_X / 2;
+static DRAW_CELL_SIZE_Y: usize = CELL_SIZE_Y / 2;
+static DRAW_X_OFFSET: usize = DRAW_CELL_SIZE_X / 2;
+static DRAW_Y_OFFSET: usize = DRAW_CELL_SIZE_Y / 2;
 
-static SNAKE_COLOR: Color = Color::new(50, 95, 95);
+static SNAKE_COLOR: Color = Color::new(35, 90, 35);
 static APPLE_COLOR: Color = Color::new(85, 27, 27);
 
 static DEATH_FRAMES: i8 = 1;
@@ -44,7 +50,7 @@ impl SnakeDirection {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct SnakeCell {
     x: usize,
     y: usize,
@@ -209,27 +215,76 @@ impl Game for SnakeGame {
             &Color::hex("464B46")?,
         );
 
-        for cell in snake_clone.iter().skip(1) {
-            if cell.x == new_head_x && cell.y == new_head_y {
+        let mut cursor = snake_clone.cursor_front();
+        let mut check_for_head_collision = false;
+
+        'cursor_loop: loop {
+            let cell = match cursor.current() {
+                Some(val) => val,
+                None => break 'cursor_loop,
+            };
+
+            if check_for_head_collision && cell.x == new_head_x && cell.y == new_head_y {
                 return self.draw_lose_screen();
             }
 
-            canvas.draw_square(
-                cell.x * CELL_SIZE_X,
-                cell.y * CELL_SIZE_Y,
-                (cell.x + 1) * CELL_SIZE_X - 1,
-                (cell.y + 1) * CELL_SIZE_Y - 1,
-                &SNAKE_COLOR,
-            );
+            if let Some(next_cell) = cursor.peek_next() {
+                let first_cell = if cell.x != next_cell.x {
+                    if next_cell.x > cell.x {
+                        cell
+                    } else {
+                        next_cell
+                    }
+                } else {
+                    if next_cell.y > cell.y {
+                        cell
+                    } else {
+                        next_cell
+                    }
+                };
+
+                let second_cell = if cell.x != next_cell.x {
+                    if next_cell.x > cell.x {
+                        next_cell
+                    } else {
+                        cell
+                    }
+                } else {
+                    if next_cell.y > cell.y {
+                        next_cell
+                    } else {
+                        cell
+                    }
+                };
+
+                canvas.draw_square(
+                    first_cell.x * CELL_SIZE_X + DRAW_X_OFFSET,
+                    first_cell.y * CELL_SIZE_Y + DRAW_Y_OFFSET,
+                    second_cell.x * CELL_SIZE_X + DRAW_X_OFFSET + DRAW_CELL_SIZE_X - 1,
+                    second_cell.y * CELL_SIZE_Y + DRAW_Y_OFFSET + DRAW_CELL_SIZE_Y - 1,
+                    &SNAKE_COLOR,
+                );
+            } else {
+                canvas.draw_square(
+                    cell.x * CELL_SIZE_X + DRAW_X_OFFSET,
+                    cell.y * CELL_SIZE_Y + DRAW_Y_OFFSET,
+                    cell.x * CELL_SIZE_X + DRAW_X_OFFSET + DRAW_CELL_SIZE_X - 1,
+                    cell.y * CELL_SIZE_Y + DRAW_Y_OFFSET + DRAW_CELL_SIZE_Y - 1,
+                    &SNAKE_COLOR,
+                );
+            }
+
+            check_for_head_collision = true;
+            cursor.move_next();
         }
 
         //We start drawing at 0. (9 + 1) * 64 = 10 * 64 * 640
         //640 is out of bounds
         canvas.draw_square(
-            new_head_x * CELL_SIZE_X,
-            new_head_y * CELL_SIZE_Y,
-            (new_head_x + 1) * CELL_SIZE_X - 1,
-            (new_head_y + 1) * CELL_SIZE_Y - 1,
+            new_head_x * CELL_SIZE_X + HEAD_OFFSET,
+            new_head_y * CELL_SIZE_Y + HEAD_OFFSET,
+            (new_head_x + 1) * CELL_SIZE_X - 1 - HEAD_OFFSET,
+            (new_head_y + 1) * CELL_SIZE_Y - 1 - HEAD_OFFSET,
             &SNAKE_COLOR,
         );
 
@@ -265,16 +320,82 @@ impl SnakeGame {
                 &Color::hex("464B46")?,
             );
 
-            for cell in &self.snake {
-                canvas.draw_square(
-                    cell.x * CELL_SIZE_X,
-                    cell.y * CELL_SIZE_Y,
-                    (cell.x + 1) * CELL_SIZE_X - 1,
-                    (cell.y + 1) * CELL_SIZE_Y - 1,
-                    &SNAKE_COLOR,
-                );
+            let mut cursor = self.snake.cursor_front();
+
+            'cursor_loop: loop {
+                let cell = match cursor.current() {
+                    Some(val) => val,
+                    None => break 'cursor_loop,
+                };
+
+                if let Some(next_cell) = cursor.peek_next() {
+                    let first_cell = if cell.x != next_cell.x {
+                        if next_cell.x > cell.x {
+                            cell
+                        } else {
+                            next_cell
+                        }
+                    } else {
+                        if next_cell.y > cell.y {
+                            cell
+                        } else {
+                            next_cell
+                        }
+                    };
+
+                    let second_cell = if cell.x != next_cell.x {
+                        if next_cell.x > cell.x {
+                            next_cell
+                        } else {
+                            cell
+                        }
+                    } else {
+                        if next_cell.y > cell.y {
+                            next_cell
+                        } else {
+                            cell
+                        }
+                    };
+
+                    canvas.draw_square(
+                        first_cell.x * CELL_SIZE_X + DRAW_X_OFFSET,
+                        first_cell.y * CELL_SIZE_Y + DRAW_Y_OFFSET,
+                        second_cell.x * CELL_SIZE_X + DRAW_X_OFFSET + DRAW_CELL_SIZE_X - 1,
+                        second_cell.y * CELL_SIZE_Y + DRAW_Y_OFFSET + DRAW_CELL_SIZE_Y - 1,
+                        &SNAKE_COLOR,
+                    );
+                } else {
+                    canvas.draw_square(
+                        cell.x * CELL_SIZE_X + DRAW_X_OFFSET,
+                        cell.y * CELL_SIZE_Y + DRAW_Y_OFFSET,
+                        cell.x * CELL_SIZE_X + DRAW_X_OFFSET + DRAW_CELL_SIZE_X - 1,
+                        cell.y * CELL_SIZE_Y + DRAW_Y_OFFSET + DRAW_CELL_SIZE_Y - 1,
+                        &SNAKE_COLOR,
+                    );
+                }
+
+                cursor.move_next();
             }
 
+            let head_cell = match self.snake.front() {
+                Some(val) => val,
+                None => return Err(anyhow!("Empty snake")),
+            };
+
+            let head_x = head_cell.x;
+            let head_y = head_cell.y;
+
+            //We start drawing at 0. (9 + 1) * 64 = 10 * 64 * 640
+            //640 is out of bounds
+            canvas.draw_square(
+                head_x * CELL_SIZE_X + HEAD_OFFSET,
+                head_y * CELL_SIZE_Y + HEAD_OFFSET,
+                (head_x + 1) * CELL_SIZE_X - 1 - HEAD_OFFSET,
+                (head_y + 1) * CELL_SIZE_Y - 1 - HEAD_OFFSET,
+                &SNAKE_COLOR,
+            );
+
+            //Draw apple
             canvas.draw_square(
                 self.apple_x * CELL_SIZE_X,
                 self.apple_y * CELL_SIZE_Y,
