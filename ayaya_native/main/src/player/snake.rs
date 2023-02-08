@@ -1,10 +1,10 @@
 use std::{collections::LinkedList, sync::mpsc::Receiver};
 
-use crate::colorlib::Color;
+use crate::{colorlib::Color, bake_image};
 use anyhow::anyhow;
 use rand::{rngs::ThreadRng, Rng};
 
-use super::game_player::{Game, GameInputDirection, VideoCanvas};
+use super::game_player::{Game, GameInputDirection, VideoCanvas, BakedImage};
 
 static BOARD_WIDTH: usize = 10;
 static BOARD_HEIGHT: usize = 10;
@@ -25,6 +25,9 @@ static SNAKE_COLOR: Color = Color::new(35, 90, 35);
 static APPLE_COLOR: Color = Color::new(85, 27, 27);
 
 static DEATH_FRAMES: i8 = 1;
+
+static SNAKE_LOSE_SCREEN: BakedImage = bake_image!(snake_lose);
+static SNAKE_WIN_SCREEN: BakedImage = bake_image!(snake_win);
 
 enum SnakeDirection {
     Up,
@@ -308,11 +311,7 @@ impl SnakeGame {
     fn draw_lose_screen(&mut self) -> anyhow::Result<VideoCanvas> {
         if self.death_timer == 0 {
             self.game_state = SnakeGameState::Lose;
-            return Ok(VideoCanvas::new(
-                self.width() as usize,
-                self.height() as usize,
-                &Color::new(0, 0, 0),
-            ));
+            return Ok(VideoCanvas::new_from_image(&SNAKE_LOSE_SCREEN));
         } else {
             let mut canvas = VideoCanvas::new(
                 self.width() as usize,
@@ -411,10 +410,6 @@ impl SnakeGame {
 
     fn draw_win_screen(&mut self) -> anyhow::Result<VideoCanvas> {
         self.game_state = SnakeGameState::Win;
-        return Ok(VideoCanvas::new(
-            self.width() as usize,
-            self.height() as usize,
-            &Color::new(30, 50, 0),
-        ));
+        return Ok(VideoCanvas::new_from_image(&SNAKE_WIN_SCREEN));
     }
 }

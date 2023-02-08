@@ -31,6 +31,14 @@ impl VideoCanvas {
         Self { width, height, vec }
     }
 
+    pub fn new_from_image(image: &BakedImage) -> Self {
+        Self {
+            vec: image.data.to_vec(),
+            width: image.width as usize,
+            height: image.height as usize
+        } 
+    }
+
     #[allow(dead_code)]
     pub fn draw_pixel(&mut self, x: usize, y: usize, color: &Color) {
         self.vec[(y * self.width) + x] = color.convert_to_mc();
