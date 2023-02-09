@@ -46,6 +46,7 @@ mod colorlib;
 mod map_server;
 
 mod player;
+mod apps;
 mod splitting;
 
 static TOKIO_RUNTIME: Lazy<Runtime> = Lazy::new(|| {

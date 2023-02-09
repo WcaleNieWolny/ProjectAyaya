@@ -3,9 +3,7 @@ use std::sync::mpsc::Receiver;
 use anyhow::anyhow;
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 
-use crate::{bake_image, colorlib::Color};
-
-use super::game_player::{BakedImage, Game, GameInputDirection, VideoCanvas};
+use crate::{bake_image, colorlib::Color, player::game_player::{BakedImage, Game, GameInputDirection, VideoCanvas}};
 
 static FRAME_COLOR: Color = Color::new(30, 40, 112);
 static INNER_FRAME_COLOR: Color = Color::new(60, 60, 60);

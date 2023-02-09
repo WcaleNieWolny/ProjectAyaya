@@ -1,10 +1,8 @@
 use std::{collections::LinkedList, sync::mpsc::Receiver};
 
-use crate::{colorlib::Color, bake_image};
+use crate::{colorlib::Color, bake_image, player::game_player::{BakedImage, Game, GameInputDirection, VideoCanvas}};
 use anyhow::anyhow;
 use rand::{rngs::ThreadRng, Rng};
-
-use super::game_player::{Game, GameInputDirection, VideoCanvas, BakedImage};
 
 static BOARD_WIDTH: usize = 10;
 static BOARD_HEIGHT: usize = 10;

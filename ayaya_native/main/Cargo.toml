@@ -20,6 +20,8 @@ serenity = { git = "https://github.com/serenity-rs/serenity", features = ["clien
 songbird = { git = "https://github.com/serenity-rs/songbird", branch = "next" }
 symphonia = { version = "0.5.2", features = ["aac", "mp3", "isomp4", "alac"]}
 once_cell = "1.17.0"
+font-kit = "0.11.0"
+pathfinder_geometry = "0.5.1"
 
 [features]
 ffmpeg = ["dep:ffmpeg-next"]
