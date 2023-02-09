@@ -39,8 +39,8 @@ impl VideoCanvas {
         Self {
             vec: image.data.to_vec(),
             width: image.width as usize,
-            height: image.height as usize
-        } 
+            height: image.height as usize,
+        }
     }
 
     #[allow(dead_code)]
