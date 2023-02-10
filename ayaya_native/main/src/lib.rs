@@ -45,8 +45,8 @@ use tokio::runtime::{Builder, Runtime};
 mod colorlib;
 mod map_server;
 
-mod player;
 mod apps;
+mod player;
 mod splitting;
 
 static TOKIO_RUNTIME: Lazy<Runtime> = Lazy::new(|| {

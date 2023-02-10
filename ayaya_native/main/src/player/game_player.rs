@@ -1,17 +1,33 @@
-use std::sync::{mpsc::{channel, Receiver, Sender}, Arc};
+use std::sync::{
+    mpsc::{channel, Receiver, Sender},
+    Arc,
+};
 
 use anyhow::anyhow;
-use font_kit::{handle::Handle, canvas::{Canvas, Format, RasterizationOptions}, hinting::HintingOptions};
+use font_kit::{
+    canvas::{Canvas, Format, RasterizationOptions},
+    handle::Handle,
+    hinting::HintingOptions,
+};
 use once_cell::sync::Lazy;
-use pathfinder_geometry::{vector::{Vector2I, Vector2F}, transform2d::Transform2F};
+use pathfinder_geometry::{
+    transform2d::Transform2F,
+    vector::{Vector2F, Vector2I},
+};
 
 use super::player_context::{NativeCommunication, VideoData, VideoPlayer};
-use crate::{colorlib::Color, map_server::ServerOptions, splitting::SplittedFrame, apps::{snake::SnakeGame, falling_blocks::FallingBlocks, calculator::Calculator}};
+use crate::{
+    apps::{falling_blocks::FallingBlocks, snake::SnakeGame},
+    colorlib::Color,
+    map_server::ServerOptions,
+    splitting::SplittedFrame,
+};
 
+#[allow(dead_code)]
 static DEFAULT_FONT_BYTES: &'static [u8] = include_bytes!("../../WorkSans-VariableFont_wght.ttf");
-static DEFAULT_FONT: Lazy<Handle> = Lazy::new(|| {
-    Handle::from_memory(Arc::new(DEFAULT_FONT_BYTES.to_vec()), 0)
-});
+#[allow(dead_code)]
+static DEFAULT_FONT: Lazy<Handle> =
+    Lazy::new(|| Handle::from_memory(Arc::new(DEFAULT_FONT_BYTES.to_vec()), 0));
 
 pub struct VideoCanvas {
     pub width: usize,
@@ -82,6 +98,7 @@ impl VideoCanvas {
     //We brake the "No result rule" in this function
     //We have no idea what is going to happen
     //it might fail
+    #[allow(dead_code)]
     pub fn draw_default_text(
         &mut self,
         x: usize,
@@ -89,17 +106,21 @@ impl VideoCanvas {
         font_size: i32,
         font_spacing: usize,
         color: &Color,
-        text: &str
-    ) -> anyhow::Result<()>{
+        text: &str,
+    ) -> anyhow::Result<()> {
         let font = DEFAULT_FONT.load()?;
         let mut text_x_offset = 0;
 
         for text_char in text.chars() {
             let glyph_id = match font.glyph_for_char(text_char) {
                 Some(val) => val,
-                None => return Err(anyhow!(format!("This font does not support character {:?}", text_char)))
+                None => {
+                    return Err(anyhow!(format!(
+                        "This font does not support character {:?}",
+                        text_char
+                    )))
+                }
             };
-
 
             let mut canvas = Canvas::new(Vector2I::new(font_size, font_size), Format::A8);
             font.rasterize_glyph(
@@ -116,12 +137,12 @@ impl VideoCanvas {
             for loop_y in 0..font_size {
                 for loop_x in 0..font_size {
                     if canvas.pixels[loop_y * font_size + loop_x] != 0 {
-                        self.draw_pixel(x + text_x_offset + loop_x, loop_y + y, &color); 
+                        self.draw_pixel(x + text_x_offset + loop_x, loop_y + y, &color);
                     }
                 }
             }
 
-            text_x_offset += font_spacing; 
+            text_x_offset += font_spacing;
         }
 
         Ok(())
@@ -213,7 +234,6 @@ impl VideoPlayer for GamePlayer {
         let game: Box<dyn Game> = match file_name.as_str() {
             "falling_blocks" => Box::new(FallingBlocks::new()),
             "snake" => Box::new(SnakeGame::new()),
-            "calculator" => Box::new(Calculator::new()),
             _ => return Err(anyhow!("This game is not implemented!")),
         };
 
