@@ -45,6 +45,7 @@ use tokio::runtime::{Builder, Runtime};
 mod colorlib;
 mod map_server;
 
+mod apps;
 mod player;
 mod splitting;
 

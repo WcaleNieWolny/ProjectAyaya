@@ -4,7 +4,7 @@ use crate::{bake_image, colorlib::Color};
 use anyhow::anyhow;
 use rand::{rngs::ThreadRng, Rng};
 
-use super::game_player::{BakedImage, Game, GameInputDirection, VideoCanvas};
+use crate::player::game_player::{BakedImage, Game, GameInputDirection, VideoCanvas};
 
 static BOARD_WIDTH: usize = 10;
 static BOARD_HEIGHT: usize = 10;

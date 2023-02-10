@@ -1,8 +1,6 @@
 pub mod discord_audio;
-pub mod falling_blocks;
 pub mod game_player;
 pub(crate) mod player_context;
-pub mod snake;
 
 #[cfg(feature = "ffmpeg")]
 pub mod multi_video_player;
