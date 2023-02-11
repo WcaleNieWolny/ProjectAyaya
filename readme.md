@@ -22,8 +22,8 @@ It is a reference that this was originally created to watch anime.
  - ⌚ video timeline
  - 🎮 games ([Snake](https://en.wikipedia.org/wiki/Snake_(video_game_genre)), ~~[Falling blocks](https://en.wikipedia.org/wiki/Tetris)~~) 
 
-### 🚀 Deploying
-Please see the [wiki](https://github.com/WcaleNieWolny/ProjectAyaya/wiki) for information on how to deploy.
+### 🚀 Usage
+Please see the [wiki](https://github.com/WcaleNieWolny/ProjectAyaya/wiki) for information on how to use this plugin.
 
 ### 🤝 Contributing
 
