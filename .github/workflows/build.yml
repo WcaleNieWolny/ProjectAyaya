@@ -51,7 +51,7 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "nightly"
         prerelease: true
-        title: "Latest Development Build"
+        title: "Latest Development Build (Nightly)"
         files: |
           minecraft/build/libs/minecraft-1.0-SNAPSHOT.jar
     - name: upload artifact
