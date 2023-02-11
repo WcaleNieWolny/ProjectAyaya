@@ -144,7 +144,7 @@ class VideoCommand(
             return
         }
 
-        if (!System.getProperty("os.name").contains("Linux")) {
+        if (!System.getProperty("os.name").contains("Linux", true)) {
             sender.sendColoredMessage(fileConfiguration.getString("x11NotLinux")!!)
             return
         }

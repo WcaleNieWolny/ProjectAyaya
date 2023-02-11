@@ -76,7 +76,7 @@ class MapMinecraftClient : JavaPlugin() {
                 Bukkit.getPluginManager().disablePlugin(this)
                 return false
             }
-        } else if (windowsBootstrap) {
+        } else if (windowsBootstrap && !os.contains("Linux", true)){
             logger.log(
                 Level.WARNING,
                 "ProjectAyaya will now try to use windows bootstrap! Please read the wiki so you know what you are doing!!!"
