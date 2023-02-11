@@ -26,7 +26,7 @@ static EXTERNAL_METHODS: [(&[u8], &str, &str); 6] = [
     (b"Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getVideoData", "getVideoData", "(J)Lme/wcaleniewolny/ayaya/library/VideoData;")
 ];
 
-static FFMPEG_URL: &str = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip";
+static FFMPEG_URL: &str = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n5.1-latest-win64-lgpl-shared-5.1.zip";
 static FFMPEG_FOLDER_PATH_PREFIX: &str = "ffmpeg-master-latest-win64-lgpl-shared";
 
 #[no_mangle]

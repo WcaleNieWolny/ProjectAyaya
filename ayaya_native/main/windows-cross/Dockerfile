@@ -8,4 +8,4 @@ COPY Makefile /
 
 RUN make prepare_windows_ffmpeg
 
-ENV PKG_CONFIG_PATH=/ffmpeg/ffmpeg-master-latest-win64-lgpl-shared/lib/pkgconfig
+ENV PKG_CONFIG_PATH=/ffmpeg/ffmpeg-n5.1-latest-win64-lgpl-shared-5.1/lib/pkgconfig
