@@ -8,3 +8,4 @@ pluginManagement {
 rootProject.name = "ProjectAyaya"
 include("library")
 include("minecraft")
+include("fastmaprenderer")
