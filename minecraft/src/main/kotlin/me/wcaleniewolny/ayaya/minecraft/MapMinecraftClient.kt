@@ -12,12 +12,14 @@ import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.Optional
 import java.util.logging.Level
 
 
 class MapMinecraftClient : JavaPlugin() {
 
     private var windowsBootstrapPtr: Long = 0
+    private var nativeGameController: NativeGameController? = null;
 
     override fun onEnable() {
 
@@ -39,6 +41,7 @@ class MapMinecraftClient : JavaPlugin() {
         }
         val nativeGameController = NativeGameController(this)
         val screenController = ScreenController(this, nativeGameController)
+        this.nativeGameController = nativeGameController;
 
         screenController.init()
         nativeGameController.init()
@@ -122,9 +125,11 @@ class MapMinecraftClient : JavaPlugin() {
     }
 
     override fun onDisable() {
-        if (windowsBootstrapPtr != 0.toLong()) {
+        if (windowsBootstrapPtr != 0L) {
             WindowsBootstrap.cleanup(windowsBootstrapPtr)
         }
+
+        this.nativeGameController?.stopCleanup()
     }
 }
 

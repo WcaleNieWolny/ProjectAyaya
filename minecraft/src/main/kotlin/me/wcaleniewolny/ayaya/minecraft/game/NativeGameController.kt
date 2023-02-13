@@ -15,8 +15,12 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.event.player.PlayerMoveEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.potion.PotionEffect
+import org.bukkit.potion.PotionEffectType
 import org.bukkit.util.Vector
+import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class NativeGameController(private val plugin: JavaPlugin) : Listener {
@@ -119,6 +123,21 @@ class NativeGameController(private val plugin: JavaPlugin) : Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGH)
+    private fun onDropQuit(event: PlayerQuitEvent) {
+        val gameIndex = games.indexOfFirst { it.player == event.player }
+        if (gameIndex == -1) {
+            return
+        }
+
+        val game = games[gameIndex]
+        game.player.removePotionEffect(PotionEffectType.SLOW)
+        game.screen.renderService.get().killRendering()
+        game.screen.renderService = Optional.empty()
+
+        games.removeAt(gameIndex)
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
     private fun onDropEvent(event: PlayerDropItemEvent) {
         games.firstOrNull { it.player == event.player } ?: return
 
@@ -152,6 +171,10 @@ class NativeGameController(private val plugin: JavaPlugin) : Listener {
         Bukkit.getServer().pluginManager.registerEvents(this, plugin)
     }
 
+    fun stopCleanup() {
+        games.forEach {game -> game.player.removePotionEffect(PotionEffectType.SLOW)}
+    }
+
     fun registerGamer(player: Player, screen: Screen) {
         games.add(NativeGame(screen, player, ConcurrentLinkedQueue()))
 
@@ -172,6 +195,7 @@ class NativeGameController(private val plugin: JavaPlugin) : Listener {
         location.direction = facing.direction
         location = location.add(Vector(0.5, 1.0, 0.5))
 
+        player.addPotionEffect(PotionEffect(PotionEffectType.SLOW, Int.MAX_VALUE, 0, true, false))
         player.teleport(location)
     }
 
@@ -180,6 +204,9 @@ class NativeGameController(private val plugin: JavaPlugin) : Listener {
         if (gameIndex == -1) {
             return
         }
+        val game = games.get(gameIndex)
+        game.player.removePotionEffect(PotionEffectType.SLOW)
+
         games.removeAt(gameIndex)
     }
 
