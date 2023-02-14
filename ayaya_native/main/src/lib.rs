@@ -104,7 +104,7 @@ fn ffmpeg_set_multithreading(target_decoder: &mut Decoder, file_name: String) {
 
 #[allow(unused_variables)]
 fn verify_capabilities(
-    env: JNIEnv,
+    env: &mut JNIEnv,
     file_name: JString,
     width: jint,
     height: jint,
@@ -122,7 +122,7 @@ fn verify_capabilities(
                 "me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse",
                 "valueOf",
                 "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;",
-                &[env.new_string("DISCORD_IN_USE")?.into()],
+                &[(&env.new_string("DISCORD_IN_USE")?).into()],
             )?
             .l()?;
         return Ok(discord_in_use.into_raw());
@@ -130,7 +130,7 @@ fn verify_capabilities(
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "ffmpeg")] {
-            let file_name: String = env.get_string(file_name)?.into();
+            let file_name: String = env.get_string(&file_name)?.into();
 
             ffmpeg::init()?;
             if let Ok(ictx) = input(&file_name) {
@@ -148,12 +148,12 @@ fn verify_capabilities(
                 let v_height = decoder.height();
 
                 if v_width % 2 != 0 || v_height % 2 != 0 {
-                    let invalid_dimenstions = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("INVALID_DIMENSIONS")?.into()])?.l()?;
+                    let invalid_dimenstions = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[(&env.new_string("INVALID_DIMENSIONS")?).into()])?.l()?;
                     return Ok(invalid_dimenstions.into_raw());
                 }
 
                 if v_width > width as u32 || v_height > height as u32 {
-                    let to_small = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("TO_SMALL")?.into()])?.l()?;
+                    let to_small = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[(&env.new_string("TO_SMALL")?).into()])?.l()?;
                     return Ok(to_small.into_raw());
                 }
 
@@ -165,11 +165,11 @@ fn verify_capabilities(
 
 
                 if required_frames_x != frames_x || required_frames_y != frames_y {
-                    let to_large = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("TO_LARGE")?.into()])?.l()?;
+                    let to_large = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[(&env.new_string("TO_LARGE")?).into()])?.l()?;
                     return Ok(to_large.into_raw());
                 }
 
-                let ok = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[env.new_string("OK")?.into()])?.l()?;
+                let ok = env.call_static_method("me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse", "valueOf", "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;", &[(&env.new_string("OK")?).into()])?.l()?;
                 return Ok(ok.into_raw());
             };
             return Err(anyhow!("Coudln't create ffmpeg decoder!"));
@@ -181,23 +181,24 @@ fn verify_capabilities(
 
 //Init function
 fn init(
-    env: JNIEnv,
+    env: &mut JNIEnv,
     file_name: JString,
     render_type: JObject,
     server_options: JObject,
     use_discord: bool,
 ) -> anyhow::Result<jlong> {
-    let file_name: String = env.get_string(file_name)?.into();
+    let file_name: String = env.get_string(&file_name)?.into();
 
-    let use_server = env.call_method(server_options, "getUseServer", "()Z", &[])?;
+    let use_server = env.call_method(&server_options, "getUseServer", "()Z", &[])?;
     let use_server = use_server.z()?;
 
-    let bind_ip = env.call_method(server_options, "getBindIp", "()Ljava/lang/String;", &[])?;
+    let bind_ip = env.call_method(&server_options, "getBindIp", "()Ljava/lang/String;", &[])?;
     let bind_ip = bind_ip.l()?;
-    let bind_ip = env.get_string(bind_ip.into())?;
+    let bind_ip: JString = bind_ip.into();
+    let bind_ip = env.get_string(&bind_ip)?;
     let bind_ip: String = bind_ip.into();
 
-    let port = env.call_method(server_options, "getPort", "()I", &[])?;
+    let port = env.call_method(&server_options, "getPort", "()I", &[])?;
     let port = port.i()?;
 
     let server_options = ServerOptions {
@@ -268,16 +269,16 @@ fn init(
 }
 
 //According to kotlin "@return Byte array of transformed frame (color index)"
-fn load_frame(env: JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
+fn load_frame(env: &mut JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
     let data = player_context::load_frame(ptr)?;
     let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
-    env.set_byte_array_region(output, 0, data.as_slice())?;
+    env.set_byte_array_region(&output, 0, data.as_slice())?;
     drop(data);
-    Ok(output)
+    Ok(output.into_raw())
 }
 
 fn recive_jvm_msg(
-    env: JNIEnv,
+    env: &mut JNIEnv,
     ptr: jlong,
     native_lib_communication: JObject,
     info: JString,
@@ -285,7 +286,7 @@ fn recive_jvm_msg(
     let msg_type_obj = env.call_method(native_lib_communication, "ordinal", "()I", &[])?;
     let msg_type = msg_type_obj.i()?;
 
-    let info_string: String = env.get_string(info)?.into();
+    let info_string: String = env.get_string(&info)?.into();
 
     let msg_type = match msg_type {
         0 => {
@@ -320,37 +321,40 @@ fn recive_jvm_msg(
         _ => return Err(anyhow!("Invalid msg enum")),
     };
 
-    env.delete_local_ref(info.into())?;
-    env.delete_local_ref(native_lib_communication)?;
     player_context::pass_jvm_msg(ptr, msg_type)?;
     Ok(())
 }
 
-fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()> {
+fn init_discord_bot(env: &mut JNIEnv, discord_options: JObject) -> anyhow::Result<()> {
     let discord_options = {
         let use_discord = env
-            .call_method(discord_options, "getUseDiscord", "()Z", &[])?
+            .call_method(&discord_options, "getUseDiscord", "()Z", &[])?
             .z()?;
 
         let discord_token = env
             .call_method(
-                discord_options,
+                &discord_options,
                 "getDiscordToken",
                 "()Ljava/lang/String;",
                 &[],
             )?
             .l()?;
-        let discord_token: String = env.get_string(discord_token.into())?.into();
+        let discord_token: String = env.get_string(&discord_token.into())?.into();
 
         let guild_id = env
-            .call_method(discord_options, "getGuildId", "()Ljava/lang/String;", &[])?
+            .call_method(&discord_options, "getGuildId", "()Ljava/lang/String;", &[])?
             .l()?;
-        let guild_id: String = env.get_string(guild_id.into())?.into();
+        let guild_id: String = env.get_string(&guild_id.into())?.into();
 
         let channel_id = env
-            .call_method(discord_options, "getChannelId", "()Ljava/lang/String;", &[])?
+            .call_method(
+                &discord_options,
+                "getChannelId",
+                "()Ljava/lang/String;",
+                &[],
+            )?
             .l()?;
-        let channel_id: String = env.get_string(channel_id.into())?.into();
+        let channel_id: String = env.get_string(&channel_id.into())?.into();
 
         let guild_id: u64 = guild_id.parse()?;
         let channel_id: u64 = channel_id.parse()?;
@@ -381,12 +385,12 @@ fn init_discord_bot(env: JNIEnv, discord_options: JObject) -> anyhow::Result<()>
 }
 
 //Destroy function must be called to drop video_player struct
-fn destroy(_env: JNIEnv, ptr: jlong) -> anyhow::Result<()> {
+fn destroy(_env: &mut JNIEnv, ptr: jlong) -> anyhow::Result<()> {
     player_context::destroy(ptr)?;
     Ok(())
 }
 
-fn get_video_data(env: JNIEnv, ptr: jlong) -> anyhow::Result<jobject> {
+fn get_video_data(env: &mut JNIEnv, ptr: jlong) -> anyhow::Result<jobject> {
     // let jclass = env.find_class("me/wcaleniewolny/ayaya/library/VideoData")?;
     // let jconstructor = env.get_method_id(jclass, "<init>", "(III)V")?;
 
@@ -409,53 +413,19 @@ fn get_video_data(env: JNIEnv, ptr: jlong) -> anyhow::Result<jobject> {
 //Yet somehow rustc and JNI can figure out everything. Please do not touch this or YOU WILL BREAK IT!!!
 //This could be optimized to have ony one bracket but I do not understand macros well
 macro_rules! jvm_impl {
-    (
-        $BOILERPLATE_NAME: ident,
-        $IMPLEMENTATION_NAME: ident
-    ) => {
-        #[allow(non_snake_case)]
-        #[no_mangle]
-        pub extern "system" fn $BOILERPLATE_NAME(environment: JNIEnv, _class: JClass) {
-            let response = $IMPLEMENTATION_NAME(environment);
-
-            if let Err(error) = response {
-                environment.throw_new("java/lang/RuntimeException", format!("{:?}", error))
-                    .expect("Couldn't throw java error");
-            }
-        }
-    };
-
-    (
-        $BOILERPLATE_NAME: ident,
-        $IMPLEMENTATION_NAME: ident,
-        {
-            $($a:ident: $b:tt,)+
-        }
-    ) => {
-        #[allow(non_snake_case)]
-        #[no_mangle]
-        pub extern "system" fn $BOILERPLATE_NAME(environment: JNIEnv, _class: JClass, $($a: $b),+) {
-            let response = $IMPLEMENTATION_NAME(environment, $($a),+);
-
-            if let Err(error) = response {
-                environment.throw_new("java/lang/RuntimeException", format!("{:?}", error))
-                    .expect("Couldn't throw java error");
-            }
-        }
-    };
 
     (
         $BOILERPLATE_NAME: ident,
         $IMPLEMENTATION_NAME: ident,
         $RETURN_TYPE: tt,
         {
-            $($a:ident: $b:tt,)+
+            $($a:ident: $b:tt $(,)?)+
         }
     ) => {
         #[allow(non_snake_case)]
         #[no_mangle]
-        pub extern "system" fn $BOILERPLATE_NAME(environment: JNIEnv, _class: JClass, $($a: $b),+) -> $RETURN_TYPE {
-            let response = $IMPLEMENTATION_NAME(environment, $($a),+);
+        pub extern "system" fn $BOILERPLATE_NAME(mut environment: JNIEnv, _class: JClass, $($a: $b),+) -> $RETURN_TYPE {
+            let response = $IMPLEMENTATION_NAME(&mut environment, $($a),+);
 
             match response {
                 Ok(some) => some,
@@ -470,41 +440,42 @@ macro_rules! jvm_impl {
         }
     };
 
-        (
+    (
         $BOILERPLATE_NAME: ident,
         $IMPLEMENTATION_NAME: ident,
-        $RETURN_TYPE: tt,
+        {
+            $($a:ident: $b:tt $(,)?)+
+        }
     ) => {
         #[allow(non_snake_case)]
         #[no_mangle]
-        pub extern "system" fn $BOILERPLATE_NAME(environment: JNIEnv, _class: JClass) -> $RETURN_TYPE {
-            let response = $IMPLEMENTATION_NAME(environment);
+        pub extern "system" fn $BOILERPLATE_NAME(mut environment: JNIEnv, _class: JClass, $($a: $b),+) {
+            let response = $IMPLEMENTATION_NAME(&mut environment, $($a),+);
 
-            match response {
-                Ok(some) => some,
-                Err(error) => {
-                    environment.throw_new("java/lang/RuntimeException", format!("{:?}", error))
-                        .expect("Couldn't throw java error");
-
-                    return 0 as $RETURN_TYPE
-                }
+            if let Err(error) = response {
+                environment.throw_new("java/lang/RuntimeException", format!("{:?}", error))
+                    .expect("Couldn't throw java error");
             }
         }
     };
 }
 
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getVideoData, get_video_data, jobject, {
-    ptr: jlong,
-});
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy, destroy,
-{
-    ptr: jlong,
-});
+jvm_impl!(
+    Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_getVideoData,
+    get_video_data,
+    jobject,
+    { ptr: jlong }
+);
+jvm_impl!(
+    Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_destroy,
+    destroy,
+    { ptr: jlong }
+);
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_init, init, jlong, {
     filename: JString,
     render_type: JObject,
     server_options: JObject,
-    use_discord: bool,
+    use_discord: bool
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, load_frame, jbyteArray, {
     ptr: jlong,
@@ -512,14 +483,16 @@ jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_loadFrame, l
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_communicate, recive_jvm_msg, {
     ptr: jlong,
     native_lib_communication: JObject,
-    info: JString,
+    info: JString
 });
 jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_verifyScreenCapabilities, verify_capabilities, jobject, {
     file_name: JString,
     width: jint,
     height: jint,
-    use_discord: bool,
+    use_discord: bool
 });
-jvm_impl!(Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_initDiscordBot, init_discord_bot, {
-    file_name: JObject,
-});
+jvm_impl!(
+    Java_me_wcaleniewolny_ayaya_library_NativeRenderControler_initDiscordBot,
+    init_discord_bot,
+    { file_name: JObject }
+);
