@@ -13,7 +13,6 @@ class DisplayServiceImpl(
     private val height: Int
 ) : DisplayService {
 
-
     private var initialized = false
     private val frames = mutableListOf<SplittedFrame>()
 
@@ -25,19 +24,18 @@ class DisplayServiceImpl(
         FrameSplitter.splitFrames(data, frames, width)
 
         broadcaster.sendPackets(frames, allPlayers())
-
     }
 
     override fun allPlayers() = Bukkit.getServer().onlinePlayers.map { it as Player }
 
     override fun init() {
-        frames.addAll(FrameSplitter.initializeFrames(width, height)) //Initialize frames
+        frames.addAll(FrameSplitter.initializeFrames(width, height)) // Initialize frames
 
         val players = allPlayers()
         broadcaster.init(players)
 
         broadcaster.blackoutFrames(frames, allPlayers())
-        //MapCleanerService.cleanMaps(0, frames.size)
+        // MapCleanerService.cleanMaps(0, frames.size)
         initialized = true
     }
 }

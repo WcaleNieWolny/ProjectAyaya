@@ -312,6 +312,38 @@ fn main() -> Result<(), Box<dyn Error>> {
     let out_dir = env::var("OUT_DIR")?; //cargo makes sure that "OUT_DIR" exist
     let out_dir = format!("{out_dir}/cached_color.hex");
 
+    if cfg!(feature = "skip_buildrs") {
+        let mut color_file = BufWriter::new(File::create(out_dir)?);
+        let _ = color_file.write(&[0])?;
+        color_file.flush()?;
+
+        let asstets_entries = std::fs::read_dir("./assets/")?
+            .map(|res| res.map(|e| e.path()))
+            .collect::<Result<Vec<_>, std::io::Error>>()?;
+
+        for ele in asstets_entries {
+            let mut name = ele.to_str().unwrap().replace("./assets/", "");
+            if let Some(val) = ele.extension() {
+                name = name.replace('.', "").replace(val.to_str().unwrap(), "")
+            }
+
+            let out_dir = env::var("OUT_DIR").unwrap(); //cargo makes sure that "OUT_DIR" exist
+            let out_path = format!("{out_dir}/{name}.bin");
+
+            let mut output_file = BufWriter::new(File::create(out_path)?);
+            let _ = output_file.write(&[0])?;
+            output_file.flush()?;
+
+            let mut dimensions_file =
+                BufWriter::new(File::create(format!("{out_dir}/{name}.dim"))?);
+            let _ = dimensions_file.write(&0_u32.to_be_bytes())?;
+            let _ = dimensions_file.write(&0_u32.to_be_bytes())?;
+
+            dimensions_file.flush()?;
+        }
+        return Ok(());
+    }
+
     if !Path::new(&out_dir).exists() {
         println!("Color file does not exists!");
         let mut color_file = BufWriter::new(File::create(out_dir)?);
@@ -330,7 +362,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
 
-        color_file.flush().unwrap();
+        color_file.flush()?;
     };
 
     let asstets_entries = std::fs::read_dir("./assets/")?

@@ -41,7 +41,7 @@ class MinecraftNativeBroadcaster(
     }
 
     override fun init(players: List<Player>) {
-        //Empty on purpose
+        // Empty on purpose
     }
 
     override fun sendPackets(data: MutableList<SplittedFrame>, players: List<Player>) {
@@ -60,7 +60,6 @@ class MinecraftNativeBroadcaster(
             players.forEach {
                 (it as CraftPlayer).handle.connection.send(mapPacket)
             }
-
         }
     }
 
@@ -73,7 +72,7 @@ class MinecraftNativeBroadcaster(
                 128,
                 128,
                 ByteArray(16384) { 119 }
-                //119 is probably the blackest you can get. -49 is technically closer to black but is kind of red and 119 is black but a little grayish
+                // 119 is probably the blackest you can get. -49 is technically closer to black but is kind of red and 119 is black but a little grayish
             )
 
             players.forEach {

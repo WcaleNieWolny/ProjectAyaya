@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 
-//Note: We assume that ptr is a valid pointer and nativeRenderControler has been initialized
+// Note: We assume that ptr is a valid pointer and nativeRenderControler has been initialized
 class RenderThreadVideoImpl(
     private val displayService: DisplayService,
     private val renderCallback: ((ptr: Long, screenName: String) -> Unit)?,
@@ -37,7 +37,6 @@ class RenderThreadVideoImpl(
     }
 
     private fun renderLoop() {
-
         while (true) {
             val start = System.nanoTime()
 
@@ -55,7 +54,6 @@ class RenderThreadVideoImpl(
                 exception.printStackTrace()
                 break
             }
-
 
             displayService.displayFrame(frame)
 
@@ -81,7 +79,6 @@ class RenderThreadVideoImpl(
             if (debug) {
                 println("DEBUG: toWait: $toWaitMilis ($toWait), took: ${TimeUnit.NANOSECONDS.toMillis(took)}")
             }
-
 
             while (!renderFrames.get()) {
                 sleep(50)

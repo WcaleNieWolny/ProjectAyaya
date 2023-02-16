@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-//I changed the package, but it is NOT my code!
+// I changed the package, but it is NOT my code!
 package me.wcaleniewolny.ayaya.minecraft
 
 import java.io.File

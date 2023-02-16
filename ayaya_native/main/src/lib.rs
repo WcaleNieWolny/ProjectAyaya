@@ -30,6 +30,7 @@ use jni::JNIEnv;
 
 use map_server::ServerOptions;
 
+use crate::discord_audio::DiscordPlayer;
 use once_cell::sync::Lazy;
 use player::player_context::{self, NativeCommunication};
 use player::{
@@ -37,7 +38,7 @@ use player::{
     game_player::{GameInputDirection, GamePlayer},
 };
 use player::{
-    discord_audio::{self, DiscordClient, DiscordPlayer},
+    discord_audio::{self, DiscordClient},
     player_context::VideoPlayer,
 };
 use tokio::runtime::{Builder, Runtime};
@@ -51,7 +52,7 @@ mod splitting;
 
 static TOKIO_RUNTIME: Lazy<Runtime> = Lazy::new(|| {
     Builder::new_multi_thread()
-        .worker_threads(8 as usize)
+        .worker_threads(8_usize)
         .thread_name("ProjectAyaya native worker thread")
         .thread_stack_size(3840_usize * 2160_usize * 4) //Big stack due to memory heavy operations (4k is max resolution for now)
         .enable_io()

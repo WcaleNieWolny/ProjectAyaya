@@ -43,6 +43,12 @@ jobs:
       working-directory: ./ayaya_native
       run: |
         cargo fmt --all -- --check
+    - name: run cargo clippy
+      run: |
+        make clippy
+    - name: run ktlint
+      run: |
+        ./gradlew.sh :minecraft:ktlintCheck
     - name: compile application
       run: make all
     - name: push release

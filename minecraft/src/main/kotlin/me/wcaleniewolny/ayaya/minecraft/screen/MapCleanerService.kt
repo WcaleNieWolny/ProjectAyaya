@@ -5,7 +5,6 @@ import org.bukkit.World
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.MapMeta
 
-
 object MapCleanerService {
 
     fun generateMapItem(id: Int, world: World): ItemStack {

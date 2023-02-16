@@ -25,7 +25,6 @@ import org.bukkit.util.Vector
 import java.io.File
 import java.util.*
 
-
 class ScreenController(
     private val plugin: JavaPlugin,
     private val nativeGameController: NativeGameController
@@ -36,7 +35,6 @@ class ScreenController(
     private val random = Random()
 
     fun init() {
-
         dir.listFiles()
             ?.filterNot { it.name.contains(" ") }
             ?.forEach { file ->
@@ -93,7 +91,7 @@ class ScreenController(
         useGame: Boolean,
         world: World
     ) {
-        val screenFile = File(dir, "${name}.yml")
+        val screenFile = File(dir, "$name.yml")
 
         if (screenFile.exists()) {
             throw IllegalStateException("Screen with name $name exists")
@@ -132,62 +130,80 @@ class ScreenController(
         screen: Screen,
         useDiscord: Boolean
     ) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
-            val verify = NativeRenderControler.verifyScreenCapabilities(
-                file.absolutePath,
-                screen.width,
-                screen.height,
-                useDiscord
-            )
-            when (verify) {
-                VideoRequestCapablyResponse.OK -> {}
-                VideoRequestCapablyResponse.INVALID_DIMENSIONS -> {
-                    Bukkit.getScheduler().runTask(plugin, Runnable {
-                        sender.sendColoredMessage(plugin.config.getString("videoVerificationInvalidDimensions")!!)
-                    })
-                    return@Runnable
+        Bukkit.getScheduler().runTaskAsynchronously(
+            plugin,
+            Runnable {
+                val verify = NativeRenderControler.verifyScreenCapabilities(
+                    file.absolutePath,
+                    screen.width,
+                    screen.height,
+                    useDiscord
+                )
+                when (verify) {
+                    VideoRequestCapablyResponse.OK -> {}
+                    VideoRequestCapablyResponse.INVALID_DIMENSIONS -> {
+                        Bukkit.getScheduler().runTask(
+                            plugin,
+                            Runnable {
+                                sender.sendColoredMessage(plugin.config.getString("videoVerificationInvalidDimensions")!!)
+                            }
+                        )
+                        return@Runnable
+                    }
+
+                    VideoRequestCapablyResponse.TO_SMALL -> {
+                        Bukkit.getScheduler().runTask(
+                            plugin,
+                            Runnable {
+                                sender.sendColoredMessage(plugin.config.getString("videoVerificationToSmall")!!)
+                            }
+                        )
+                        return@Runnable
+                    }
+
+                    VideoRequestCapablyResponse.TO_LARGE -> {
+                        Bukkit.getScheduler().runTask(
+                            plugin,
+                            Runnable {
+                                sender.sendColoredMessage(plugin.config.getString("videoVerificationToLarge")!!)
+                            }
+                        )
+                        return@Runnable
+                    }
+
+                    VideoRequestCapablyResponse.DISCORD_IN_USE -> {
+                        Bukkit.getScheduler().runTask(
+                            plugin,
+                            Runnable {
+                                sender.sendColoredMessage(plugin.config.getString("videoVerificationDiscordInUse")!!)
+                            }
+                        )
+                        return@Runnable
+                    }
                 }
 
-                VideoRequestCapablyResponse.TO_SMALL -> {
-                    Bukkit.getScheduler().runTask(plugin, Runnable {
-                        sender.sendColoredMessage(plugin.config.getString("videoVerificationToSmall")!!)
-                    })
-                    return@Runnable
-                }
+                val useMapServer = videoPlayType == VideoPlayType.MAP_SERVER
+                val renderService = RenderServiceFactory.create(
+                    plugin,
+                    file.absolutePath,
+                    screen.name,
+                    screen.startID,
+                    useMapServer,
+                    if (useMapServer) RenderServiceType.NATIVE else RenderServiceType.JAVA,
+                    videoPlayType,
+                    useDiscord = useDiscord
+                )
 
-                VideoRequestCapablyResponse.TO_LARGE -> {
-                    Bukkit.getScheduler().runTask(plugin, Runnable {
-                        sender.sendColoredMessage(plugin.config.getString("videoVerificationToLarge")!!)
-                    })
-                    return@Runnable
-                }
-
-                VideoRequestCapablyResponse.DISCORD_IN_USE -> {
-                    Bukkit.getScheduler().runTask(plugin, Runnable {
-                        sender.sendColoredMessage(plugin.config.getString("videoVerificationDiscordInUse")!!)
-                    })
-                    return@Runnable
-                }
+                screen.renderService = Optional.of(renderService)
+                renderService.startRendering()
+                Bukkit.getScheduler().runTask(
+                    plugin,
+                    Runnable {
+                        sender.sendColoredMessage(plugin.config.getString("success")!!)
+                    }
+                )
             }
-
-            val useMapServer = videoPlayType == VideoPlayType.MAP_SERVER
-            val renderService = RenderServiceFactory.create(
-                plugin,
-                file.absolutePath,
-                screen.name,
-                screen.startID,
-                useMapServer,
-                if (useMapServer) RenderServiceType.NATIVE else RenderServiceType.JAVA,
-                videoPlayType,
-                useDiscord = useDiscord
-            )
-
-            screen.renderService = Optional.of(renderService)
-            renderService.startRendering()
-            Bukkit.getScheduler().runTask(plugin, Runnable {
-                sender.sendColoredMessage(plugin.config.getString("success")!!)
-            })
-        })
+        )
     }
 
     fun startGame(
@@ -197,7 +213,7 @@ class ScreenController(
     ) {
         val renderService = RenderServiceFactory.create(
             plugin,
-            game, //Note: in game mode this will load selected game
+            game, // Note: in game mode this will load selected game
             screen.name,
             screen.startID,
             false,
@@ -217,7 +233,7 @@ class ScreenController(
         useMapServer: Boolean,
         screenDetails: String
     ) {
-        //"$" is the splitting sign of the X11 player
+        // "$" is the splitting sign of the X11 player
         val renderService = RenderServiceFactory.create(
             plugin,
             screenDetails,
@@ -225,7 +241,7 @@ class ScreenController(
             screen.startID,
             useMapServer,
             if (!useMapServer) RenderServiceType.JAVA else RenderServiceType.NATIVE,
-            VideoPlayType.X11,
+            VideoPlayType.X11
         )
 
         screen.renderService = Optional.of(renderService)
@@ -240,9 +256,9 @@ class ScreenController(
 
         val renderService = renderServiceOptional.get()
 
-        //This is a NOOP when a screen is a non gaming screen
-        //This needs to be called before killing the service
-        //Doing it after the kill method could go VERY wrong (potential SEGFAULT)
+        // This is a NOOP when a screen is a non gaming screen
+        // This needs to be called before killing the service
+        // Doing it after the kill method could go VERY wrong (potential SEGFAULT)
         nativeGameController.unregisterScreen(screen)
 
         renderService.killRendering()
@@ -252,7 +268,7 @@ class ScreenController(
     }
 
     fun getScreens(): List<Screen> {
-        //Make immutable
+        // Make immutable
         return screens
     }
 
@@ -290,7 +306,7 @@ class ScreenController(
         cloneLoc1.add(blockFace.direction)
         cloneLoc2.add(blockFace.direction)
 
-        //It will have fake item init - no need to have realists ids
+        // It will have fake item init - no need to have realists ids
         val preMap = random.nextInt(2_000_000 - 1_000_000) + 1_000_000
 
         var i = preMap
@@ -321,5 +337,4 @@ class ScreenController(
         }
         return Optional.empty()
     }
-
 }

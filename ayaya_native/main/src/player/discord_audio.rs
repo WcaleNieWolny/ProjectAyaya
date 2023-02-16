@@ -29,6 +29,7 @@ pub struct DiscordClient {
 }
 
 impl DiscordClient {
+    #[allow(unused)]
     pub fn connect_and_play(
         &self,
         audio_path: String,
@@ -58,7 +59,7 @@ impl DiscordClient {
                 }
                 Ok(track)
             });
-        Ok(join_handle?)
+        join_handle
     }
 
     pub fn leave_channel(&self) -> anyhow::Result<()> {
@@ -74,11 +75,7 @@ impl DiscordClient {
             }
 
             if let Err(err) = songbird.remove(options.guild_id).await {
-                println!(
-                    "[ProjectAyaya] Cannot leave discord audio channel! Err: {:?}",
-                    err
-                );
-                return;
+                println!("[ProjectAyaya] Cannot leave discord audio channel! Err: {err:?}");
             }
         });
 
@@ -93,7 +90,7 @@ impl DiscordClient {
             None => return Err(anyhow!("Discord client not initialized")),
         };
 
-        return Ok(client.songbird.get(client.options.guild_id).is_some());
+        Ok(client.songbird.get(client.options.guild_id).is_some())
     }
 }
 
@@ -118,7 +115,7 @@ pub fn init(options: &DiscordOptions) -> anyhow::Result<()> {
             options: options_clone.clone(),
         };
 
-        if let Err(_) = DISCORD_CLIENT.set(discord_static_client) {
+        if DISCORD_CLIENT.set(discord_static_client).is_err() {
             println!("Unable to set static discord client!");
             return;
         }
@@ -126,7 +123,7 @@ pub fn init(options: &DiscordOptions) -> anyhow::Result<()> {
         let _ = client
             .start()
             .await
-            .map_err(|why| println!("Discord client ended: {:?}", why));
+            .map_err(|why| println!("Discord client ended: {why:?}"));
     });
 
     Ok(())
@@ -189,6 +186,7 @@ impl VideoPlayer for DiscordPlayer {
 }
 
 impl DiscordPlayer {
+    #[allow(unused)]
     pub fn create_with_discord(
         filename: String,
         player: Box<dyn VideoPlayer>,

@@ -35,14 +35,13 @@ class RenderThreadGameImpl(
     }
 
     private fun renderLoop() {
-
         while (true) {
             val start = System.nanoTime()
             val frame = NativeRenderControler.loadFrame(ptr)
             renderCallback?.invoke(ptr, screenName)
 
-            //We use a magic value - 0 is a transparent color, and it is not possible to get when using normal video splitting
-            //It is safe to assume that if we have a full frame 0 will never be present
+            // We use a magic value - 0 is a transparent color, and it is not possible to get when using normal video splitting
+            // It is safe to assume that if we have a full frame 0 will never be present
             if (frame[0].toInt() != 0) {
                 if (frame.size != 1) {
                     displayService.displayFrame(frame)
@@ -60,9 +59,9 @@ class RenderThreadGameImpl(
                 }
             } else {
                 if (frame.size != 1) {
-                    //https://stackoverflow.com/questions/2840190/java-convert-4-bytes-to-int
+                    // https://stackoverflow.com/questions/2840190/java-convert-4-bytes-to-int
                     val dataStringLen = 0xFF and frame[1].toInt() shl 24 or (0xFF and frame[2].toInt() shl 16) or
-                            (0xFF and frame[3].toInt() shl 8) or (0xFF and frame[4].toInt())
+                        (0xFF and frame[3].toInt() shl 8) or (0xFF and frame[4].toInt())
 
                     val dataStringArr = ByteArray(dataStringLen)
                     System.arraycopy(frame, 5, dataStringArr, 0, dataStringLen)
@@ -72,7 +71,7 @@ class RenderThreadGameImpl(
                     var offset = 0
                     for (split in dataSplit) {
                         val splitArr = split.split("_")
-                        //Format: {frame_inxex}_{width}_{height}_{x1}_{y1}$
+                        // Format: {frame_inxex}_{width}_{height}_{x1}_{y1}$
                         val frameIndex = splitArr[0].toInt()
                         val width = splitArr[1].toInt()
                         val height = splitArr[2].toInt()
@@ -117,5 +116,4 @@ class RenderThreadGameImpl(
             }
         }
     }
-
 }

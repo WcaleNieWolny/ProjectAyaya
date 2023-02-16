@@ -48,37 +48,47 @@ object RenderServiceFactory {
         val fps = videoData.fps
 
         val thread =
-            if (videoPlayType != VideoPlayType.GAME && videoPlayType != VideoPlayType.X11) RenderThreadVideoImpl(
-                DisplayServiceImpl(
-                    MinecraftNativeBroadcaster(startID),
-                    width, height
-                ),
-                renderCallback,
-                fps,
-                screenName,
-                ptr
-            ) else RenderThreadGameImpl(
-                DisplayServiceImpl(
-                    MinecraftNativeBroadcaster(startID),
-                    width, height
-                ),
+            if (videoPlayType != VideoPlayType.GAME && videoPlayType != VideoPlayType.X11) {
+                RenderThreadVideoImpl(
+                    DisplayServiceImpl(
+                        MinecraftNativeBroadcaster(startID),
+                        width,
+                        height
+                    ),
+                    renderCallback,
+                    fps,
+                    screenName,
+                    ptr
+                )
+            } else {
+                RenderThreadGameImpl(
+                    DisplayServiceImpl(
+                        MinecraftNativeBroadcaster(startID),
+                        width,
+                        height
+                    ),
+                    startID,
+                    renderCallback,
+                    fps,
+                    screenName,
+                    ptr
+                )
+            }
+
+        val service = if (serviceType == RenderServiceType.JAVA) {
+            JavaRenderServiceImpl(
+                thread,
+                useDiscord
+            )
+        } else {
+            NativeRenderServiceImpl(
+                plugin,
+                videoData,
+                MinecraftNativeBroadcaster(startID),
                 startID,
-                renderCallback,
-                fps,
-                screenName,
                 ptr
             )
-
-        val service = if (serviceType == RenderServiceType.JAVA) JavaRenderServiceImpl(
-            thread,
-            useDiscord,
-        ) else NativeRenderServiceImpl(
-            plugin,
-            videoData,
-            MinecraftNativeBroadcaster(startID),
-            startID,
-            ptr,
-        )
+        }
 
         service.init(plugin)
 

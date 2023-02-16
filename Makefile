@@ -19,6 +19,9 @@ windows: windows_lib windows_move
 
 linux: linux_lib linux_move
 
+clippy:
+	cd ./ayaya_native/main/ && cargo clippy --no-default-features --features "skip_buildrs ffmpeg" -- -D warnings
+
 clear:
 	cd ayaya_native && cargo clean && cd ..
 

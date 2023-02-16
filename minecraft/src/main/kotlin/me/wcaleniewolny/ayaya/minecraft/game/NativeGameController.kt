@@ -172,7 +172,7 @@ class NativeGameController(private val plugin: JavaPlugin) : Listener {
     }
 
     fun stopCleanup() {
-        games.forEach {game -> game.player.removePotionEffect(PotionEffectType.SLOW)}
+        games.forEach { game -> game.player.removePotionEffect(PotionEffectType.SLOW) }
     }
 
     fun registerGamer(player: Player, screen: Screen) {

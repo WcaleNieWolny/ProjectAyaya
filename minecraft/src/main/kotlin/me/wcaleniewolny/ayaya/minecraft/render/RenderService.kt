@@ -9,5 +9,4 @@ interface RenderService {
     fun pauseRendering()
     fun killRendering()
     fun seekSecond(second: Int)
-
 }

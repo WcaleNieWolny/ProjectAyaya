@@ -193,10 +193,7 @@ impl VideoPlayer for MultiVideoPlayer {
                                     break 'main;
                                 }
                             };
-                            println!(
-                                "[ProjectAyaya] Creating async frame failed! Reason: {:?}",
-                                err
-                            );
+                            println!("[ProjectAyaya] Creating async frame failed! Reason: {err}",);
                             break 'main;
                         }
                     };
@@ -242,14 +239,14 @@ impl VideoPlayer for MultiVideoPlayer {
 
             'decode_loop: loop {
                 if last_id - frame_index.load(Relaxed) > 80 {
-                    if let Err(_) = processing_sleep_tx.send(true) {
+                    if processing_sleep_tx.send(true).is_err() {
                         println!("[ProjectAyaya] Unable to send sleep request!");
                         break 'decode_loop;
                     }
                     while last_id - frame_index.load(Relaxed) > 80 {
                         thread::sleep(Duration::from_millis(50))
                     }
-                    if let Err(_) = processing_sleep_tx.send(false) {
+                    if processing_sleep_tx.send(false).is_err() {
                         println!("[ProjectAyaya] Unable to send disable sleep request!");
                         break 'decode_loop;
                     }

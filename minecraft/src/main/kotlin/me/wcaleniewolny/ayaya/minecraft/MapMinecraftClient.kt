@@ -12,17 +12,14 @@ import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
-import java.util.Optional
 import java.util.logging.Level
-
 
 class MapMinecraftClient : JavaPlugin() {
 
     private var windowsBootstrapPtr: Long = 0
-    private var nativeGameController: NativeGameController? = null;
+    private var nativeGameController: NativeGameController? = null
 
     override fun onEnable() {
-
         this.saveDefaultConfig()
 
         if (!loadNativeLib()) {
@@ -41,7 +38,7 @@ class MapMinecraftClient : JavaPlugin() {
         }
         val nativeGameController = NativeGameController(this)
         val screenController = ScreenController(this, nativeGameController)
-        this.nativeGameController = nativeGameController;
+        this.nativeGameController = nativeGameController
 
         screenController.init()
         nativeGameController.init()
@@ -59,11 +56,9 @@ class MapMinecraftClient : JavaPlugin() {
         )
 
         manager.enableUnstableAPI("help")
-
     }
 
     fun loadNativeLib(): Boolean {
-
         val unsafe = System.getProperty("me.wcaleniewolny.ayaya.unsafe") != null
         val windowsBootstrap = config.getBoolean("useWindowsBootstrap")
 
@@ -79,7 +74,7 @@ class MapMinecraftClient : JavaPlugin() {
                 Bukkit.getPluginManager().disablePlugin(this)
                 return false
             }
-        } else if (windowsBootstrap && !os.contains("Linux", true)){
+        } else if (windowsBootstrap && !os.contains("Linux", true)) {
             logger.log(
                 Level.WARNING,
                 "ProjectAyaya will now try to use windows bootstrap! Please read the wiki so you know what you are doing!!!"
@@ -118,7 +113,6 @@ class MapMinecraftClient : JavaPlugin() {
                     return false
                 }
             }
-
         }
 
         return true

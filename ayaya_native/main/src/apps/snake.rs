@@ -179,8 +179,8 @@ impl Game for SnakeGame {
             }
         }
 
-        let new_head_x = (head_x as i32 + self.direction.to_x_diff() as i32) as usize;
-        let new_head_y = (head_y as i32 + self.direction.to_y_diff() as i32) as usize;
+        let new_head_x = (head_x as i32 + self.direction.to_x_diff()) as usize;
+        let new_head_y = (head_y as i32 + self.direction.to_y_diff()) as usize;
 
         let apple_eaten = new_head_x == self.apple_x && new_head_y == self.apple_y;
 
@@ -200,10 +200,9 @@ impl Game for SnakeGame {
                 self.apple_x = self.rand.gen_range(0..BOARD_WIDTH);
                 self.apple_y = self.rand.gen_range(0..BOARD_HEIGHT);
 
-                if snake_clone
+                if !snake_clone
                     .iter()
-                    .find(|cell| cell.x == self.apple_x && cell.y == self.apple_y)
-                    .is_none()
+                    .any(|cell| cell.x == self.apple_x && cell.y == self.apple_y)
                 {
                     break 'apple_loop;
                 }
@@ -238,12 +237,10 @@ impl Game for SnakeGame {
                     } else {
                         next_cell
                     }
+                } else if next_cell.y > cell.y {
+                    cell
                 } else {
-                    if next_cell.y > cell.y {
-                        cell
-                    } else {
-                        next_cell
-                    }
+                    next_cell
                 };
 
                 let second_cell = if cell.x != next_cell.x {
@@ -252,12 +249,10 @@ impl Game for SnakeGame {
                     } else {
                         cell
                     }
+                } else if next_cell.y > cell.y {
+                    next_cell
                 } else {
-                    if next_cell.y > cell.y {
-                        next_cell
-                    } else {
-                        cell
-                    }
+                    cell
                 };
 
                 canvas.draw_square(
@@ -311,7 +306,7 @@ impl SnakeGame {
     fn draw_lose_screen(&mut self) -> anyhow::Result<VideoCanvas> {
         if self.death_timer == 0 {
             self.game_state = SnakeGameState::Lose;
-            return Ok(VideoCanvas::new_from_image(&SNAKE_LOSE_SCREEN));
+            Ok(VideoCanvas::new_from_image(&SNAKE_LOSE_SCREEN))
         } else {
             let mut canvas = VideoCanvas::new(
                 self.width() as usize,
@@ -334,12 +329,10 @@ impl SnakeGame {
                         } else {
                             next_cell
                         }
+                    } else if next_cell.y > cell.y {
+                        cell
                     } else {
-                        if next_cell.y > cell.y {
-                            cell
-                        } else {
-                            next_cell
-                        }
+                        next_cell
                     };
 
                     let second_cell = if cell.x != next_cell.x {
@@ -348,12 +341,10 @@ impl SnakeGame {
                         } else {
                             cell
                         }
+                    } else if next_cell.y > cell.y {
+                        next_cell
                     } else {
-                        if next_cell.y > cell.y {
-                            next_cell
-                        } else {
-                            cell
-                        }
+                        cell
                     };
 
                     canvas.draw_square(
@@ -404,12 +395,12 @@ impl SnakeGame {
             );
 
             self.death_timer -= 1;
-            return Ok(canvas);
+            Ok(canvas)
         }
     }
 
     fn draw_win_screen(&mut self) -> anyhow::Result<VideoCanvas> {
         self.game_state = SnakeGameState::Win;
-        return Ok(VideoCanvas::new_from_image(&SNAKE_WIN_SCREEN));
+        Ok(VideoCanvas::new_from_image(&SNAKE_WIN_SCREEN))
     }
 }

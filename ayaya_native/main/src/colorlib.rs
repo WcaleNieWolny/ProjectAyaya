@@ -42,7 +42,12 @@ impl Color {
 }
 
 // static CONVERSION_TABLE_DIR: String = format!("{}/cached_color.hex", env::var("OUT_DIR").unwrap());
+#[cfg(not(feature = "skip_buildrs"))]
 pub static CONVERSION_TABLE: &[u8; 16777216] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
+
+#[cfg(feature = "skip_buildrs")]
+pub static CONVERSION_TABLE: &[u8; 1] =
     include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
 pub fn get_cached_index(color: &Color) -> i8 {

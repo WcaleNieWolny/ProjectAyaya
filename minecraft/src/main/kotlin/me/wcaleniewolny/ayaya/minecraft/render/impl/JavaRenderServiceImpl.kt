@@ -13,7 +13,7 @@ open class JavaRenderServiceImpl(
 
     private var initialized = false
     override fun init(plugin: JavaPlugin) {
-        //Do nothing
+        // Do nothing
     }
 
     override fun startRendering() {

@@ -54,8 +54,8 @@ class VideoCommand(
 
         val file = File(File(plugin.dataFolder, "video"), video)
 
-        //Prevent path traversal
-        //Thanks CDFN (https://github.com/CDFN) for this idea!
+        // Prevent path traversal
+        // Thanks CDFN (https://github.com/CDFN) for this idea!
         if (!file.normalize().path.startsWith(File(plugin.dataFolder, "video").normalize().path)) {
             sender.sendColoredMessage(fileConfiguration.getString("pathTraversalAttempt")!!)
             return
@@ -71,7 +71,7 @@ class VideoCommand(
             sender.sendColoredMessage(fileConfiguration.getString("mapServerPlaybackNotAllowed")!!)
             return
         }
-        //val allowMapServer = plugin.config.getBoolean("allowMapServer")
+        // val allowMapServer = plugin.config.getBoolean("allowMapServer")
 
         screenController.startPlayback(videoPlayType, file, sender, screen, discord != null && discord)
     }
@@ -122,7 +122,7 @@ class VideoCommand(
         }
         val screen = screenOptional.get()
         if (screen.renderService.isPresent) {
-            //This is safe due to rust mutex
+            // This is safe due to rust mutex
             val renderService = screen.renderService.get()
             renderService.seekSecond(second)
         }
@@ -179,7 +179,7 @@ class VideoCommand(
     @Description("Pause video playback")
     fun onVideoPause(
         sender: CommandSender,
-        @Values("@screens") screenId: String,
+        @Values("@screens") screenId: String
     ) {
         val screenOptional = lookupScreen(sender, screenId)
         if (screenOptional.isEmpty) {
@@ -204,7 +204,7 @@ class VideoCommand(
     @Description("Kill video playback")
     fun onVideoKill(
         sender: CommandSender,
-        @Values("@screens") screenId: String,
+        @Values("@screens") screenId: String
     ) {
         val screenOptional = lookupScreen(sender, screenId)
         if (screenOptional.isEmpty) {
@@ -221,7 +221,6 @@ class VideoCommand(
         screenController.killPlayback(screen)
         sender.sendColoredMessage(fileConfiguration.getString("success")!!)
     }
-
 
     @Subcommand("screen create")
     @Syntax("[name] [facing] [x1] [y1] [z1] [x2] [y2] [z2] [game_x] [game_y] [game_z]")
@@ -241,12 +240,10 @@ class VideoCommand(
         @Optional gameY: Int?,
         @Optional gameZ: Int?
     ) {
-
         if (z1 != z2 && x1 != x2) {
             sender.sendColoredMessage(fileConfiguration.getString("screenInvalidCoordinate")!!)
             return
         }
-
 
         if (z1 == z2 && screenFacing != ScreenFacing.NORTH && screenFacing != ScreenFacing.SOUTH) {
             sender.sendColoredMessage(fileConfiguration.getString("screenIllegalFacing")!!)
@@ -277,7 +274,6 @@ class VideoCommand(
                     useGame,
                     sender.world
                 )
-
             } else {
                 screenController.createScreen(
                     name,
@@ -295,14 +291,12 @@ class VideoCommand(
                     sender.world
                 )
             }
-
         } catch (e: Exception) {
             sender.sendColoredMessage(fileConfiguration.getString("screenCreationFailed")!!)
             return
         }
 
         sender.sendColoredMessage(fileConfiguration.getString("screenCreationSuccess")!!)
-
     }
 
     @Subcommand("screen info")
@@ -337,5 +331,4 @@ class VideoCommand(
 
         return java.util.Optional.of(screens[0])
     }
-
 }

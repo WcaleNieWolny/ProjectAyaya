@@ -24,7 +24,7 @@ use crate::{
 };
 
 #[allow(dead_code)]
-static DEFAULT_FONT_BYTES: &'static [u8] = include_bytes!("../../WorkSans-VariableFont_wght.ttf");
+static DEFAULT_FONT_BYTES: &[u8] = include_bytes!("../../WorkSans-VariableFont_wght.ttf");
 #[allow(dead_code)]
 static DEFAULT_FONT: Lazy<Handle> =
     Lazy::new(|| Handle::from_memory(Arc::new(DEFAULT_FONT_BYTES.to_vec()), 0));
@@ -116,8 +116,7 @@ impl VideoCanvas {
                 Some(val) => val,
                 None => {
                     return Err(anyhow!(format!(
-                        "This font does not support character {:?}",
-                        text_char
+                        "This font does not support character {text_char:?}"
                     )))
                 }
             };
@@ -137,7 +136,7 @@ impl VideoCanvas {
             for loop_y in 0..font_size {
                 for loop_x in 0..font_size {
                     if canvas.pixels[loop_y * font_size + loop_x] != 0 {
-                        self.draw_pixel(x + text_x_offset + loop_x, loop_y + y, &color);
+                        self.draw_pixel(x + text_x_offset + loop_x, loop_y + y, color);
                     }
                 }
             }

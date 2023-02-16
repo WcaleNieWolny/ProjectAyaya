@@ -25,6 +25,7 @@ pathfinder_geometry = "0.5.1"
 
 [features]
 ffmpeg = ["dep:ffmpeg-next"]
+skip_buildrs = []
 default = ["ffmpeg"]
 
 [build-dependencies]

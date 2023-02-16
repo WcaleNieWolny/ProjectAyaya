@@ -45,46 +45,50 @@ class NativeRenderServiceImpl(
 
     override fun startRendering() {
         val players = Bukkit.getOnlinePlayers()
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
-            sendAcknowledgementPackets()
+        Bukkit.getScheduler().runTaskAsynchronously(
+            plugin,
+            Runnable {
+                sendAcknowledgementPackets()
 
-            sleep(500) //Wait for players to get the packet and respond to it
+                sleep(500) // Wait for players to get the packet and respond to it
 
-            players
-                .filterNot { responders.contains(it.uniqueId) }
-                .forEach { player ->
-                    player.sendMessage("You do not have FastMap mod installed! We will not display cinema for you!")
+                players
+                    .filterNot { responders.contains(it.uniqueId) }
+                    .forEach { player ->
+                        player.sendMessage("You do not have FastMap mod installed! We will not display cinema for you!")
+                    }
+
+                val players = players
+                    .filter { responders.contains(it.uniqueId) }
+                    .map { it as Player }
+
+                val requiredHandshakes = (players.size.toDouble()).roundToInt()
+                println("REQUIRED HANDSHAKES: $requiredHandshakes")
+
+                sendHandshakePackets(players)
+
+                broadcaster.init(players)
+                broadcaster.blackoutFrames(
+                    FrameSplitter.initializeFrames(videoData.width, videoData.height).toMutableList(),
+                    players
+                )
+
+                var timeout = 0
+                while (handshakeNumber.get() != requiredHandshakes) {
+                    if (timeout == 300) {
+                        Bukkit.getLogger()
+                            .warning("Couldn't start map render server! Only ${handshakeNumber.get()} responded but $requiredHandshakes were required!")
+                        return@Runnable
+                    }
+                    timeout++
+                    sleep(5)
                 }
 
-            val players = players
-                .filter { responders.contains(it.uniqueId) }
-                .map { it as Player }
-
-            val requiredHandshakes = (players.size.toDouble()).roundToInt()
-            println("REQUIRED HANDSHAKES: $requiredHandshakes")
-
-            sendHandshakePackets(players)
-
-            broadcaster.init(players)
-            broadcaster.blackoutFrames(
-                FrameSplitter.initializeFrames(videoData.width, videoData.height).toMutableList(), players
-            )
-
-            var timeout = 0
-            while (handshakeNumber.get() != requiredHandshakes) {
-                if (timeout == 300) {
-                    Bukkit.getLogger()
-                        .warning("Couldn't start map render server! Only ${handshakeNumber.get()} responded but $requiredHandshakes were required!")
-                    return@Runnable
-                }
-                timeout++
-                sleep(5)
+                NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDERING, videoData.fps.toString())
+                isRunning.set(true)
+                isInitialized = true
             }
-
-            NativeRenderControler.communicate(ptr, NativeLibCommunication.START_RENDERING, videoData.fps.toString())
-            isRunning.set(true)
-            isInitialized = true
-        })
+        )
     }
 
     override fun pauseRendering() {
@@ -117,24 +121,23 @@ class NativeRenderServiceImpl(
     }
 
     private fun sendHandshakePackets(players: List<Player>) {
-
         val data = FrameSplitter.getRenderData(videoData.width, videoData.height)
 
         val ip = plugin.config.getString("mapServerRemoteIp")!!
         val buffer = FriendlyByteBuf(Unpooled.buffer())
 
-        //Write IP adress
+        // Write IP adress
         buffer.writeVarInt(ip.length)
         buffer.writeBytes(ip.toByteArray(StandardCharsets.UTF_8))
 
-        //Write port
+        // Write port
         buffer.writeVarInt(plugin.config.getInt("mapServerPort"))
 
-        //Write render data
+        // Write render data
         data.forEach {
             buffer.writeVarInt(it)
         }
-        buffer.writeVarInt(startID) //Starting map id data (will get refactored later)
+        buffer.writeVarInt(startID) // Starting map id data (will get refactored later)
 
         players.forEach {
             it.sendPluginMessage(plugin, "fastmap:handshake", buffer.array())
