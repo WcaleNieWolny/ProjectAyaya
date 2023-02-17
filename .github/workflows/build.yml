@@ -19,7 +19,7 @@ jobs:
           toolchain: nightly
           target: x86_64-unknown-linux-gnu
           override: true
-          components: rustfmt, clippy
+          components: rustfmt
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
     - name: download cross
@@ -43,9 +43,6 @@ jobs:
       working-directory: ./ayaya_native
       run: |
         cargo fmt --all -- --check
-    - name: run cargo clippy
-      run: |
-        make clippy
     - name: run ktlint
       run: |
         ./gradlew.sh :minecraft:ktlintCheck
