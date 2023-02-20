@@ -1,6 +1,10 @@
 #![feature(linked_list_cursors)]
+#![feature(array_chunks)]
+#![feature(iter_array_chunks)]
+#![feature(test)]
 
 extern crate core;
+extern crate test;
 
 #[cfg(feature = "ffmpeg")]
 extern crate ffmpeg_next as ffmpeg;
@@ -497,3 +501,102 @@ jvm_impl!(
     init_discord_bot,
     { file_name: JObject }
 );
+
+
+#[cfg(test)]
+mod tests {
+    use rand::Rng;
+    use crate::colorlib;
+    use test::Bencher;
+
+    #[test]
+    fn test_fast_color_transform() {
+        let width = 3840usize;
+        let height = 2160usize;
+        let linesize = width * 3;
+
+        let values: Vec<u8> = rand::thread_rng().sample_iter(rand::distributions::Standard).take(width * height * 3).collect();
+
+        let normal = colorlib::transform_frame_to_mc(&values, width as u32, height as u32, linesize);
+        //let fast = colorlib::fast_transform_frame_to_mc(&values, width, height, linesize);
+        let fast = sample_image(width, height, |x, y| {
+            colorlib::get_cached_index(&crate::colorlib::Color::new(
+                values[((y * linesize) + (x * 3))],
+                values[((y * linesize) + (x * 3) + 1)],
+                values[((y * linesize) + (x * 3) + 2)],
+            ))
+        });
+
+        let fast_second = colorlib::second_fast_transform_frame_to_mc(&values, width, height, linesize); 
+
+        assert!(do_vecs_match(&normal, &fast));
+        assert!(do_vecs_match(&normal, &fast_second));
+    }
+
+    #[bench]
+    fn bench_color_transform_normal(b: &mut Bencher){
+        let width = 3840usize;
+        let height = 2160usize;
+        let linesize = width * 3;
+
+        let values: Vec<u8> = vec![89u8; width * height * 3];
+        b.iter(|| colorlib::transform_frame_to_mc(&values, width as u32, height as u32, linesize));
+    }
+
+    #[bench]
+    fn bench_color_transform_my_fast(b: &mut Bencher){
+        let width = 3840usize;
+        let height = 2160usize;
+        let linesize = width * 3;
+
+        let values: Vec<u8> = vec![89u8; width * height * 3];
+        b.iter(|| colorlib::fast_transform_frame_to_mc(&values, width, height, linesize));
+    }
+
+    #[bench]
+    fn bench_color_transform_discord_fast(b: &mut Bencher){
+        let width = 3840usize;
+        let height = 2160usize;
+        let linesize = width * 3;
+
+        let values: Vec<u8> = vec![89u8; width * height * 3];
+        b.iter(|| colorlib::second_fast_transform_frame_to_mc(&values, width, height, linesize));
+    }
+
+    fn do_vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
+        let matching = a.iter().zip(b.iter()).filter(|&(a, b)| a == b).count();
+        matching == a.len() && matching == b.len()
+    }
+
+    pub fn sample_image<F>(width: usize, height: usize, sampler: F) -> Vec<i8>
+    where F: Fn(usize, usize) -> i8 + Sync,
+    {
+        let area = width * height;
+        let mut buf = Vec::<i8>::with_capacity(area);
+        
+        #[cfg(debug)]
+        let num_init = AtomicUsize::new(0);
+        
+        let pixels = buf.spare_capacity_mut();
+        let pixels = &mut pixels[..area]; // in case the allocator gave us extra capacity
+        pixels.iter_mut().enumerate().for_each(|(i, pixel)| {
+            let x = i % width;
+            let y = i / width;
+            let v = sampler(x, y);
+            pixel.write(v);
+            
+            #[cfg(debug)]
+            num_init.fetch_add(1, Ordering::Relaxed);
+        });
+        
+        
+        unsafe {
+            #[cfg(debug)]
+            assert_eq!(num_init.into_inner(), area);
+            
+            buf.set_len(area);
+        }
+        
+        buf
+    }
+}

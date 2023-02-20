@@ -112,6 +112,7 @@ dependencies = [
  "once_cell",
  "pathfinder_geometry",
  "rand",
+ "rayon",
  "serenity",
  "songbird",
  "symphonia",
