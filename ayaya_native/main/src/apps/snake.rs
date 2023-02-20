@@ -306,7 +306,16 @@ impl SnakeGame {
     fn draw_lose_screen(&mut self) -> anyhow::Result<VideoCanvas> {
         if self.death_timer == 0 {
             self.game_state = SnakeGameState::Lose;
-            Ok(VideoCanvas::new_from_image(&SNAKE_LOSE_SCREEN))
+            let mut canvas = VideoCanvas::new_from_image(&SNAKE_LOSE_SCREEN);
+            canvas.draw_default_text(
+                439,
+                352,
+                56,
+                23,
+                &Color::new(255, 0, 0),
+                &self.snake.len().to_string(),
+            )?;
+            Ok(canvas)
         } else {
             let mut canvas = VideoCanvas::new(
                 self.width() as usize,
