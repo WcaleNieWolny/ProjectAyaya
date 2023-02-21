@@ -22,8 +22,8 @@ use super::player_context::{FrameWithIdentifier, NativeCommunication};
 //We store runtime so it does not get dropped
 #[allow(dead_code)]
 pub struct X11Player {
-    width: u32,
-    height: u32,
+    width: i32,
+    height: i32,
     fps: i32,
     jvm_rx: Option<Receiver<FrameWithIdentifier>>,
     map_server: MapServerData,
@@ -88,7 +88,7 @@ impl VideoPlayer for X11Player {
 
             let fps = input.rate().0 / input.rate().1;
             let (splitted_frames, all_frames_x, all_frames_y) =
-                SplittedFrame::initialize_frames(width as i32, height as i32)?;
+                SplittedFrame::initialize_frames(width as usize, height as usize)?;
 
             //Small buffer due to fact that we are only decoding UP TO FPS frames per second
             let (jvm_tx, jvm_rx) = tokio::sync::mpsc::channel::<FrameWithIdentifier>(50);
@@ -122,7 +122,7 @@ impl VideoPlayer for X11Player {
             let map_server = server_rx.blocking_recv()?;
             let map_server = map_server?;
 
-            //Threading is not a speed optymalisation. It is required to have support for map_server
+            //Threading is not a speed optimization. It is required to have support for map_server
             thread::Builder::new()
                 .name("X11 screen graber thread".to_string())
                 .spawn(move || {
@@ -163,15 +163,15 @@ impl VideoPlayer for X11Player {
 
                                 let transformed_frame = colorlib::transform_frame_to_mc(
                                     frame_data.data(0),
-                                    width,
-                                    height,
+                                    width as usize,
+                                    height as usize,
                                     frame_data.stride(0),
                                 );
 
                                 let transformed_frame = match SplittedFrame::split_frames(
                                     transformed_frame.as_slice(),
                                     &splitted_frames,
-                                    width as i32,
+                                    width as usize,
                                     all_frames_x,
                                     all_frames_y,
                                 ) {
@@ -200,8 +200,8 @@ impl VideoPlayer for X11Player {
                 })?;
 
             let single_video_player = Self {
-                width,
-                height,
+                width: width as i32,
+                height: height as i32,
                 fps,
                 jvm_rx: jvm_final_reciver,
                 map_server,

@@ -124,7 +124,7 @@ impl VideoPlayer for MultiVideoPlayer {
                 data_tx.send(input.rate().0 / input.rate().1).unwrap();
 
                 let frame_initial_split =
-                    SplittedFrame::initialize_frames(width as i32, height as i32)
+                    SplittedFrame::initialize_frames(width as usize, height as usize)
                         .expect("Couldn't initialize frame splitting");
 
                 let mut scaler = Context::get(
@@ -203,8 +203,8 @@ impl VideoPlayer for MultiVideoPlayer {
                     let sender = frames_tx.clone();
 
                     handle.spawn(async move {
-                        let vec = transform_frame_to_mc(frame.data(0), width, height, frame.stride(0));
-                        let vec = SplittedFrame::split_frames(vec.as_slice(), &splitted_frames, width as i32, all_frames_x, all_frames_y).expect("Couldn't split frames async");
+                        let vec = transform_frame_to_mc(frame.data(0), width as usize, height as usize, frame.stride(0));
+                        let vec = SplittedFrame::split_frames(vec.as_slice(), &splitted_frames, width as usize, all_frames_x, all_frames_y).expect("Couldn't split frames async");
 
                         let frame_with_id = FrameWithIdentifier {
                             id: frame_id,
@@ -305,7 +305,7 @@ impl VideoPlayer for MultiVideoPlayer {
         let fps = data_rx.recv().unwrap();
 
         let multi_video_player = MultiVideoPlayer {
-            width,
+            width ,
             height,
             fps,
             frame_index: frame_index_clone,
@@ -357,7 +357,7 @@ impl VideoPlayer for MultiVideoPlayer {
     fn video_data(&self) -> anyhow::Result<VideoData> {
         //let width = self.width.expect("Couldn't get multi video width");
         Ok(VideoData {
-            width: self.width,
+            width: self.width ,
             height: self.height,
             fps: self.fps,
         })

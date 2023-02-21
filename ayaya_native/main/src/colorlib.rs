@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use rayon::prelude::*;
-use std::{env, num::ParseIntError, mem::{MaybeUninit, self}, sync::atomic::Ordering};
+use std::{env, num::ParseIntError, sync::atomic::Ordering};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
@@ -58,7 +58,7 @@ pub fn get_cached_index(color: &Color) -> i8 {
 }
 
 #[cfg(feature = "ffmpeg")]
-pub fn transform_frame_to_mc(data: &[u8], width: u32, height: u32, add_width: usize) -> Vec<i8> {
+pub fn transform_frame_to_mc(data: &[u8], width: usize, height: usize, add_width: usize) -> Vec<i8> {
     let mut buffer = Vec::<i8>::with_capacity((width * height) as usize);
 
     for y in 0..height as usize {
@@ -79,14 +79,18 @@ pub fn fast_transform_frame_to_mc(data: &[u8], width: usize, height: usize, line
     unsafe {
         let mut buffer: Vec<i8> = vec![0i8; width * height];
 
-        let buf_start = buffer.as_mut_ptr();
+        let buf_start = buffer.as_mut_ptr() as *mut () as usize;
 
         data
-            .chunks(line_size)
+            .par_chunks(line_size)
             .enumerate()
             .for_each(|(line, data)| 
-                data.iter().take(width * 3).array_chunks::<3>().enumerate().for_each(|(pix_id, pix_data)| {
-                    let ptr = buf_start.clone().add(line * width + pix_id);
+                data.par_iter().take(width * 3).chunks(3).enumerate().for_each(|(pix_id, pix_data)| {
+                    //let ptr = buf_start.clone().add(line * width + pix_id);
+                    //ptr.write_volatile(get_cached_index(&Color::new(*pix_data[0], *pix_data[1], *pix_data[2])))
+                    
+                    let ptr = buf_start.clone() as *mut i8;
+                    let ptr = ptr.add(line * width + pix_id);
                     ptr.write_volatile(get_cached_index(&Color::new(*pix_data[0], *pix_data[1], *pix_data[2])))
                 })
             );
@@ -139,4 +143,33 @@ pub fn second_fast_transform_frame_to_mc(
     }
 
     buffer
+}
+
+pub fn second_safe_fast_transform_frame_to_mc(
+    data: &[u8],
+    width: usize,
+    height: usize,
+    stride: usize,
+) -> Vec<i8> {
+    assert!(stride >= 3 * width);
+    assert!(data.len() / stride >= height);
+
+    let area = width * height;
+
+    let mut buf = vec![0; area];
+
+    let src_rows = data.par_chunks(stride);
+    let dst_rows = buf.par_chunks_mut(width);
+
+    src_rows.zip(dst_rows).for_each(|(src_row, dst_row)| {
+        let pixels = src_row.array_chunks::<3>().take(width).copied();
+
+        for ([r, g, b], dst) in pixels.zip(dst_row) {
+            let color = Color::new(r, g, b);
+            let value = get_cached_index(&color);
+            *dst = value;
+        }
+    });
+
+    buf
 }

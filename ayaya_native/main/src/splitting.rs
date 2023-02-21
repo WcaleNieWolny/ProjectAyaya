@@ -1,21 +1,15 @@
-use std::sync::atomic::AtomicI32;
-use std::sync::atomic::Ordering::Relaxed;
-
 #[derive(Debug, Clone)]
 pub struct SplittedFrame {
-    pub width: i32,
-    pub height: i32,
-    pub frame_length: i32,
+    pub width: usize,
+    pub height: usize,
+    pub frame_length: usize,
 }
-
-pub static FRAME_SPLITTER_ALL_FRAMES_X: AtomicI32 = AtomicI32::new(0);
-pub static FRAME_SPLITTER_ALL_FRAMES_Y: AtomicI32 = AtomicI32::new(0);
 
 impl SplittedFrame {
     pub fn initialize_frames(
-        width: i32,
-        height: i32,
-    ) -> anyhow::Result<(Vec<SplittedFrame>, i32, i32)> {
+        width: usize,
+        height: usize,
+    ) -> anyhow::Result<(Vec<SplittedFrame>, usize, usize)> {
         let mut frames: Vec<SplittedFrame> = Vec::new();
 
         if width % 2 != 0 {
@@ -31,19 +25,16 @@ impl SplittedFrame {
         let x_margin = if width % 128 == 0 {
             0
         } else {
-            128 - (width - (frames_x as i32 * 128))
+            128 - (width - (frames_x as usize * 128))
         };
         let y_margin = if height % 128 == 0 {
             0
         } else {
-            128 - (height - (frames_y as i32 * 128))
+            128 - (height - (frames_y as usize * 128))
         };
 
-        let all_frames_x = frames_x.ceil() as i32;
-        let all_frames_y = frames_y.ceil() as i32;
-
-        FRAME_SPLITTER_ALL_FRAMES_X.store(all_frames_x, Relaxed);
-        FRAME_SPLITTER_ALL_FRAMES_Y.store(all_frames_y, Relaxed);
+        let all_frames_x = frames_x.ceil() as usize;
+        let all_frames_y = frames_y.ceil() as usize;
 
         for y in 0..all_frames_y {
             for x in 0..all_frames_x {
@@ -77,11 +68,11 @@ impl SplittedFrame {
     pub fn split_frames(
         data: &[i8],
         frames: &Vec<SplittedFrame>,
-        width: i32,
-        all_frames_x: i32,
-        all_frames_y: i32,
+        width: usize,
+        all_frames_x: usize,
+        all_frames_y: usize,
     ) -> anyhow::Result<Vec<i8>> {
-        if all_frames_y * all_frames_x != frames.len() as i32 {
+        if all_frames_y * all_frames_x != frames.len() {
             return Err(anyhow::Error::msg(
                 "Frame list size does not match required lenght",
             ));
@@ -90,10 +81,8 @@ impl SplittedFrame {
         //let mut final_data: Vec<i8> = Vec::with_capacity((all_frames_x * all_frames_y * 128 * 128) as usize);
         let mut final_data = vec![0i8; (all_frames_x * all_frames_y * 128 * 128) as usize];
 
-        //println!("D SIZE: {}, {}", final_data.len(), data.len());
-
-        let mut i = 0;
-        let mut y_i = 0;
+        let mut i = 0usize;
+        let mut y_i = 0usize;
 
         let mut final_data_index = 0;
 
@@ -130,5 +119,56 @@ impl SplittedFrame {
         }
 
         Ok(final_data)
+    }
+
+    pub fn prepare_fast_split(
+        frames: &Vec<SplittedFrame>,
+        width: usize,
+        height: usize,
+        all_frames_x: usize,
+        all_frames_y: usize,
+    ) -> anyhow::Result<Vec<usize>> {
+        let mut index_table = vec![0usize; width * height];
+       
+        let mut i = 0usize;
+        let mut y_i = 0usize;
+
+        let mut final_data_index = 0;
+
+        for y in 0..all_frames_y {
+            let mut x_i = 0;
+            for _x in 0..all_frames_x {
+                let frame = &frames[i];
+
+                for y1 in 0..frame.height {
+
+                    for x1 in 0..frame.width {
+                        index_table[(y_i * width + x_i) as usize + (y1 * width) as usize + x1 as usize] = final_data_index + x1; 
+                    }
+
+                    final_data_index += frame.width
+                }
+
+                x_i += frame.width;
+                i += 1;
+            }
+            y_i += frames[(y * all_frames_x) as usize].height;
+        };
+
+        Ok(index_table)
+    }
+
+    pub fn fast_split_test(data: &[i8], fast: &Vec<usize>, all_frames_x: usize, all_frames_y: usize) -> Vec<i8>{
+        let mut output = vec![0i8; all_frames_x * all_frames_y * 128 * 128];
+
+        data
+            .iter()
+            .enumerate()
+            .for_each(|(index, byte)| {
+                let new_index = fast[index];
+                output[new_index] = *byte
+            });
+
+        output
     }
 }

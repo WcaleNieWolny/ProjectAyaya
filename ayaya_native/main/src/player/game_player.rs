@@ -150,13 +150,13 @@ impl VideoCanvas {
     fn draw_to_minecraft(
         &self,
         splitted_frames: &mut Vec<SplittedFrame>,
-        all_frames_x: i32,
-        all_frames_y: i32,
+        all_frames_x: usize,
+        all_frames_y: usize,
     ) -> anyhow::Result<Vec<i8>> {
         SplittedFrame::split_frames(
             bytemuck::cast_slice(self.vec.as_slice()),
             splitted_frames,
-            self.width as i32,
+            self.width,
             all_frames_x,
             all_frames_y,
         )
@@ -215,12 +215,12 @@ pub trait Game {
 }
 
 pub struct GamePlayer {
-    pub width: i32,
-    pub height: i32,
+    pub width: usize,
+    pub height: usize,
     fps: i32,
     splitted_frames: Vec<SplittedFrame>,
-    all_frames_x: i32,
-    all_frames_y: i32,
+    all_frames_x: usize,
+    all_frames_y: usize,
     game: Box<dyn Game>,
     input_rx: Receiver<GameInputDirection>,
     input_tx: Sender<GameInputDirection>,
@@ -236,7 +236,7 @@ impl VideoPlayer for GamePlayer {
             _ => return Err(anyhow!("This game is not implemented!")),
         };
 
-        let (width, height, fps) = (game.width(), game.height(), game.fps());
+        let (width, height, fps) = (game.width() as usize, game.height() as usize, game.fps());
         let (input_tx, input_rx) = channel::<GameInputDirection>();
 
         let (splitted_frames, all_frames_x, all_frames_y) =
@@ -359,8 +359,8 @@ impl VideoPlayer for GamePlayer {
 
     fn video_data(&self) -> anyhow::Result<super::player_context::VideoData> {
         Ok(VideoData {
-            width: self.width,
-            height: self.height,
+            width: self.width as i32,
+            height: self.height as i32,
             fps: self.fps,
         })
     }
