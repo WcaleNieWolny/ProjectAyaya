@@ -58,7 +58,12 @@ pub fn get_cached_index(color: &Color) -> i8 {
 }
 
 #[cfg(feature = "ffmpeg")]
-pub fn transform_frame_to_mc(data: &[u8], width: usize, height: usize, add_width: usize) -> Vec<i8> {
+pub fn transform_frame_to_mc(
+    data: &[u8],
+    width: usize,
+    height: usize,
+    add_width: usize,
+) -> Vec<i8> {
     let mut buffer = Vec::<i8>::with_capacity((width * height) as usize);
 
     for y in 0..height as usize {
@@ -74,102 +79,46 @@ pub fn transform_frame_to_mc(data: &[u8], width: usize, height: usize, add_width
     buffer
 }
 
-#[ignore = "unused"]
-pub fn fast_transform_frame_to_mc(data: &[u8], width: usize, height: usize, line_size: usize) -> Vec<i8> {
-    unsafe {
-        let mut buffer: Vec<i8> = vec![0i8; width * height];
-
-        let buf_start = buffer.as_mut_ptr() as *mut () as usize;
-
-        data
-            .par_chunks(line_size)
-            .enumerate()
-            .for_each(|(line, data)| 
-                data.par_iter().take(width * 3).chunks(3).enumerate().for_each(|(pix_id, pix_data)| {
-                    //let ptr = buf_start.clone().add(line * width + pix_id);
-                    //ptr.write_volatile(get_cached_index(&Color::new(*pix_data[0], *pix_data[1], *pix_data[2])))
-                    
-                    let ptr = buf_start.clone() as *mut i8;
-                    let ptr = ptr.add(line * width + pix_id);
-                    ptr.write_volatile(get_cached_index(&Color::new(*pix_data[0], *pix_data[1], *pix_data[2])))
-                })
-            );
-
-        return buffer 
-    };
-}
-
 //Thanks to https://github.com/The0x539 for help with this
 //No unsafe version: https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=815de260ce2c61db254bd79434caa396
 //This version: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=5c9886ffabf102ff3d06f9495c9ad267
 //Previous version: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=e51cac7c4eb4c8612157cc3ec1bc3642
-pub fn second_fast_transform_frame_to_mc(
+pub fn unsafe_transform_and_split_frame_to_mc(
     data: &[u8],
+    fast_lookup_map: &Vec<usize>,
     width: usize,
     height: usize,
     stride: usize,
-) -> Vec<i8> {
+) -> anyhow::Result<Vec<i8>> {
     let area = width * height;
 
-    let mut buffer = Vec::with_capacity(area);
+    let mut buffer: Vec<i8> = Vec::with_capacity(area);
     let buf = &mut buffer.spare_capacity_mut()[..area];
+    let buf_ptr = buf.as_mut_ptr() as usize;
 
     let src_rows = data.par_chunks(stride);
-    let dst_rows = buf.par_chunks_mut(width);
+    let index_rows = fast_lookup_map.par_chunks(width);
 
-    // feel free to remove this once you're 100% sure it works right and is stable
-    #[cfg(debug_assertions)]
-    let num_init = std::sync::atomic::AtomicUsize::new(0);
+    src_rows
+        .zip(index_rows)
+        .enumerate()
+        .for_each(|(y, (src_row, index_row))| {
+            let pixels = src_row.array_chunks::<3>().take(width);
 
-    src_rows.zip(dst_rows).for_each(|(src_row, dst_row)| {
-        let pixels = src_row.array_chunks::<3>().take(width).copied();
+            for (x, ([r, g, b], index)) in pixels.zip(index_row).enumerate() {
+                let color = Color::new(*r, *g, *b);
+                let value = get_cached_index(&color);
 
-        for ([r, g, b], dst) in pixels.zip(dst_row) {
-            let color = Color::new(r, g, b);
-            let value = get_cached_index(&color);
-            dst.write(value);
+                let index = &fast_lookup_map[y * width + x];
 
-            #[cfg(debug_assertions)]
-            num_init.fetch_add(1, Ordering::Relaxed);
-        }
-    });
+                unsafe {
+                    let ptr = (buf_ptr + index) as *mut i8; //pointer arithmetic
+                    ptr.write_volatile(value);
+                };
+            }
+        });
 
-    unsafe {
-        //debug_assert_eq!(num_init.into_inner(), area);
+    unsafe { buffer.set_len(area) }
 
-        // SAFETY: the above loop manually initialized
-        // all the values within the spare capacity (up to area).
-        buffer.set_len(area);
-    }
-
-    buffer
-}
-
-pub fn second_safe_fast_transform_frame_to_mc(
-    data: &[u8],
-    width: usize,
-    height: usize,
-    stride: usize,
-) -> Vec<i8> {
-    assert!(stride >= 3 * width);
-    assert!(data.len() / stride >= height);
-
-    let area = width * height;
-
-    let mut buf = vec![0; area];
-
-    let src_rows = data.par_chunks(stride);
-    let dst_rows = buf.par_chunks_mut(width);
-
-    src_rows.zip(dst_rows).for_each(|(src_row, dst_row)| {
-        let pixels = src_row.array_chunks::<3>().take(width).copied();
-
-        for ([r, g, b], dst) in pixels.zip(dst_row) {
-            let color = Color::new(r, g, b);
-            let value = get_cached_index(&color);
-            *dst = value;
-        }
-    });
-
-    buf
+    Ok(buffer)
 }

@@ -129,7 +129,7 @@ impl SplittedFrame {
         all_frames_y: usize,
     ) -> anyhow::Result<Vec<usize>> {
         let mut index_table = vec![0usize; width * height];
-       
+
         let mut i = 0usize;
         let mut y_i = 0usize;
 
@@ -141,9 +141,10 @@ impl SplittedFrame {
                 let frame = &frames[i];
 
                 for y1 in 0..frame.height {
-
                     for x1 in 0..frame.width {
-                        index_table[(y_i * width + x_i) as usize + (y1 * width) as usize + x1 as usize] = final_data_index + x1; 
+                        index_table
+                            [(y_i * width + x_i) as usize + (y1 * width) as usize + x1 as usize] =
+                            final_data_index + x1;
                     }
 
                     final_data_index += frame.width
@@ -153,22 +154,8 @@ impl SplittedFrame {
                 i += 1;
             }
             y_i += frames[(y * all_frames_x) as usize].height;
-        };
+        }
 
         Ok(index_table)
-    }
-
-    pub fn fast_split_test(data: &[i8], fast: &Vec<usize>, all_frames_x: usize, all_frames_y: usize) -> Vec<i8>{
-        let mut output = vec![0i8; all_frames_x * all_frames_y * 128 * 128];
-
-        data
-            .iter()
-            .enumerate()
-            .for_each(|(index, byte)| {
-                let new_index = fast[index];
-                output[new_index] = *byte
-            });
-
-        output
     }
 }

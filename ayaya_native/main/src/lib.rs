@@ -502,35 +502,29 @@ jvm_impl!(
     { file_name: JObject }
 );
 
-
 #[cfg(test)]
 mod tests {
+    use crate::{
+        colorlib,
+        splitting::{self, SplittedFrame},
+    };
     use rand::Rng;
-    use crate::{colorlib, splitting::SplittedFrame};
     use test::Bencher;
 
     #[test]
-    fn test_fast_color_transform() {
+    fn test_perepare_fast_splitting() -> Result<(), Box<dyn std::error::Error>> {
         let width = 3840usize;
         let height = 2160usize;
-        let linesize = width * 3;
 
-        let values: Vec<u8> = rand::thread_rng().sample_iter(rand::distributions::Standard).take(width * height * 3).collect();
-
-        let normal = colorlib::transform_frame_to_mc(&values, width, height, linesize);
-        let fast = colorlib::second_fast_transform_frame_to_mc(&values, width, height, linesize); 
-
-        assert!(do_vecs_match(&normal, &fast));
-    }
-
-    #[test]
-    fn test_perepare_fast_splitting() -> Result<(), Box<dyn std::error::Error>>{
-
-        let width = 3840usize;
-        let height = 2160usize;
-        
-        let (splitted_frames, all_frames_x, all_frames_y) = SplittedFrame::initialize_frames(width, height)?;
-        let mut fast_map = SplittedFrame::prepare_fast_split(&splitted_frames, width, height, all_frames_x, all_frames_y)?;
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height)?;
+        let mut fast_map = SplittedFrame::prepare_fast_split(
+            &splitted_frames,
+            width,
+            height,
+            all_frames_x,
+            all_frames_y,
+        )?;
 
         fast_map.sort();
 
@@ -539,69 +533,61 @@ mod tests {
         let new_len = fast_map.len();
 
         assert_eq!(old_len, new_len);
-        
+
         Ok(())
     }
 
     #[test]
-    fn test_fast_splitting() -> Result<(), Box<dyn std::error::Error>>{
+    fn test_unsafe_transform_and_split_frame_to_mc() -> Result<(), Box<dyn std::error::Error>> {
         let width = 3840usize;
         let height = 2160usize;
         let linesize = width * 3;
 
-        let values: Vec<u8> = rand::thread_rng().sample_iter(rand::distributions::Standard).take(width * height * 3).collect();
+        let values: Vec<u8> = rand::thread_rng()
+            .sample_iter(rand::distributions::Standard)
+            .take(width * height * 3)
+            .collect();
 
-        let to_split = colorlib::transform_frame_to_mc(&values, width, height, linesize);
-        
-        let (splitted_frames, all_frames_x, all_frames_y) = SplittedFrame::initialize_frames(width, height)?;
-        let fast_map = SplittedFrame::prepare_fast_split(&splitted_frames, width, height, all_frames_x, all_frames_y)?;
+        let to_split_normal = colorlib::transform_frame_to_mc(&values, width, height, linesize);
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height)?;
+        let normal = SplittedFrame::split_frames(
+            &to_split_normal,
+            &splitted_frames,
+            width,
+            all_frames_x,
+            all_frames_y,
+        )?;
+        let normal: Vec<i8> = normal.iter().cloned().take(width * height).collect();
 
-        let normal = SplittedFrame::split_frames(&to_split, &splitted_frames, width, all_frames_x, all_frames_y)?;
-        let fast = SplittedFrame::fast_split_test(&to_split, &fast_map, all_frames_x, all_frames_y);
+        let fast_index_map = SplittedFrame::prepare_fast_split(
+            &splitted_frames,
+            width,
+            height,
+            all_frames_x,
+            all_frames_y,
+        )?;
+        let fast_split = colorlib::unsafe_transform_and_split_frame_to_mc(
+            &values,
+            &fast_index_map,
+            width,
+            height,
+            linesize,
+        )?;
 
-        assert!(do_vecs_match(&normal, &fast));
+        assert!(do_vecs_match(&normal, &fast_split));
 
         Ok(())
     }
 
     #[bench]
-    fn bench_color_transform_normal(b: &mut Bencher){
+    fn bench_color_transform_normal(b: &mut Bencher) {
         let width = 3840usize;
         let height = 2160usize;
         let linesize = width * 3;
 
         let values: Vec<u8> = vec![89u8; width * height * 3];
         b.iter(|| colorlib::transform_frame_to_mc(&values, width, height, linesize));
-    }
-
-    #[bench]
-    fn bench_color_transform_my_fast(b: &mut Bencher){
-        let width = 3840usize;
-        let height = 2160usize;
-        let linesize = width * 3;
-
-        let values: Vec<u8> = vec![89u8; width * height * 3];
-        b.iter(|| colorlib::fast_transform_frame_to_mc(&values, width, height, linesize));
-    }
-
-    #[bench]
-    fn bench_color_transform_discord_fast(b: &mut Bencher){
-        let width = 3840usize;
-        let height = 2160usize;
-        let linesize = width * 3;
-
-        let values: Vec<u8> = vec![89u8; width * height * 3];
-        b.iter(|| colorlib::second_fast_transform_frame_to_mc(&values, width, height, linesize));
-    }
-
-    #[bench]
-    fn bench_color_transform_discord_fast_safe(b: &mut Bencher){
-        let width = 3840usize;
-        let height = 2160usize;
-        let linesize = width * 3;
-
-        let values: Vec<u8> = vec![89u8; width * height * 3];
-        b.iter(|| colorlib::second_safe_fast_transform_frame_to_mc(&values, width, height, linesize));
     }
 
     #[bench]
@@ -613,14 +599,68 @@ mod tests {
         let (splitted_frames, all_frames_x, all_frames_y) =
             SplittedFrame::initialize_frames(width, height).unwrap();
 
-        b.iter(|| SplittedFrame::split_frames(
-                    values.as_slice(),
-                    &splitted_frames,
-                    width,
-                    all_frames_x,
-                    all_frames_y,
-                )
-            ) 
+        b.iter(|| {
+            SplittedFrame::split_frames(
+                values.as_slice(),
+                &splitted_frames,
+                width,
+                all_frames_x,
+                all_frames_y,
+            )
+        })
+    }
+
+    #[bench]
+    fn bench_unsafe_transform_and_split_frame_to_mc(b: &mut Bencher) {
+        let width = 3840usize;
+        let height = 2160usize;
+        let linesize = width * 3;
+
+        let values: Vec<u8> = vec![89u8; width * height];
+
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height).unwrap();
+        let fast_index_map = SplittedFrame::prepare_fast_split(
+            &splitted_frames,
+            width,
+            height,
+            all_frames_x,
+            all_frames_y,
+        )
+        .unwrap();
+
+        b.iter(|| {
+            colorlib::unsafe_transform_and_split_frame_to_mc(
+                &values,
+                &fast_index_map,
+                width,
+                height,
+                linesize,
+            )
+            .unwrap()
+        });
+    }
+
+    #[bench]
+    fn bench_transform_and_split_frame_to_mc(b: &mut Bencher) {
+        let width = 3840usize;
+        let height = 2160usize;
+        let linesize = width * 3;
+
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height).unwrap();
+        let values: Vec<u8> = vec![89u8; width * height * 3];
+
+        b.iter(|| {
+            let to_split = colorlib::transform_frame_to_mc(&values, width, height, linesize);
+            SplittedFrame::split_frames(
+                &to_split,
+                &splitted_frames,
+                width,
+                all_frames_x,
+                all_frames_y,
+            )
+        });
     }
 
     fn do_vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {

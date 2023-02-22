@@ -305,7 +305,7 @@ impl VideoPlayer for MultiVideoPlayer {
         let fps = data_rx.recv().unwrap();
 
         let multi_video_player = MultiVideoPlayer {
-            width ,
+            width,
             height,
             fps,
             frame_index: frame_index_clone,
@@ -357,7 +357,7 @@ impl VideoPlayer for MultiVideoPlayer {
     fn video_data(&self) -> anyhow::Result<VideoData> {
         //let width = self.width.expect("Couldn't get multi video width");
         Ok(VideoData {
-            width: self.width ,
+            width: self.width,
             height: self.height,
             fps: self.fps,
         })
