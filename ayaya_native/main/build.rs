@@ -278,10 +278,17 @@ static MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
 ];
 
 fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
-    ((c2.red as f64 - c1.red as f64).powi(2)
-        + (c2.blue as f64 - c1.blue as f64).powi(2)
-        + (c2.green as f64 - c1.green as f64).powi(2))
-    .sqrt()
+        let ra: f64 = (c1.red as f64 + c2.red as f64) / 2.0;
+
+        let rd = c1.red as f64 - c2.red as f64;
+        let gd = c1.green as f64 - c2.green as f64;
+        let bd = c1.blue as f64 - c2.blue as f64;
+
+        let weight_r: f64 = 2. + ra / 256.0;
+        let weight_g: f64 = 4.0;
+        let weight_b: f64 = 2.0 + (255.0 - ra) / 256.0;
+
+        return weight_r * rd * rd + weight_g * gd * gd + weight_b * bd * bd;
 }
 
 fn get_mc_index(color: MinecraftColor) -> i8 {
@@ -305,11 +312,24 @@ fn get_mc_index(color: MinecraftColor) -> i8 {
     }
 }
 
+pub fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
+    let y = y as f32;
+    let cb = cb as f32 - 128.0f32;
+    let cr = cr as f32 - 128.0f32;
+    
+    let r = y                + 1.40200 * cr;
+    let g = y - 0.34414 * cb - 0.71414 * cr;
+    let b = y + 1.77200 * cb;
+
+    (r as u8, g as u8, b as u8)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=./assets");
 
     let out_dir = env::var("OUT_DIR")?; //cargo makes sure that "OUT_DIR" exist
+    let out_dir_yuv = format!("{out_dir}/cached_color_yuv.hex");
     let out_dir = format!("{out_dir}/cached_color.hex");
 
     if cfg!(feature = "skip_buildrs") {
@@ -346,23 +366,37 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if !Path::new(&out_dir).exists() {
         println!("Color file does not exists!");
+
+        let mut color_cache = Vec::<u8>::with_capacity(256 * 256 * 256);
         let mut color_file = BufWriter::new(File::create(out_dir)?);
 
         for r in 0..=255 {
             for g in 0..=255 {
                 for b in 0..=255 {
                     let color = get_mc_index(MinecraftColor::new(r, g, b));
-
-                    let color: u8 = color as u8;
-
-                    let b: &[u8] = slice::from_ref(&color);
-
-                    let _ = color_file.write(b)?;
+                    color_cache.push(color as u8);
                 }
             }
         }
 
+        color_file.write(&color_cache)?;
         color_file.flush()?;
+
+        let mut color_file_yuv = BufWriter::new(File::create(out_dir_yuv)?);
+        let mut color_cache_yuv = Vec::<u8>::with_capacity(256 * 256 * 256);
+
+        for y in 0..=255 {
+            for cb in 0..=255 {
+                for cr in 0..=255 {
+                    let (r, g, b) = ycbcr_to_rgb(y, cb, cr);
+                    let color = get_mc_index(MinecraftColor::new(r, g, b));
+                    color_cache_yuv.push(color as u8);
+                }
+            }
+        }
+
+        color_file_yuv.write(&color_cache_yuv)?;
+        color_file_yuv.flush()?;
     };
 
     let asstets_entries = std::fs::read_dir("./assets/")?

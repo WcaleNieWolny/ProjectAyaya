@@ -10,7 +10,7 @@ use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::Error::Eof;
 use ffmpeg::{rescale, Error, Rescale};
 
-use crate::colorlib::transform_frame_to_mc;
+use crate::colorlib::{transform_frame_to_mc, self};
 use crate::map_server::ServerOptions;
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{ffmpeg_set_multithreading, SplittedFrame};
@@ -25,6 +25,7 @@ pub struct SingleVideoPlayer {
     splitted_frames: Vec<SplittedFrame>,
     all_frames_x: usize,
     all_frames_y: usize,
+    fast_index_map: Vec<usize>,
     seek_tx: Sender<i32>,
     seek_rx: Receiver<i32>,
     width: usize,
@@ -64,7 +65,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 decoder.format(),
                 width,
                 height,
-                Pixel::RGB24,
+                Pixel::YUV444P,
                 width,
                 height,
                 Flags::BILINEAR,
@@ -74,6 +75,8 @@ impl VideoPlayer for SingleVideoPlayer {
             let (splitted_frames, all_frames_x, all_frames_y) =
                 SplittedFrame::initialize_frames(width as usize, height as usize)?;
 
+            let fast_index_map = SplittedFrame::prepare_fast_split(&splitted_frames, width as usize, height as usize, all_frames_x, all_frames_y)?;
+
             let single_video_player = Self {
                 video_stream_index,
                 scaler,
@@ -82,6 +85,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 splitted_frames,
                 all_frames_x,
                 all_frames_y,
+                fast_index_map,
                 seek_tx,
                 seek_rx,
                 width: width as usize,
@@ -110,20 +114,15 @@ impl VideoPlayer for SingleVideoPlayer {
                     &mut self.scaler,
                     &packet,
                 )?;
-                let transformed_frame = transform_frame_to_mc(
+
+                let transformed_frame = colorlib::transform_frame_to_mc_yuv(
                     frame_data.data(0),
+                    frame_data.data(1),
+                    frame_data.data(2),
                     self.width,
                     self.height,
-                    frame_data.stride(0),
-                );
-
-                let transformed_frame = SplittedFrame::split_frames(
-                    transformed_frame.as_slice(),
-                    &self.splitted_frames,
-                    self.width,
-                    self.all_frames_x,
-                    self.all_frames_y,
-                )?;
+                    &self.fast_index_map
+                )?; 
 
                 return Ok(transformed_frame);
             }

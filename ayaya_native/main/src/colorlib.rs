@@ -51,6 +51,9 @@ pub static CONVERSION_TABLE: &[u8; 16777216] =
 pub static CONVERSION_TABLE: &[u8; 1] =
     include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
+pub static CONVERSION_TABLE_YUV: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/cached_color_yuv.hex"));
+
 pub fn get_cached_index(color: &Color) -> i8 {
     CONVERSION_TABLE
         [(color.red as usize * 256 * 256) + (color.green as usize * 256) + color.blue as usize]
@@ -77,6 +80,46 @@ pub fn transform_frame_to_mc(
     }
 
     buffer
+}
+
+#[cfg(feature = "ffmpeg")]
+pub fn transform_frame_to_mc_yuv(
+    y_arr: &[u8],
+    cb_arr: &[u8],
+    cr_arr: &[u8],
+    width: usize,
+    height: usize,
+    fast_lookup_map: &Vec<usize>
+) -> anyhow::Result<Vec<i8>> {
+    let mut vec = Vec::<i8>::with_capacity(width * height);
+    let buf_ptr = vec.as_mut_ptr() as usize;
+
+    let y_iter = y_arr.par_iter();
+    let cr_iter = cr_arr.par_iter();
+    let cb_iter = cb_arr.par_iter();
+
+    y_iter
+        .zip(cb_iter)
+        .zip(cr_iter)
+        .enumerate()
+        .for_each(|(index, ((y, cb), cr))| {
+            let color = CONVERSION_TABLE_YUV[(*y as usize * 256 * 256) + (*cb as usize * 256) + *cr as usize] as i8;
+            
+            let ptr_offset = fast_lookup_map[index];
+            let ptr = (buf_ptr + ptr_offset) as *mut i8;
+
+            unsafe {
+                ptr.write_volatile(color)
+            }
+
+        });
+
+    unsafe {
+        vec.set_len(width * height)
+    }
+
+    Ok(vec)
+
 }
 
 //Thanks to https://github.com/The0x539 for help with this

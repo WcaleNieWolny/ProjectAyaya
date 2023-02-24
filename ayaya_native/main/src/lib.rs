@@ -663,6 +663,24 @@ mod tests {
         });
     }
 
+    #[bench]
+    fn bench_transform_frame_to_mc_yuv(b: &mut Bencher) {
+        let width = 3840usize;
+        let height = 2160usize;
+
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height).unwrap();
+        
+        let fast_index_map = SplittedFrame::prepare_fast_split(&splitted_frames, width, height, all_frames_x, all_frames_y).unwrap();
+        let y_arr: Vec<u8> = vec![89u8; width * height];
+        let cb_arr: Vec<u8> = vec![21u8; width * height];
+        let cr_arr: Vec<u8> = vec![11u8; width * height];
+
+        b.iter(|| {
+            colorlib::transform_frame_to_mc_yuv(&y_arr, &cb_arr, &cr_arr, width, height, &fast_index_map)
+        })
+    }
+
     fn do_vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
         let matching = a.iter().zip(b.iter()).filter(|&(a, b)| a == b).count();
         matching == a.len() && matching == b.len()
