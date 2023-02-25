@@ -580,6 +580,51 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_external_fast_yuv_frame_transform() -> Result<(), Box<dyn std::error::Error>> {
+        let width = 3840usize;
+        let height = 2160usize;
+
+        let y_arr: Vec<u8> = rand::thread_rng()
+            .sample_iter(rand::distributions::Standard)
+            .take(width * height)
+            .collect();
+
+        let cb_arr: Vec<u8> = rand::thread_rng()
+            .sample_iter(rand::distributions::Standard)
+            .take(width * height)
+            .collect();
+
+        let cr_arr: Vec<u8> = rand::thread_rng()
+            .sample_iter(rand::distributions::Standard)
+            .take(width * height)
+            .collect();
+
+        let (splitted_frames, all_frames_x, all_frames_y) = SplittedFrame::initialize_frames(width, height)?;
+        let fast_index_map = SplittedFrame::prepare_fast_split(
+            &splitted_frames,
+            width,
+            height,
+            all_frames_x,
+            all_frames_y,
+        )?;
+
+        let external_ranges_vec = SplittedFrame::prepare_external_ranges(
+            &splitted_frames,
+            width,
+            height,
+            all_frames_x,
+            all_frames_y
+        )?; 
+
+        let rust_vec = colorlib::transform_frame_to_mc_yuv(&y_arr, &cb_arr, &cr_arr, width, height, &fast_index_map)?;
+        let c_arr = colorlib::transform_frame_to_mc_c(&y_arr, &cb_arr, &cr_arr, width, height, &external_ranges_vec);
+
+        assert!(do_vecs_match(&rust_vec, &c_arr));
+
+        Ok(())
+    }
+
     #[bench]
     fn bench_color_transform_normal(b: &mut Bencher) {
         let width = 3840usize;

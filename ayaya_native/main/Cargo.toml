@@ -27,10 +27,12 @@ rayon = "1.6.1"
 [features]
 ffmpeg = ["dep:ffmpeg-next"]
 skip_buildrs = []
-default = ["ffmpeg"]
+external_splitting = []
+default = ["ffmpeg", "external_splitting"]
 
 [build-dependencies]
 image = "0.24.5"
+cc = "1.0"
 
 [lib]
 crate_type = ["cdylib"]

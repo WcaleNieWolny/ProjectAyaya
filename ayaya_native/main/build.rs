@@ -327,6 +327,7 @@ pub fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=./assets");
+    println!("cargo:rerun-if-changed=/src/fast_transform.c");
 
     let out_dir = env::var("OUT_DIR")?; //cargo makes sure that "OUT_DIR" exist
     let out_dir_yuv = format!("{out_dir}/cached_color_yuv.hex");
@@ -450,6 +451,18 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         dimensions_file.flush()?;
         output_file.flush()?;
+    }
+
+    if cfg!(feature = "external_splitting") {
+        cc::Build::new()
+            .compiler("/usr/bin/gcc")
+            .flag("-fopenmp")
+            .flag("-march=native")
+            .opt_level_str("fast")
+            .file("src/fast_transform.c")
+            .compile("fast_transform");
+
+        println!("cargo:rustc-link-lib=gomp");
     }
 
     Ok(())
