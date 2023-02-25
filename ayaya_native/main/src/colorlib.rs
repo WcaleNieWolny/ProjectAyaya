@@ -17,6 +17,7 @@ extern "C" {
 	//uint64_t width,
 	//uint64_t height
     
+    #[must_use]
     fn fast_yuv_frame_transform(
         output_ptr: *mut i8,
         y_ptr: *const u8,
@@ -27,7 +28,7 @@ extern "C" {
         ranges_len: usize, 
         width: u64, 
         height: u64, 
-    );
+    ) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -156,10 +157,13 @@ pub fn transform_frame_to_mc_c(
     width: usize,
     height: usize,
     ranges_vec: &Vec<ExternalSplitFrameMemCopyRange>
-) -> Vec<i8> {
+) -> anyhow::Result<Vec<i8>> {
     unsafe {
         let mut output = Vec::<i8>::with_capacity(width * height);
-        fast_yuv_frame_transform(
+
+        println!("RS: {}", std::mem::size_of::<ExternalSplitFrameMemCopyRange>());
+
+        if !fast_yuv_frame_transform(
             output.as_mut_ptr(),
             y_arr.as_ptr(),
             cb_arr.as_ptr(),
@@ -169,11 +173,13 @@ pub fn transform_frame_to_mc_c(
             ranges_vec.len(),
             width as u64,
             height as u64
-        );
+        ){
+            return Err(anyhow!("Internal C error, check stderr"));
+        };
 
         output.set_len(width * height);
         
-        return output;
+        return Ok(output);
     }
 }
 

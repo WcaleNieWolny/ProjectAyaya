@@ -618,11 +618,30 @@ mod tests {
         )?; 
 
         let rust_vec = colorlib::transform_frame_to_mc_yuv(&y_arr, &cb_arr, &cr_arr, width, height, &fast_index_map)?;
-        let c_arr = colorlib::transform_frame_to_mc_c(&y_arr, &cb_arr, &cr_arr, width, height, &external_ranges_vec);
+        let c_arr = colorlib::transform_frame_to_mc_c(&y_arr, &cb_arr, &cr_arr, width, height, &external_ranges_vec)?;
 
         assert!(do_vecs_match(&rust_vec, &c_arr));
 
         Ok(())
+    }
+
+    #[bench]
+    fn bench_external_fast_yuv_frame_transform(b: &mut Bencher){
+        let width = 3840usize;
+        let height = 2160usize;
+
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height).unwrap();
+        
+        let external_ranges_vec = SplittedFrame::prepare_external_ranges(&splitted_frames, width, height, all_frames_x, all_frames_y).unwrap();
+        let y_arr: Vec<u8> = vec![89u8; width * height];
+        let cb_arr: Vec<u8> = vec![21u8; width * height];
+        let cr_arr: Vec<u8> = vec![11u8; width * height];
+    
+        b.iter(|| {
+            colorlib::transform_frame_to_mc_c(&y_arr, &cb_arr, &cr_arr, width, height, &external_ranges_vec).unwrap()
+        })
+
     }
 
     #[bench]

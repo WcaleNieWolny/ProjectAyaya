@@ -123,7 +123,7 @@ impl VideoPlayer for SingleVideoPlayer {
                     self.width,
                     self.height,
                     &self.extenal_ranges
-                ); 
+                )?; 
 
                 return Ok(transformed_frame);
             }

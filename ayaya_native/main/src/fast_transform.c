@@ -26,7 +26,7 @@ bool fast_yuv_frame_transform(
 
 	int8_t* tmp_buf = malloc(area * sizeof(int8_t));
 	if (tmp_buf == NULL) {
-		printf("[C ERR] malloc returned NULL!");
+		fprintf(stderr, "[C ERR] malloc returned NULL!\n");
 		return false;
 	}
 
@@ -52,9 +52,9 @@ bool fast_yuv_frame_transform(
 		}
 	}
 
-	#pragma omp parallel
-	for (size_t i = 0; i < ranges_len; i++) {
-		struct MemCopyRange memCopyRange = *(p_ranges + (sizeof(struct MemCopyRange) * i));
+	#pragma omp for simd
+	for (size_t i = 0; i < ranges_len; ++i) {
+		struct MemCopyRange memCopyRange = *(p_ranges + i);
 
 		memcpy((void*) p_output + memCopyRange.dst_offset, (void*) tmp_buf + memCopyRange.src_offset, memCopyRange.len);
 	}
