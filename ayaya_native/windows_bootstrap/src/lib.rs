@@ -1,3 +1,4 @@
+#[cfg(target_os = "windows")]
 use std::{
     ffi::{c_void, OsStr},
     fs::{self, File},
@@ -15,6 +16,8 @@ use jni::{
     JNIEnv, NativeMethod,
 };
 use libloading::Library;
+
+#[cfg(target_os = "windows")]
 use winapi::um::winbase;
 
 static EXTERNAL_METHODS: [(&[u8], &str, &str); 6] = [
@@ -29,6 +32,7 @@ static EXTERNAL_METHODS: [(&[u8], &str, &str); 6] = [
 static FFMPEG_URL: &str = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n5.1-latest-win64-lgpl-shared-5.1.zip";
 static FFMPEG_FOLDER_PATH_PREFIX: &str = "ffmpeg-master-latest-win64-lgpl-shared";
 
+#[cfg(target_os = "windows")]
 #[no_mangle]
 pub extern "system" fn Java_me_wcaleniewolny_ayaya_library_WindowsBootstrap_bootstrap(
     env: JNIEnv,
@@ -48,6 +52,7 @@ pub extern "system" fn Java_me_wcaleniewolny_ayaya_library_WindowsBootstrap_boot
     }
 }
 
+#[cfg(target_os = "windows")]
 #[no_mangle]
 pub extern "system" fn Java_me_wcaleniewolny_ayaya_library_WindowsBootstrap_cleanup(
     env: JNIEnv,
@@ -62,6 +67,7 @@ pub extern "system" fn Java_me_wcaleniewolny_ayaya_library_WindowsBootstrap_clea
     }
 }
 
+#[cfg(target_os = "windows")]
 fn bootstrap(env: JNIEnv, lib_path: JString, app_folder: JString) -> anyhow::Result<jlong> {
     let lib_path: String = env.get_string(lib_path)?.into();
     let app_folder: String = env.get_string(app_folder)?.into();
@@ -141,6 +147,7 @@ fn bootstrap(env: JNIEnv, lib_path: JString, app_folder: JString) -> anyhow::Res
     };
 }
 
+#[cfg(target_os = "windows")]
 fn downlaod_ffmpeg(path: &Path) -> anyhow::Result<()> {
     let mut file = File::create(path)?;
 
@@ -153,6 +160,7 @@ fn downlaod_ffmpeg(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 //https://github.com/zip-rs/zip/blob/master/examples/extract.rs
 fn extract_zip(fname: &Path) -> anyhow::Result<()> {
     let file = fs::File::open(&fname)?;
@@ -187,6 +195,7 @@ fn extract_zip(fname: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 fn cleanup(env: JNIEnv, ptr: jlong) -> anyhow::Result<()> {
     let jclass = env.find_class("me/wcaleniewolny/ayaya/library/NativeRenderControler")?;
 

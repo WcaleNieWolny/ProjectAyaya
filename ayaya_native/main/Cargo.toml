@@ -22,15 +22,17 @@ symphonia = { version = "0.5.2", features = ["aac", "mp3", "isomp4", "alac"]}
 once_cell = "1.17.1"
 font-kit = "0.11.0"
 pathfinder_geometry = "0.5.1"
-rayon = "1.6.1"
 
 [features]
 ffmpeg = ["dep:ffmpeg-next"]
 skip_buildrs = []
+external_splitting = []
 default = ["ffmpeg"]
 
 [build-dependencies]
 image = "0.24.5"
+cc = "1.0"
+pkg-config = "0.3.26"
 
 [lib]
 crate_type = ["cdylib"]

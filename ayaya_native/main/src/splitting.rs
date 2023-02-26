@@ -5,6 +5,14 @@ pub struct SplittedFrame {
     pub frame_length: usize,
 }
 
+#[repr(C)]
+#[cfg(feature = "external_splitting")]
+pub struct ExternalSplitFrameMemCopyRange {
+    src_offset: usize,
+    dst_offset: usize,
+    len: usize,
+}
+
 impl SplittedFrame {
     pub fn initialize_frames(
         width: usize,
@@ -121,14 +129,15 @@ impl SplittedFrame {
         Ok(final_data)
     }
 
-    pub fn prepare_fast_split(
+    #[cfg(feature = "external_splitting")]
+    pub fn prepare_external_ranges(
         frames: &Vec<SplittedFrame>,
         width: usize,
         height: usize,
         all_frames_x: usize,
         all_frames_y: usize,
-    ) -> anyhow::Result<Vec<usize>> {
-        let mut index_table = vec![0usize; width * height];
+    ) -> anyhow::Result<Vec<ExternalSplitFrameMemCopyRange>> {
+        let mut ranges_table = Vec::<ExternalSplitFrameMemCopyRange>::new();
 
         let mut i = 0usize;
         let mut y_i = 0usize;
@@ -141,11 +150,11 @@ impl SplittedFrame {
                 let frame = &frames[i];
 
                 for y1 in 0..frame.height {
-                    for x1 in 0..frame.width {
-                        index_table
-                            [(y_i * width + x_i) as usize + (y1 * width) as usize + x1 as usize] =
-                            final_data_index + x1;
-                    }
+                    ranges_table.push(ExternalSplitFrameMemCopyRange {
+                        src_offset: (y_i * width + x_i) as usize + (y1 * width) as usize,
+                        dst_offset: final_data_index,
+                        len: frame.width,
+                    });
 
                     final_data_index += frame.width
                 }
@@ -156,6 +165,6 @@ impl SplittedFrame {
             y_i += frames[(y * all_frames_x) as usize].height;
         }
 
-        Ok(index_table)
+        Ok(ranges_table)
     }
 }

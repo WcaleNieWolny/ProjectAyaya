@@ -1,6 +1,5 @@
 use anyhow::anyhow;
-use rayon::prelude::*;
-use std::{env, num::ParseIntError, sync::atomic::Ordering};
+use std::{env, num::ParseIntError};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
@@ -51,6 +50,10 @@ pub static CONVERSION_TABLE: &[u8; 16777216] =
 pub static CONVERSION_TABLE: &[u8; 1] =
     include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
+#[cfg(feature = "external_splitting")]
+pub static CONVERSION_TABLE_YUV: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/cached_color_yuv.hex"));
+
 pub fn get_cached_index(color: &Color) -> i8 {
     CONVERSION_TABLE
         [(color.red as usize * 256 * 256) + (color.green as usize * 256) + color.blue as usize]
@@ -69,56 +72,12 @@ pub fn transform_frame_to_mc(
     for y in 0..height as usize {
         for x in 0..width as usize {
             buffer.push(get_cached_index(&Color::new(
-                data[((y * add_width) + (x * 3))],
-                data[((y * add_width) + (x * 3) + 1)],
-                data[((y * add_width) + (x * 3) + 2)],
+                data[(y * add_width) + (x * 3)],
+                data[(y * add_width) + (x * 3) + 1],
+                data[(y * add_width) + (x * 3) + 2],
             )));
         }
     }
 
     buffer
-}
-
-//Thanks to https://github.com/The0x539 for help with this
-//No unsafe version: https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=815de260ce2c61db254bd79434caa396
-//This version: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=5c9886ffabf102ff3d06f9495c9ad267
-//Previous version: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=e51cac7c4eb4c8612157cc3ec1bc3642
-pub fn unsafe_transform_and_split_frame_to_mc(
-    data: &[u8],
-    fast_lookup_map: &Vec<usize>,
-    width: usize,
-    height: usize,
-    stride: usize,
-) -> anyhow::Result<Vec<i8>> {
-    let area = width * height;
-
-    let mut buffer: Vec<i8> = Vec::with_capacity(area);
-    let buf = &mut buffer.spare_capacity_mut()[..area];
-    let buf_ptr = buf.as_mut_ptr() as usize;
-
-    let src_rows = data.par_chunks(stride);
-    let index_rows = fast_lookup_map.par_chunks(width);
-
-    src_rows
-        .zip(index_rows)
-        .enumerate()
-        .for_each(|(y, (src_row, index_row))| {
-            let pixels = src_row.array_chunks::<3>().take(width);
-
-            for (x, ([r, g, b], index)) in pixels.zip(index_row).enumerate() {
-                let color = Color::new(*r, *g, *b);
-                let value = get_cached_index(&color);
-
-                let index = &fast_lookup_map[y * width + x];
-
-                unsafe {
-                    let ptr = (buf_ptr + index) as *mut i8; //pointer arithmetic
-                    ptr.write_volatile(value);
-                };
-            }
-        });
-
-    unsafe { buffer.set_len(area) }
-
-    Ok(buffer)
 }
