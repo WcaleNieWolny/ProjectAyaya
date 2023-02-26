@@ -2,7 +2,7 @@ use image::GenericImageView;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{env, slice};
 
 pub struct MinecraftColor {
@@ -454,14 +454,25 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if cfg!(feature = "external_splitting") {
+
+        let ffmpeg_libs = vec!["libavcodec", "libavformat", "libavfilter", "libavdevice", "libswresample", "libswscale", "libavutil"];
+        let mut ffmpeg_include_paths = Vec::<PathBuf>::new();
+
+        for lib in ffmpeg_libs {
+            let lib = pkg_config::probe_library(lib).unwrap();
+            ffmpeg_include_paths.extend_from_slice(&lib.include_paths)
+        }
+
         cc::Build::new()
             .compiler("/usr/bin/gcc")
             .flag("-march=native")
             .flag("-fopenmp")
             .opt_level_str("fast")
+            .includes(ffmpeg_include_paths)
             .file("src/fast_transform.c")
             .compile("fast_transform");
 
+        //println!("cargo:rustc-link-lib=avformat");
         println!("cargo:rustc-link-lib=gomp");
     }
 
