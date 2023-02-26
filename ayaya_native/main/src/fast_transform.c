@@ -30,29 +30,19 @@ bool fast_yuv_frame_transform(
 		return false;
 	}
 
-	#pragma omp parallel
-	{
-		#pragma omp for simd
-		for (size_t index = 0; index < area; index++) {
-			uint8_t* p_y = p_y_arr + index;
-			uint8_t* p_cb = p_cb_arr + index;
-			uint8_t* p_cr = p_cr_arr + index;
+	for (size_t index = 0; index < area; index++) {
+		size_t y = (size_t)p_y_arr[index];
+		size_t cb = (size_t)p_cb_arr[index / 4];
+		size_t cr = (size_t)p_cr_arr[index / 4];
 
-			size_t y = (size_t)(*p_y);
-			size_t cb = (size_t)(*p_cb);
-			size_t cr = (size_t)(*p_cr);
+		size_t offset = (y * 256 * 256) + (cb * 256) + cr;
+		int8_t color = (int8_t)p_color_transform_table[offset];
 
-			size_t offset = (y * 256 * 256) + (cb * 256) + cr;
-			uint8_t tmp_color = *(p_color_transform_table + offset);
-			int8_t color = (int8_t)tmp_color;
-
-			//size_t output_offset = *(p_fast_lookup_table + index);
-			//*(p_output + output_offset) = color;
-			*(tmp_buf + index) = color;
-		}
+		//size_t output_offset = *(p_fast_lookup_table + index);
+		//*(p_output + output_offset) = color;
+		*(tmp_buf + index) = color;
 	}
 
-	#pragma omp for simd
 	for (size_t i = 0; i < ranges_len; ++i) {
 		struct MemCopyRange memCopyRange = *(p_ranges + i);
 

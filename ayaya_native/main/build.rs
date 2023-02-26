@@ -456,12 +456,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     if cfg!(feature = "external_splitting") {
         cc::Build::new()
             .compiler("/usr/bin/gcc")
-            //.compiler("/usr/lib/llvm/15/bin/clang")
-            //.flag("-fopenmp=libgomp")
-            //.flag("-fsanitize=address")
-            //.flag("-fno-omit-frame-pointer")
-            //.flag("-static-libsan")
-            .flag("-fopenmp")
             .flag("-march=native")
             .opt_level_str("fast")
             .file("src/fast_transform.c")
