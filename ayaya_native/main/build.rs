@@ -382,22 +382,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         color_file.write(&color_cache)?;
         color_file.flush()?;
-
-        let mut color_file_yuv = BufWriter::new(File::create(out_dir_yuv)?);
-        let mut color_cache_yuv = Vec::<u8>::with_capacity(256 * 256 * 256);
-
-        for y in 0..=255 {
-            for cb in 0..=255 {
-                for cr in 0..=255 {
-                    let (r, g, b) = ycbcr_to_rgb(y, cb, cr);
-                    let color = get_mc_index(MinecraftColor::new(r, g, b));
-                    color_cache_yuv.push(color as u8);
-                }
-            }
-        }
-
-        color_file_yuv.write(&color_cache_yuv)?;
-        color_file_yuv.flush()?;
     };
 
     let asstets_entries = std::fs::read_dir("./assets/")?
@@ -454,6 +438,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if cfg!(feature = "external_splitting") {
+        let mut color_file_yuv = BufWriter::new(File::create(out_dir_yuv)?);
+        let mut color_cache_yuv = Vec::<u8>::with_capacity(256 * 256 * 256);
+
+        for y in 0..=255 {
+            for cb in 0..=255 {
+                for cr in 0..=255 {
+                    let (r, g, b) = ycbcr_to_rgb(y, cb, cr);
+                    let color = get_mc_index(MinecraftColor::new(r, g, b));
+                    color_cache_yuv.push(color as u8);
+                }
+            }
+        }
+
+        color_file_yuv.write(&color_cache_yuv)?;
+        color_file_yuv.flush()?;
+
         let ffmpeg_libs = vec![
             "libavcodec",
             "libavformat",

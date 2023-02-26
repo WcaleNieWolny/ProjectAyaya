@@ -183,7 +183,7 @@ impl Game for FallingBlocks {
                             .copy_from_slice(&self.blocks[((y + 1) * 10)..self.blocks.len()]);
                     }
                     if y != 0 {
-                        block_copy[(10..(y + 1) * 10)].copy_from_slice(&self.blocks[0..(y * 10)]);
+                        block_copy[10..(y + 1) * 10].copy_from_slice(&self.blocks[0..(y * 10)]);
                     }
                     self.blocks = block_copy;
                     self.lines_cleared += 1;

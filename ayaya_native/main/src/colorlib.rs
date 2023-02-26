@@ -1,8 +1,5 @@
 use anyhow::anyhow;
-use rayon::prelude::*;
-use std::{env, num::ParseIntError, sync::atomic::Ordering};
-
-use crate::splitting::ExternalSplitFrameMemCopyRange;
+use std::{env, num::ParseIntError};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
@@ -53,6 +50,7 @@ pub static CONVERSION_TABLE: &[u8; 16777216] =
 pub static CONVERSION_TABLE: &[u8; 1] =
     include_bytes!(concat!(env!("OUT_DIR"), "/cached_color.hex"));
 
+#[cfg(feature = "external_splitting")]
 pub static CONVERSION_TABLE_YUV: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/cached_color_yuv.hex"));
 
