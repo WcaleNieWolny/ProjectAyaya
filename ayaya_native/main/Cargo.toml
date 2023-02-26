@@ -28,7 +28,7 @@ rayon = "1.6.1"
 ffmpeg = ["dep:ffmpeg-next"]
 skip_buildrs = []
 external_splitting = []
-default = ["ffmpeg", "external_splitting"]
+default = ["ffmpeg"]
 
 [build-dependencies]
 image = "0.24.5"
