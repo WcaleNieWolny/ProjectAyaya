@@ -10,10 +10,9 @@ use ffmpeg::software::scaling::{Context, Flags};
 use ffmpeg::Error::Eof;
 use ffmpeg::{rescale, Error, Rescale};
 
-use crate::colorlib::{transform_frame_to_mc, self};
+use crate::colorlib::transform_frame_to_mc;
 use crate::map_server::ServerOptions;
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
-use crate::splitting::ExternalSplitFrameMemCopyRange;
 use crate::{ffmpeg_set_multithreading, SplittedFrame};
 
 use super::player_context::NativeCommunication;
@@ -24,13 +23,12 @@ pub struct SingleVideoPlayer {
     input: Input,
     decoder: Video,
     splitted_frames: Vec<SplittedFrame>,
-    all_frames_x: usize,
-    all_frames_y: usize,
-    extenal_ranges: Vec<ExternalSplitFrameMemCopyRange>,
+    all_frames_x: i32,
+    all_frames_y: i32,
     seek_tx: Sender<i32>,
     seek_rx: Receiver<i32>,
-    width: usize,
-    height: usize,
+    width: u32,
+    height: u32,
     fps: i32,
 }
 
@@ -66,7 +64,7 @@ impl VideoPlayer for SingleVideoPlayer {
                 decoder.format(),
                 width,
                 height,
-                Pixel::YUV444P,
+                Pixel::RGB24,
                 width,
                 height,
                 Flags::BILINEAR,
@@ -74,9 +72,7 @@ impl VideoPlayer for SingleVideoPlayer {
 
             let (seek_tx, seek_rx) = channel::<i32>();
             let (splitted_frames, all_frames_x, all_frames_y) =
-                SplittedFrame::initialize_frames(width as usize, height as usize)?;
-
-            let extenal_ranges = SplittedFrame::prepare_external_ranges(&splitted_frames, width as usize, height as usize, all_frames_x, all_frames_y)?;
+                SplittedFrame::initialize_frames(width as i32, height as i32)?;
 
             let single_video_player = Self {
                 video_stream_index,
@@ -86,11 +82,10 @@ impl VideoPlayer for SingleVideoPlayer {
                 splitted_frames,
                 all_frames_x,
                 all_frames_y,
-                extenal_ranges,
                 seek_tx,
                 seek_rx,
-                width: width as usize,
-                height: height as usize,
+                width,
+                height,
                 fps,
             };
 
@@ -115,15 +110,20 @@ impl VideoPlayer for SingleVideoPlayer {
                     &mut self.scaler,
                     &packet,
                 )?;
-
-                let transformed_frame = colorlib::transform_frame_to_mc_c(
+                let transformed_frame = transform_frame_to_mc(
                     frame_data.data(0),
-                    frame_data.data(1),
-                    frame_data.data(2),
                     self.width,
                     self.height,
-                    &self.extenal_ranges
-                )?; 
+                    frame_data.stride(0),
+                );
+
+                let transformed_frame = SplittedFrame::split_frames(
+                    transformed_frame.as_slice(),
+                    &self.splitted_frames,
+                    self.width as i32,
+                    self.all_frames_x,
+                    self.all_frames_y,
+                )?;
 
                 return Ok(transformed_frame);
             }
