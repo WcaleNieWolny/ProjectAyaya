@@ -9,7 +9,7 @@ pub struct SplittedFrame {
 pub struct ExternalSplitFrameMemCopyRange {
     src_offset: usize,
     dst_offset: usize,
-    len: usize
+    len: usize,
 }
 
 impl SplittedFrame {
@@ -187,7 +187,6 @@ impl SplittedFrame {
                 let frame = &frames[i];
 
                 for y1 in 0..frame.height {
-
                     ranges_table.push(ExternalSplitFrameMemCopyRange {
                         src_offset: (y_i * width + x_i) as usize + (y1 * width) as usize,
                         dst_offset: final_data_index,

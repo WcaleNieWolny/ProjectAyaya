@@ -278,17 +278,17 @@ static MINECRAFT_COLOR_ARRAY: [MinecraftColor; 248] = [
 ];
 
 fn color_distance(c1: &MinecraftColor, c2: &MinecraftColor) -> f64 {
-        let ra: f64 = (c1.red as f64 + c2.red as f64) / 2.0;
+    let ra: f64 = (c1.red as f64 + c2.red as f64) / 2.0;
 
-        let rd = c1.red as f64 - c2.red as f64;
-        let gd = c1.green as f64 - c2.green as f64;
-        let bd = c1.blue as f64 - c2.blue as f64;
+    let rd = c1.red as f64 - c2.red as f64;
+    let gd = c1.green as f64 - c2.green as f64;
+    let bd = c1.blue as f64 - c2.blue as f64;
 
-        let weight_r: f64 = 2. + ra / 256.0;
-        let weight_g: f64 = 4.0;
-        let weight_b: f64 = 2.0 + (255.0 - ra) / 256.0;
+    let weight_r: f64 = 2. + ra / 256.0;
+    let weight_g: f64 = 4.0;
+    let weight_b: f64 = 2.0 + (255.0 - ra) / 256.0;
 
-        return weight_r * rd * rd + weight_g * gd * gd + weight_b * bd * bd;
+    return weight_r * rd * rd + weight_g * gd * gd + weight_b * bd * bd;
 }
 
 fn get_mc_index(color: MinecraftColor) -> i8 {
@@ -316,8 +316,8 @@ pub fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
     let y = y as f32;
     let cb = cb as f32 - 128.0f32;
     let cr = cr as f32 - 128.0f32;
-    
-    let r = y                + 1.40200 * cr;
+
+    let r = y + 1.40200 * cr;
     let g = y - 0.34414 * cb - 0.71414 * cr;
     let b = y + 1.77200 * cb;
 
@@ -454,8 +454,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if cfg!(feature = "external_splitting") {
-
-        let ffmpeg_libs = vec!["libavcodec", "libavformat", "libavfilter", "libavdevice", "libswresample", "libswscale", "libavutil"];
+        let ffmpeg_libs = vec![
+            "libavcodec",
+            "libavformat",
+            "libavfilter",
+            "libavdevice",
+            "libswresample",
+            "libswscale",
+            "libavutil",
+        ];
         let mut ffmpeg_include_paths = Vec::<PathBuf>::new();
 
         for lib in ffmpeg_libs {
