@@ -30,6 +30,7 @@ bool fast_yuv_frame_transform(
 		return false;
 	}
 
+	#pragma omp parallel for simd
 	for (size_t index = 0; index < area; index++) {
 		size_t y = (size_t)p_y_arr[index];
 		size_t cb = (size_t)p_cb_arr[index / 4];

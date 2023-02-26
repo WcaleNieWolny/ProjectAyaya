@@ -457,6 +457,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         cc::Build::new()
             .compiler("/usr/bin/gcc")
             .flag("-march=native")
+            .flag("-fopenmp")
             .opt_level_str("fast")
             .file("src/fast_transform.c")
             .compile("fast_transform");
