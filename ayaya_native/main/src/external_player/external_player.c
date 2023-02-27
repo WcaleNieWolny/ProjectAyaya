@@ -10,11 +10,7 @@
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
 
-struct MemCopyRange {
-    size_t srcOffset;
-    size_t dstOffset;
-    size_t len;
-};
+#include "rust.h"
 
 typedef struct {
 	uint8_t* p_colorTransformTable;
@@ -32,6 +28,8 @@ typedef struct {
 	size_t width;
 	size_t height;
 	size_t fps;
+	struct MemCopyRange* p_mem_ranges;
+	size_t mem_ranges_len;
 } ExternalPlayer;
 
 typedef struct ExternalVideoData {
@@ -198,7 +196,7 @@ void* external_player_init(
 		p_codec_parm->format,
 		p_codec_parm->width,
 		p_codec_parm->height,
-		AV_PIX_FMT_RGB24,
+		AV_PIX_FMT_YUV420P,
 		SWS_BILINEAR,
 		NULL,
 		NULL,
@@ -217,13 +215,25 @@ void* external_player_init(
 
 	log_info("OK!");
 
+	size_t width = (size_t) p_codec_parm->width; 
+	size_t height = (size_t) p_codec_parm->height;
+
+	struct MemCopyRangeOutput mem_ranges_output = {NULL, 0};
+	generate_memcpy_ranges(&mem_ranges_output, width, height);
+
+	if (mem_ranges_output.p_mem_ranges == NULL) {
+		log_error("Rust generate_memcpy_ranges callback failed");
+		return NULL;
+	};
+
 	ExternalPlayer* player = (ExternalPlayer*) malloc(sizeof(ExternalPlayer));
 
 	//We init that
 	player->p_colorTransformTable = p_colorTransformTable;
-	player->width = (size_t) p_codec_parm->width;
-	player->height = (size_t) p_codec_parm->width;
+	player->width = width;
+	player->height = height;
 	player->fps = (size_t) (p_codec_ctx->framerate.num / p_codec_ctx->framerate.den);
+	
 	//FFmpeg does that
 	player->p_codec_ctx = p_codec_ctx;
 	player->p_codec_parm = p_codec_parm;
@@ -235,10 +245,13 @@ void* external_player_init(
 	player->p_rgb_buffer = p_rgb_buffer;
 	player->p_format_ctx = p_format_ctx;
 	
+	player->p_mem_ranges = mem_ranges_output.p_mem_ranges;
+	player->mem_ranges_len = mem_ranges_output.mem_ranges_len;
 	player->video_stream_index = video_stream_index;
 	player->num_bytes = num_bytes;
 
 	//Mem leak above: We do not clear previously allocated data on error
+	//Mem leak in the rust callback
 	return (void*) player;
 }
 
@@ -256,8 +269,8 @@ int8_t* external_player_load_frame(void* self) {
 
     int len = p_player->width * p_player->height;
 
-    int8_t* byteArray;
-    byteArray=(int8_t*)malloc(len * sizeof(int8_t));
+    int8_t* output;
+    output = (int8_t*)malloc(len * sizeof(int8_t));
 
     while (readFrame) {
         if ((ret = av_read_frame(p_player->p_format_ctx, p_player->p_av_packet)) < 0){
@@ -298,8 +311,23 @@ int8_t* external_player_load_frame(void* self) {
                         );
                 readFrame = false;
             }
-        }
+        } else {
+			log_error("Packet stream index != video_stream_index (\?\?\?)");
+			return NULL;
+		}
     }
+
+	fast_yuv_frame_transform(
+		output,
+		p_player->p_frame_rgb->data[0],
+		p_player->p_frame_rgb->data[1],
+		p_player->p_frame_rgb->data[2],
+		p_player->p_colorTransformTable,
+		p_player->p_mem_ranges,
+		p_player->mem_ranges_len,
+		p_player->width,
+		p_player->height
+	);	
 
 	return NULL;
 }
