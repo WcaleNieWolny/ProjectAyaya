@@ -11,7 +11,7 @@ use songbird::{SerenityInit, Songbird};
 use crate::anyhow;
 use crate::{map_server::ServerOptions, TOKIO_RUNTIME};
 
-use super::player_context::{NativeCommunication, VideoData, VideoPlayer};
+use super::player_context::{NativeCommunication, VideoData, VideoPlayer, VideoFrame};
 
 static DISCORD_CLIENT: OnceCell<DiscordClient> = OnceCell::new();
 
@@ -143,7 +143,7 @@ impl VideoPlayer for DiscordPlayer {
         return Err(anyhow!("Please use the other init function!"));
     }
 
-    fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
+    fn load_frame(&mut self) -> anyhow::Result<Box<dyn VideoFrame>> {
         self.inner.load_frame()
     }
 

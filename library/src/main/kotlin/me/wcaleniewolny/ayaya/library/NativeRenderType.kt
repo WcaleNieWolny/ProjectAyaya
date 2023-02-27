@@ -4,5 +4,6 @@ enum class NativeRenderType {
     SINGLE_THREADED,
     MULTI_THREADED,
     GAME,
-    X11
+    X11,
+    EXTERNAL
 }

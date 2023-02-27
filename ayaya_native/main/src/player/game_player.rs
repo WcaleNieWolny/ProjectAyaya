@@ -15,7 +15,7 @@ use pathfinder_geometry::{
     vector::{Vector2F, Vector2I},
 };
 
-use super::player_context::{NativeCommunication, VideoData, VideoPlayer};
+use super::player_context::{NativeCommunication, VideoData, VideoPlayer, wrap_frame, VideoFrame};
 use crate::{
     apps::{falling_blocks::FallingBlocks, snake::SnakeGame},
     colorlib::Color,
@@ -257,7 +257,7 @@ impl VideoPlayer for GamePlayer {
         })
     }
 
-    fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
+    fn load_frame(&mut self) -> anyhow::Result<Box<dyn VideoFrame>> {
         let frame = if self.frame_counter == 0 {
             let canvas = self.game.draw(&self.input_rx)?;
             let frame = canvas.draw_to_minecraft(
@@ -267,7 +267,7 @@ impl VideoPlayer for GamePlayer {
             )?;
             self.last_frame = frame.clone();
 
-            Ok(frame)
+            Ok(wrap_frame(frame))
         } else {
             let new_frame = self.game.draw(&self.input_rx)?.draw_to_minecraft(
                 &mut self.splitted_frames,
@@ -329,7 +329,7 @@ impl VideoPlayer for GamePlayer {
 
             let frame_str_info = match frame_str_info.strip_suffix('$') {
                 Some(string) => string,
-                None => return Ok(vec![1]), //No change = no new packets
+                None => return Ok(wrap_frame(vec![1])), //No change = no new packets
             };
 
             let frame_str_arr: &[i8] = bytemuck::cast_slice(frame_str_info.as_bytes());
@@ -345,7 +345,7 @@ impl VideoPlayer for GamePlayer {
 
             self.last_frame = new_frame;
 
-            Ok(final_data)
+            Ok(wrap_frame(final_data))
         };
 
         if self.frame_counter + 1 != 3 {

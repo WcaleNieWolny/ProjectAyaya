@@ -34,7 +34,7 @@ class VideoCommandCompletion(
         }
 
         manager.commandCompletions.registerAsyncCompletion("videoPlayType") {
-            return@registerAsyncCompletion mutableListOf("single", "multi", "map_server")
+            return@registerAsyncCompletion mutableListOf("single", "multi", "map_server", "external")
         }
 
         manager.commandCompletions.registerAsyncCompletion("games") {

@@ -22,7 +22,7 @@ use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
 use crate::{ffmpeg_set_multithreading, SplittedFrame, VideoPlayer, TOKIO_RUNTIME};
 
-use super::player_context::{FrameWithIdentifier, NativeCommunication};
+use super::player_context::{FrameWithIdentifier, NativeCommunication, wrap_frame, VideoFrame};
 
 pub struct MultiVideoPlayer {
     width: i32,
@@ -318,7 +318,7 @@ impl VideoPlayer for MultiVideoPlayer {
         Ok(multi_video_player)
     }
 
-    fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
+    fn load_frame(&mut self) -> anyhow::Result<Box<dyn VideoFrame>> {
         if self.map_server.is_some() {
             return Err(anyhow!(
                 "You cannot use JVM and native map server at the same time!"
@@ -340,13 +340,13 @@ impl VideoPlayer for MultiVideoPlayer {
                     continue 'frame_recv_loop;
                 };
                 self.frame_index.store(0, Relaxed);
-                return Ok(frame.data);
+                return Ok(wrap_frame(frame.data));
             }
         } else {
             self.frame_index
                 .store(self.frame_index.load(Relaxed) + 1, Relaxed);
             return match reciver.blocking_recv() {
-                Some(frame) => Ok(frame.data),
+                Some(frame) => Ok(wrap_frame(frame.data)),
                 None => Err(anyhow!("JVM frame reciver closed!")),
             };
         }

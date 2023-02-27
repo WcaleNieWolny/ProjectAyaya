@@ -437,22 +437,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         output_file.flush()?;
     }
 
-    if cfg!(feature = "external_splitting") {
-        let mut color_file_yuv = BufWriter::new(File::create(out_dir_yuv)?);
-        let mut color_cache_yuv = Vec::<u8>::with_capacity(256 * 256 * 256);
+    if cfg!(feature = "external_player") {
+        if !Path::new(&out_dir_yuv).exists() {
+            let mut color_file_yuv = BufWriter::new(File::create(out_dir_yuv)?);
+            let mut color_cache_yuv = Vec::<u8>::with_capacity(256 * 256 * 256);
 
-        for y in 0..=255 {
-            for cb in 0..=255 {
-                for cr in 0..=255 {
-                    let (r, g, b) = ycbcr_to_rgb(y, cb, cr);
-                    let color = get_mc_index(MinecraftColor::new(r, g, b));
-                    color_cache_yuv.push(color as u8);
+            for y in 0..=255 {
+                for cb in 0..=255 {
+                    for cr in 0..=255 {
+                        let (r, g, b) = ycbcr_to_rgb(y, cb, cr);
+                        let color = get_mc_index(MinecraftColor::new(r, g, b));
+                        color_cache_yuv.push(color as u8);
+                    }
                 }
             }
-        }
 
-        color_file_yuv.write(&color_cache_yuv)?;
-        color_file_yuv.flush()?;
+            color_file_yuv.write(&color_cache_yuv)?;
+            color_file_yuv.flush()?;
+        }
 
         let ffmpeg_libs = vec![
             "libavcodec",
@@ -476,8 +478,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             .flag("-fopenmp")
             .opt_level_str("fast")
             .includes(ffmpeg_include_paths)
-            .file("src/fast_transform.c")
-            .compile("fast_transform");
+            .file("src/external_player/external_player.c")
+            .compile("external_player");
 
         //println!("cargo:rustc-link-lib=avformat");
         println!("cargo:rustc-link-lib=gomp");
