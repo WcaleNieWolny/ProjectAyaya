@@ -109,7 +109,7 @@ void* external_player_init(
 	AVCodecParameters* p_codec_parm = NULL;
 	AVFrame* p_frame = NULL;
 	AVFrame* p_frame_rgb = NULL;
-	size_t video_stream_index;
+	size_t video_stream_index = -1;
 	int num_bytes;
 	uint8_t* p_rgb_buffer = NULL;
 	struct SwsContext* p_sws_ctx = NULL;
@@ -138,6 +138,11 @@ void* external_player_init(
             video_stream_index = i;
             break;
         }
+	}
+
+	if (video_stream_index == -1) {
+		log_error("Cannot find video stream index!");
+		return NULL;
 	}
 
 	//fill codec parameters
