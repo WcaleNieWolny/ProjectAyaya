@@ -6,9 +6,13 @@ struct MemCopyRange {
     size_t len;
 };
 
-struct MemCopyRangeOutput {
-	struct MemCopyRange* p_mem_ranges;
-	size_t mem_ranges_len;
+struct RustVec {
+	void* ptr;
+	size_t len;
+	size_t capacity;
+	void (*destructor)(struct RustVec*);
 };
 
- void generate_memcpy_ranges(struct MemCopyRangeOutput* p_output, size_t width, size_t heihgt);
+void free_rust_vec(struct RustVec* vec);
+
+void generate_memcpy_ranges(struct RustVec* p_output, size_t width, size_t heihgt);

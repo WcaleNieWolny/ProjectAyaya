@@ -306,7 +306,7 @@ int8_t* external_player_load_frame(void* self) {
                 sws_scale
                         (
                                 p_player->p_sws_ctx,
-                                (uint8_t const * const *)p_player->p_frame->data,
+                                p_player->p_frame->data,
                                 p_player->p_frame->linesize,
                                 0,
                                 p_player->p_codec_ctx->height,

@@ -1,5 +1,5 @@
-use std::{ffi::{c_char, c_void, CString}, mem::ManuallyDrop};
-use crate::{map_server::ServerOptions, colorlib};
+use std::{ffi::{c_char, c_void, CString}, mem::{ManuallyDrop, self}};
+use crate::{map_server::ServerOptions, colorlib, splitting::{self, SplittedFrame, ExternalSplitFrameMemCopyRange}};
 use super::player_context::{VideoPlayer, VideoFrame, VideoData};
 
 use anyhow::anyhow;
@@ -49,11 +49,72 @@ struct ExternalVideoData {
     fps: usize
 }
 
+#[repr(C)]
+struct RustVec<T> {
+    ptr: *mut T,
+    len: usize,
+    capacity: usize,
+    destructor: extern fn(*mut RustVec<T>)
+}
+
+impl<T> RustVec<T> {
+    fn new(mut vec: Vec<T>) -> Self {
+        let ptr = vec.as_mut_ptr();
+        let len = vec.len();
+        let capacity = vec.capacity();
+
+        mem::forget(vec);
+
+        Self {
+            ptr,
+            len,
+            capacity,
+            destructor: RustVec::<T>::free,
+        }
+    }
+
+    #[allow(unused)]
+    extern "C" fn free(vec_ptr: *mut RustVec<T>){
+        unsafe {
+            let rust_vec = vec_ptr.read();
+
+            let vec = Vec::<T>::from_raw_parts(rust_vec.ptr, rust_vec.len, rust_vec.capacity);
+            drop(vec);
+    
+            libc::free(vec_ptr as *mut c_void);
+        }
+    }
+}
+
 extern "C" {
     fn external_player_init(color_transform_table_ptr: *const u8, file_name: *const c_char) -> *mut c_void;
     fn external_player_load_frame(player: *mut c_void) -> *mut i8;
     fn external_player_video_data(player: *mut c_void) -> ExternalVideoData;
     fn external_player_free(player: *mut c_void);
+}
+
+//void generate_memcpy_ranges(struct RustVec* p_output, size_t width, size_t heihgt);
+#[no_mangle]
+extern "C" fn generate_memcpy_ranges(rust_vec_ptr: *mut RustVec<ExternalSplitFrameMemCopyRange>, width: usize, height: usize) {
+   let (splitted_frames, all_frames_x, all_frames_y) = match SplittedFrame::initialize_frames(width, height) {
+        Ok(val) => val,
+        Err(err) => {
+            println!("[Rust err] Cannot initialize frames ({:?})", err);
+            return;
+        },
+    }; 
+
+   let range_vec = match SplittedFrame::prepare_external_ranges(&splitted_frames, width, height, all_frames_x, all_frames_y) {
+        Ok(val) => val,
+        Err(err) => {
+            println!("[Rust err] Cannot prepare_external_ranges ({:?})", err);
+            return;
+        },
+   };
+
+   unsafe {
+       rust_vec_ptr.write_volatile(RustVec::new(range_vec));
+   }
 }
 
 impl VideoPlayer for ExternalPlayer {
@@ -77,7 +138,7 @@ impl VideoPlayer for ExternalPlayer {
                 ptr,
                 width: video_data.width,
                 height: video_data.height,
-                fps: video_data.fps,
+                fps: 10,
                 frame_len: video_data.width * video_data.height
             })
         }

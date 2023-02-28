@@ -71,6 +71,7 @@ class MapMinecraftClient : JavaPlugin() {
                 System.loadLibrary("ayaya_native")
             } catch (exception: UnsatisfiedLinkError) {
                 logger.log(Level.SEVERE, "Unable to load native library from unsafe! AyayaNative will now get disabled")
+                exception.printStackTrace()
                 Bukkit.getPluginManager().disablePlugin(this)
                 return false
             }
