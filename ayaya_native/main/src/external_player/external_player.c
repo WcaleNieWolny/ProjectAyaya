@@ -1,3 +1,4 @@
+#include <libavutil/pixfmt.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -9,6 +10,7 @@
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
+#include <strings.h>
 
 #include "rust.h"
 
@@ -183,13 +185,16 @@ void* external_player_init(
         return NULL;
     }
 
+	int pixfmt = AV_PIX_FMT_YUV420P;
+	int align = 1;
+
     // Determine required ren_rgb_buffer size and allocate ren_rgb_buffer
 	// What the fuck does this code do?
     num_bytes = av_image_get_buffer_size(
-		AV_PIX_FMT_RGB24,
+		pixfmt,
 		p_codec_parm->width,
 		p_codec_parm->height,
-		16
+		align
 	);
 
     p_rgb_buffer = (uint8_t *)av_malloc(num_bytes * sizeof(uint8_t));
@@ -199,7 +204,7 @@ void* external_player_init(
 		p_codec_parm->format,
 		p_codec_parm->width,
 		p_codec_parm->height,
-		AV_PIX_FMT_YUV420P,
+		pixfmt,
 		SWS_BILINEAR,
 		NULL,
 		NULL,
@@ -211,7 +216,7 @@ void* external_player_init(
     // of AVPicture
 	//
 	// Again: What the fuck does this code do?
-    if (av_image_fill_arrays((*p_frame_rgb).data, (*p_frame_rgb).linesize, p_rgb_buffer, AV_PIX_FMT_RGB24, p_codec_parm->width, p_codec_parm->height, 16) < 0) {
+    if (av_image_alloc((*p_frame_rgb).data, (*p_frame_rgb).linesize, p_codec_parm->width, p_codec_parm->height, pixfmt, align) < 0) {
 		log_error("Array fill error");
 		return NULL;
 	};
@@ -306,7 +311,7 @@ int8_t* external_player_load_frame(void* self) {
                 sws_scale
                         (
                                 p_player->p_sws_ctx,
-                                (uint8_t const * const *)p_player->p_frame->data,
+                                (uint8_t const* const*)p_player->p_frame->data,
                                 p_player->p_frame->linesize,
                                 0,
                                 p_player->p_codec_ctx->height,
@@ -333,7 +338,7 @@ int8_t* external_player_load_frame(void* self) {
 		p_player->height
 	);	
 
-	return NULL;
+	return output;
 }
 
 void external_player_free(void* self) {
