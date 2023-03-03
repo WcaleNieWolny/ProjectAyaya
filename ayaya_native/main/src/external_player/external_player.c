@@ -24,7 +24,6 @@ typedef struct {
 	AVFrame* p_frame;
 	AVFrame* p_frame_rgb;
 	struct SwsContext* p_sws_ctx;
-	uint8_t* p_rgb_buffer;
 	size_t video_stream_index;
 	int num_bytes;
 	size_t width;
@@ -70,12 +69,12 @@ bool fast_yuv_frame_transform(
 
 	#pragma omp parallel for simd
 	for (size_t index = 0; index < area; index++) {
-		size_t y = (size_t)p_y_arr[index];
-		size_t cb = (size_t)p_cb_arr[index / 4];
-		size_t cr = (size_t)p_cr_arr[index / 4];
+		size_t y = (size_t) *(p_y_arr + index);
+		size_t cb = (size_t) *(p_cb_arr + index);
+		size_t cr = (size_t) *(p_cr_arr + index);
 
 		size_t offset = (y * 256 * 256) + (cb * 256) + cr;
-		int8_t color = (int8_t)p_color_transform_table[offset];
+		int8_t color = (int8_t) p_color_transform_table[offset];
 
 		//size_t output_offset = *(p_fast_lookup_table + index);
 		//*(p_output + output_offset) = color;
@@ -131,6 +130,7 @@ void* external_player_init(
 
     if (avformat_find_stream_info(p_format_ctx, NULL) < 0) {
 		log_error("Cannot find stream info!");
+		avformat_close_input(&p_format_ctx);
 		return NULL;
 	}
 
@@ -145,6 +145,8 @@ void* external_player_init(
 
 	if (video_stream_index == SIZE_MAX) {
 		log_error("Cannot find video stream index!");
+
+		avformat_close_input(&p_format_ctx);
 		return NULL;
 	}
 
@@ -159,6 +161,9 @@ void* external_player_init(
 
     if (p_codec == NULL) {
 		log_error("Unsupported coded!");
+
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
         return NULL; // Codec not found
     }
 
@@ -168,6 +173,8 @@ void* external_player_init(
 
     // Open codec
     if (avcodec_open2(p_codec_ctx, p_codec, NULL) != 0){
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
         log_error("Could not open codec");
         return NULL;
     }
@@ -176,16 +183,23 @@ void* external_player_init(
 
     if(p_frame == NULL){
         log_error("Could allocate frame");
+
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
         return NULL;
     }
 
 	p_frame_rgb = av_frame_alloc();
     if(p_frame_rgb == NULL){
         log_error("Could allocate RGB frame");
+
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
+		av_frame_free(&p_frame);
         return NULL;
     }
 
-	int pixfmt = AV_PIX_FMT_YUV420P;
+	int pixfmt = AV_PIX_FMT_YUV444P;
 	int align = 1;
 
     // Determine required ren_rgb_buffer size and allocate ren_rgb_buffer
@@ -197,7 +211,6 @@ void* external_player_init(
 		align
 	);
 
-    p_rgb_buffer = (uint8_t *)av_malloc(num_bytes * sizeof(uint8_t));
     p_sws_ctx = sws_getContext(
 		p_codec_parm->width,
 		p_codec_parm->height,
@@ -218,6 +231,12 @@ void* external_player_init(
 	// Again: What the fuck does this code do?
     if (av_image_alloc((*p_frame_rgb).data, (*p_frame_rgb).linesize, p_codec_parm->width, p_codec_parm->height, pixfmt, align) < 0) {
 		log_error("Array fill error");
+
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
+		av_frame_free(&p_frame);
+		av_frame_free(&p_frame_rgb);
+		sws_freeContext(p_sws_ctx);
 		return NULL;
 	};
 
@@ -233,6 +252,12 @@ void* external_player_init(
 
 	if (p_rust_memcpy_range_vec->ptr == NULL) {
 		log_error("Rust generate_memcpy_ranges callback failed");
+
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
+		av_frame_free(&p_frame);
+		av_frame_free(&p_frame_rgb);
+		sws_freeContext(p_sws_ctx);
 		return NULL;
 	};
 
@@ -252,7 +277,6 @@ void* external_player_init(
 	player->p_sws_ctx = p_sws_ctx;
 	player->p_frame_rgb = p_frame_rgb;
 	player->p_av_packet = p_av_packet;
-	player->p_rgb_buffer = p_rgb_buffer;
 	player->p_format_ctx = p_format_ctx;
 	
 	player->p_mem_ranges = p_rust_memcpy_range_vec;
@@ -285,8 +309,6 @@ int8_t* external_player_load_frame(void* self) {
         if ((ret = av_read_frame(p_player->p_format_ctx, p_player->p_av_packet)) < 0){
             log_error("AV cannot read frame");
             return NULL;
-            //NOTE: If there is an another error it is up to the java application to detect this.
-            // It is marked as EndOfFileException as it will be likely the error that happened
         }
         if (p_player->p_av_packet->stream_index == (int) p_player->video_stream_index) {
             ret = avcodec_send_packet(p_player->p_codec_ctx, p_player->p_av_packet);
@@ -308,16 +330,15 @@ int8_t* external_player_load_frame(void* self) {
                     log_error("Error while receiving a frame from the decoder");
 					return NULL;
                 }
-                sws_scale
-                        (
-                                p_player->p_sws_ctx,
-                                (uint8_t const* const*)p_player->p_frame->data,
-                                p_player->p_frame->linesize,
-                                0,
-                                p_player->p_codec_ctx->height,
-                                p_player->p_frame_rgb->data,
-                                p_player->p_frame_rgb->linesize
-                        );
+                sws_scale(
+					p_player->p_sws_ctx,
+					(uint8_t const* const*)p_player->p_frame->data,
+					p_player->p_frame->linesize,
+					0,
+					p_player->p_codec_ctx->height,
+					p_player->p_frame_rgb->data,
+					p_player->p_frame_rgb->linesize
+                );
                 readFrame = false;
             }
         } else {
@@ -342,5 +363,14 @@ int8_t* external_player_load_frame(void* self) {
 }
 
 void external_player_free(void* self) {
+	ExternalPlayer* p_player = (ExternalPlayer*) self;
 
+	avformat_close_input(&p_player->p_format_ctx);
+	avcodec_free_context(&p_player->p_codec_ctx);
+	av_frame_free(&p_player->p_frame_rgb);
+	av_frame_free(&p_player->p_frame);
+	av_packet_unref(p_player->p_av_packet);
+	sws_freeContext(p_player->p_sws_ctx);
+	free_rust_vec(p_player->p_mem_ranges);
+	free(p_player);
 }
