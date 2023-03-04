@@ -13,6 +13,7 @@
 #include <strings.h>
 
 #include "rust.h"
+#include "logger.h"
 
 typedef struct {
 	uint8_t* p_colorTransformTable;
@@ -37,16 +38,6 @@ typedef struct ExternalVideoData {
     size_t height;
     size_t fps;
 } ExternalVideoData;
-
-void log_info(char* str) {
-	fprintf(stdout, "[C INFO] %s\n", str);
-	fflush(stdout);
-}
-
-void log_error(char* str) {
-	fprintf(stderr, "[C ERR] %s\n", str);
-	fflush(stderr);
-}
 
 bool fast_yuv_frame_transform(
 	int8_t* p_output,
@@ -100,10 +91,6 @@ void* external_player_init(
 	uint8_t* p_colorTransformTable,
 	char* filename
 ) {
-	printf("[C INFO] Welcome from native C code\n");
-	printf("[C INFO] Filename: %s\n", filename);
-	fflush(stdout);
-
 	AVPacket* p_av_packet;
 	AVCodec* p_codec = NULL;
 	AVFormatContext* p_format_ctx = NULL;
@@ -267,6 +254,9 @@ void* external_player_init(
 	player->p_colorTransformTable = p_colorTransformTable;
 	player->width = width;
 	player->height = height;
+
+	printf("T: %d %d\n", p_codec_ctx->framerate.num, p_codec_ctx->framerate.den);
+	fflush(stdout);
 	player->fps = (size_t) (p_codec_ctx->framerate.num / p_codec_ctx->framerate.den);
 	
 	//FFmpeg does that
@@ -283,8 +273,8 @@ void* external_player_init(
 	player->video_stream_index = video_stream_index;
 	player->num_bytes = num_bytes;
 
-	//Mem leak above: We do not clear previously allocated data on error
-	//Mem leak in the rust callback
+	//Mem leak above: We do not clear previously allocated data on error (fixed)
+	//Mem leak in the rust callback (also fixed)
 	return (void*) player;
 }
 
