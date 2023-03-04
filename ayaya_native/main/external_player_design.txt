@@ -1,0 +1,76 @@
+=== Data Structures ===
+ - Circular buffer
+ - Feature (Promise)
+ - Threading_Task
+
+=== Circular buffer ===
+struct buffer {
+	spin_lock: spin_lock
+	len: size_t (uszie)
+	capacity: size_t (usize),
+	write_i: size_t
+	read_i: size_t
+	buffer: void* (on heap using malloc)
+}
+
+API:
+circular_buffer_init(size: size_t) -> CircularBuffer* (pointer)
+circular_buffer_lock(p_buffer: CircularBuffer*); Lock spin_lock on CircularBuffer (requried before read or write)
+circular_buffer_unlock(p_buffer: CircularBuffer*); Unlock spin_lock on CircularBuffer (requried after read or write)
+circular_buffer_free(p_buffer: CircularBuffer*) {
+	free(buffer.buffer) (free the accual array)
+	free(p_buffer) (free self, we allways store CircularBuffer on heap, never on stack)
+}
+
+circular_buffer_write() -> void* (return a pointer to a wrtitable item or NULL) {
+	check if len != capacity - 1
+	memset buffer[write_i] to zero
+	buffer.write_i += 1;
+	buffer.len += 1; (wrap here)
+	return buffer[write_i]
+}
+circular_buffer_read() -> void* (return a pointer to a readable item or NULL if len = 0) {
+	check if len != 0 
+	to_return = buffer[read_i];
+	buffer.read_i += 1; (wrap here)
+	buffer.len -= 1;
+	return to_return; 
+}
+
+
+=== Promise ===
+
+struct promise {
+	mutex (normal),
+	output: void* (void ptr)
+	wait_cond: p_pthread_cond_t*
+}
+
+API:
+promise_new(): Promise* (promise ptr) {
+	data = malloc(sizeof(promise))
+	data.mutex = new_mutex()
+	data.cond = new_cond()
+	data.output = NULL
+}
+
+promise_fufil(p_promise: Promise*, void* data) {
+	lock mutex
+	p_promise->output = data
+	pthread_cond_wait(p_promise->cond)
+	pthread_mutex_unlock(p_promise->mutex)
+	unlock_mutex
+}
+
+//This destroys the promise
+//It does not free the promise object, that is left to the caller
+promise_await(p_promise: Promise*): void* {
+	pthread_mutex_lock(p_promise->mutex);
+	if p_promise.output == NULL {
+		pthread_cond_wait(cond, mutex)
+	}
+
+	free_mutex(mutex)
+	free_cond(cond)
+	return p_promise.output
+}

@@ -8,3 +8,7 @@ pub mod multi_video_player;
 pub mod single_video_player;
 #[cfg(feature = "ffmpeg")]
 pub mod x11_player;
+
+#[cfg(all(feature = "external_player", feature = "ffmpeg"))]
+//#[cfg(feature = "ffmpeg")]
+pub mod external_player;

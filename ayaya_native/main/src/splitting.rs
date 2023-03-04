@@ -6,7 +6,7 @@ pub struct SplittedFrame {
 }
 
 #[repr(C)]
-#[cfg(feature = "external_splitting")]
+#[cfg(feature = "external_player")]
 pub struct ExternalSplitFrameMemCopyRange {
     src_offset: usize,
     dst_offset: usize,
@@ -129,7 +129,7 @@ impl SplittedFrame {
         Ok(final_data)
     }
 
-    #[cfg(feature = "external_splitting")]
+    #[cfg(feature = "external_player")]
     pub fn prepare_external_ranges(
         frames: &Vec<SplittedFrame>,
         width: usize,

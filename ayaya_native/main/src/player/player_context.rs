@@ -1,5 +1,6 @@
 use std::{
     fmt::Debug,
+    ops::Deref,
     sync::{Arc, Mutex},
 };
 
@@ -74,7 +75,7 @@ where
     Box::into_raw(Box::new(arc)) as *const () as i64
 }
 
-pub fn load_frame(ptr: i64) -> anyhow::Result<Vec<i8>> {
+pub fn load_frame(ptr: i64) -> anyhow::Result<Box<dyn VideoFrame>> {
     let player_context = get_context!(ptr);
     let mut player_context = lock_mutex!(player_context);
 
@@ -131,11 +132,32 @@ pub fn receive_and_process_decoded_frames(
     Ok(rgb_frame)
 }
 
+pub trait VideoFrame {
+    fn data(&self) -> &Vec<i8>;
+}
+
+pub struct SimpleVideoFrame {
+    inner: Vec<i8>,
+}
+
+impl VideoFrame for SimpleVideoFrame {
+    fn data(&self) -> &Vec<i8> {
+        &self.inner
+    }
+}
+
+pub fn wrap_frame(frame: Vec<i8>) -> Box<dyn VideoFrame> {
+    let frame = SimpleVideoFrame { inner: frame };
+
+    let boxed_frame = Box::new(frame);
+    boxed_frame
+}
+
 pub trait VideoPlayer {
     fn create(file_name: String, server_options: ServerOptions) -> anyhow::Result<Self>
     where
         Self: Sized;
-    fn load_frame(&mut self) -> anyhow::Result<Vec<i8>>;
+    fn load_frame(&mut self) -> anyhow::Result<Box<dyn VideoFrame>>;
     fn video_data(&self) -> anyhow::Result<VideoData>;
     fn handle_jvm_msg(&self, msg: NativeCommunication) -> anyhow::Result<()>;
     fn destroy(&self) -> anyhow::Result<()>;

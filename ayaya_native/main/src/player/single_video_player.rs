@@ -15,7 +15,7 @@ use crate::map_server::ServerOptions;
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{ffmpeg_set_multithreading, SplittedFrame};
 
-use super::player_context::NativeCommunication;
+use super::player_context::{wrap_frame, NativeCommunication, VideoFrame};
 
 pub struct SingleVideoPlayer {
     video_stream_index: usize,
@@ -95,7 +95,7 @@ impl VideoPlayer for SingleVideoPlayer {
         Err(anyhow::Error::new(Error::StreamNotFound))
     }
 
-    fn load_frame(&mut self) -> anyhow::Result<Vec<i8>> {
+    fn load_frame(&mut self) -> anyhow::Result<Box<dyn VideoFrame>> {
         while let Ok(position) = &self.seek_rx.try_recv() {
             let position = position.rescale((1, 1), rescale::TIME_BASE);
             self.input.seek(position, ..position)?;
@@ -125,7 +125,7 @@ impl VideoPlayer for SingleVideoPlayer {
                     self.all_frames_y,
                 )?;
 
-                return Ok(transformed_frame);
+                return Ok(wrap_frame(transformed_frame));
             }
         }
 

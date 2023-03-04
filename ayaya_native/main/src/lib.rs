@@ -36,7 +36,6 @@ use map_server::ServerOptions;
 
 use crate::discord_audio::DiscordPlayer;
 use once_cell::sync::Lazy;
-use player::player_context::{self, NativeCommunication};
 use player::{
     discord_audio::DiscordOptions,
     game_player::{GameInputDirection, GamePlayer},
@@ -44,6 +43,10 @@ use player::{
 use player::{
     discord_audio::{self, DiscordClient},
     player_context::VideoPlayer,
+};
+use player::{
+    external_player::ExternalPlayer,
+    player_context::{self, NativeCommunication},
 };
 use tokio::runtime::{Builder, Runtime};
 
@@ -258,7 +261,7 @@ fn init(
         }
         3 => {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "ffmpeg")] {
+                if #[cfg(feature = "external_player")] {
                     if use_discord {
                         return Err(anyhow!("X11 player does not suport discord audio!"));
                     }
@@ -269,6 +272,16 @@ fn init(
                 }
             }
         }
+        4 => {
+            cfg_if::cfg_if! {
+                if #[cfg(all(feature = "external_player", feature = "ffmpeg"))] {
+                    let player_context = ExternalPlayer::create(file_name, server_options)?;
+                    Ok(player_context::wrap_to_ptr(player_context))
+                }else {
+                    return Err(anyhow!("external_player feature not compiled!"))
+                }
+            }
+        }
         _ => Err(anyhow::Error::msg(format!("Invalid id ({render_type})"))),
     };
 }
@@ -276,8 +289,10 @@ fn init(
 //According to kotlin "@return Byte array of transformed frame (color index)"
 fn load_frame(env: &mut JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
     let data = player_context::load_frame(ptr)?;
-    let output = env.new_byte_array(data.len() as jsize)?; //Can't fail to create array unless system is out of memory
-    env.set_byte_array_region(&output, 0, data.as_slice())?;
+    let data_vec = data.data();
+
+    let output = env.new_byte_array(data_vec.len() as jsize)?; //Can't fail to create array unless system is out of memory
+    env.set_byte_array_region(&output, 0, data_vec.as_slice())?;
     drop(data);
     Ok(output.into_raw())
 }
