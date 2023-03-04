@@ -22,7 +22,7 @@ use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData};
 use crate::{ffmpeg_set_multithreading, SplittedFrame, VideoPlayer, TOKIO_RUNTIME};
 
-use super::player_context::{FrameWithIdentifier, NativeCommunication, wrap_frame, VideoFrame};
+use super::player_context::{wrap_frame, FrameWithIdentifier, NativeCommunication, VideoFrame};
 
 pub struct MultiVideoPlayer {
     width: i32,

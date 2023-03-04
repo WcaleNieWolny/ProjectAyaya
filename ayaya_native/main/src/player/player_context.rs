@@ -1,7 +1,7 @@
 use std::{
     fmt::Debug,
+    ops::Deref,
     sync::{Arc, Mutex},
-    ops::Deref
 };
 
 use anyhow::anyhow;
@@ -137,7 +137,7 @@ pub trait VideoFrame {
 }
 
 pub struct SimpleVideoFrame {
-    inner: Vec<i8>
+    inner: Vec<i8>,
 }
 
 impl VideoFrame for SimpleVideoFrame {
@@ -147,12 +147,10 @@ impl VideoFrame for SimpleVideoFrame {
 }
 
 pub fn wrap_frame(frame: Vec<i8>) -> Box<dyn VideoFrame> {
-    let frame = SimpleVideoFrame {
-        inner: frame
-    };
+    let frame = SimpleVideoFrame { inner: frame };
 
     let boxed_frame = Box::new(frame);
-    boxed_frame    
+    boxed_frame
 }
 
 pub trait VideoPlayer {

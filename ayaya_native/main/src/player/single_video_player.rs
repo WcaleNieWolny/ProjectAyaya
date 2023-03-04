@@ -15,7 +15,7 @@ use crate::map_server::ServerOptions;
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{ffmpeg_set_multithreading, SplittedFrame};
 
-use super::player_context::{NativeCommunication, wrap_frame, VideoFrame};
+use super::player_context::{wrap_frame, NativeCommunication, VideoFrame};
 
 pub struct SingleVideoPlayer {
     video_stream_index: usize,

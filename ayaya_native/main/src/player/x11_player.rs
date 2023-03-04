@@ -16,7 +16,7 @@ use crate::map_server::{MapServer, MapServerData, ServerOptions};
 use crate::player::player_context::{receive_and_process_decoded_frames, VideoData, VideoPlayer};
 use crate::{SplittedFrame, TOKIO_RUNTIME};
 
-use super::player_context::{FrameWithIdentifier, NativeCommunication, wrap_frame, VideoFrame};
+use super::player_context::{wrap_frame, FrameWithIdentifier, NativeCommunication, VideoFrame};
 
 //av_log_set_callback could be used for passing messages (FFmpeg -> JVM)
 //We store runtime so it does not get dropped
@@ -212,7 +212,6 @@ impl VideoPlayer for X11Player {
 
         Err(anyhow::Error::new(Error::StreamNotFound))
     }
-
 
     fn load_frame(&mut self) -> anyhow::Result<Box<dyn VideoFrame>> {
         if let Some(jvm_rx) = &mut self.jvm_rx {

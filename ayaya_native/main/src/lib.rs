@@ -36,7 +36,6 @@ use map_server::ServerOptions;
 
 use crate::discord_audio::DiscordPlayer;
 use once_cell::sync::Lazy;
-use player::{player_context::{self, NativeCommunication}, external_player::ExternalPlayer};
 use player::{
     discord_audio::DiscordOptions,
     game_player::{GameInputDirection, GamePlayer},
@@ -44,6 +43,10 @@ use player::{
 use player::{
     discord_audio::{self, DiscordClient},
     player_context::VideoPlayer,
+};
+use player::{
+    external_player::ExternalPlayer,
+    player_context::{self, NativeCommunication},
 };
 use tokio::runtime::{Builder, Runtime};
 

@@ -11,7 +11,7 @@ use songbird::{SerenityInit, Songbird};
 use crate::anyhow;
 use crate::{map_server::ServerOptions, TOKIO_RUNTIME};
 
-use super::player_context::{NativeCommunication, VideoData, VideoPlayer, VideoFrame};
+use super::player_context::{NativeCommunication, VideoData, VideoFrame, VideoPlayer};
 
 static DISCORD_CLIENT: OnceCell<DiscordClient> = OnceCell::new();
 

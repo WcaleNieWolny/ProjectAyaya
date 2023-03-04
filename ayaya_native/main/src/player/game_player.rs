@@ -15,7 +15,7 @@ use pathfinder_geometry::{
     vector::{Vector2F, Vector2I},
 };
 
-use super::player_context::{NativeCommunication, VideoData, VideoPlayer, wrap_frame, VideoFrame};
+use super::player_context::{wrap_frame, NativeCommunication, VideoData, VideoFrame, VideoPlayer};
 use crate::{
     apps::{falling_blocks::FallingBlocks, snake::SnakeGame},
     colorlib::Color,
