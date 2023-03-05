@@ -474,7 +474,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         cc::Build::new()
             .compiler("/usr/bin/gcc")
-            .flag("-march=native")
+            //.flag("-march=native")
+            .flag("-mno-avx")
             .flag("-fopenmp")
             .opt_level_str("fast")
             .includes(ffmpeg_include_paths)

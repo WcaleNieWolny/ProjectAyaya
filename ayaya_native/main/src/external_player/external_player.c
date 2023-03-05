@@ -1,3 +1,4 @@
+#include <libavcodec/packet.h>
 #include <libavutil/pixfmt.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -112,11 +113,13 @@ void* external_player_init(
     // Open video file
     if (avformat_open_input(&p_format_ctx, filename, NULL, NULL) != 0) {
         log_error("Cannot open input file");
+		av_packet_free(&p_av_packet);
 		return NULL;
     }
 
     if (avformat_find_stream_info(p_format_ctx, NULL) < 0) {
 		log_error("Cannot find stream info!");
+		av_packet_free(&p_av_packet);
 		avformat_close_input(&p_format_ctx);
 		return NULL;
 	}
@@ -132,7 +135,7 @@ void* external_player_init(
 
 	if (video_stream_index == SIZE_MAX) {
 		log_error("Cannot find video stream index!");
-
+		av_packet_free(&p_av_packet);
 		avformat_close_input(&p_format_ctx);
 		return NULL;
 	}
@@ -147,8 +150,8 @@ void* external_player_init(
     p_codec_ctx = avcodec_alloc_context3(p_codec);
 
     if (p_codec == NULL) {
-		log_error("Unsupported coded!");
-
+		log_error("Unsupported coded!");	
+		av_packet_free(&p_av_packet);
 		avformat_close_input(&p_format_ctx);
 		avcodec_free_context(&p_codec_ctx);
         return NULL; // Codec not found
@@ -162,6 +165,7 @@ void* external_player_init(
     if (avcodec_open2(p_codec_ctx, p_codec, NULL) != 0){
 		avformat_close_input(&p_format_ctx);
 		avcodec_free_context(&p_codec_ctx);
+		av_packet_free(&p_av_packet);
         log_error("Could not open codec");
         return NULL;
     }
@@ -170,7 +174,7 @@ void* external_player_init(
 
     if(p_frame == NULL){
         log_error("Could allocate frame");
-
+		av_packet_free(&p_av_packet);
 		avformat_close_input(&p_format_ctx);
 		avcodec_free_context(&p_codec_ctx);
         return NULL;
@@ -179,7 +183,7 @@ void* external_player_init(
 	p_frame_rgb = av_frame_alloc();
     if(p_frame_rgb == NULL){
         log_error("Could allocate RGB frame");
-
+		av_packet_free(&p_av_packet);
 		avformat_close_input(&p_format_ctx);
 		avcodec_free_context(&p_codec_ctx);
 		av_frame_free(&p_frame);
@@ -218,7 +222,7 @@ void* external_player_init(
 	// Again: What the fuck does this code do?
     if (av_image_alloc((*p_frame_rgb).data, (*p_frame_rgb).linesize, p_codec_parm->width, p_codec_parm->height, pixfmt, align) < 0) {
 		log_error("Array fill error");
-
+		av_packet_free(&p_av_packet);
 		avformat_close_input(&p_format_ctx);
 		avcodec_free_context(&p_codec_ctx);
 		av_frame_free(&p_frame);
@@ -239,7 +243,7 @@ void* external_player_init(
 
 	if (p_rust_memcpy_range_vec->ptr == NULL) {
 		log_error("Rust generate_memcpy_ranges callback failed");
-
+		av_packet_free(&p_av_packet);
 		avformat_close_input(&p_format_ctx);
 		avcodec_free_context(&p_codec_ctx);
 		av_frame_free(&p_frame);
@@ -355,11 +359,12 @@ int8_t* external_player_load_frame(void* self) {
 void external_player_free(void* self) {
 	ExternalPlayer* p_player = (ExternalPlayer*) self;
 
+	av_freep(&p_player->p_frame_rgb->data[0]);
 	avformat_close_input(&p_player->p_format_ctx);
 	avcodec_free_context(&p_player->p_codec_ctx);
 	av_frame_free(&p_player->p_frame_rgb);
 	av_frame_free(&p_player->p_frame);
-	av_packet_unref(p_player->p_av_packet);
+	av_packet_free(&p_player->p_av_packet);
 	sws_freeContext(p_player->p_sws_ctx);
 	free_rust_vec(p_player->p_mem_ranges);
 	free(p_player);
