@@ -479,6 +479,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .opt_level_str("fast")
             .includes(ffmpeg_include_paths)
             .file("src/external_player/external_player.c")
+            .file("src/external_player/data_structures.c")
             .compile("external_player");
 
         //println!("cargo:rustc-link-lib=avformat");
