@@ -2249,10 +2249,10 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.11.5"
-source = "git+https://github.com/serenity-rs/serenity?branch=next#19f2c7d59e4c7544314b31618ffe345f8bca0d92"
+source = "git+https://github.com/serenity-rs/serenity?branch=next#2a360bdc81f694ffa948ea429eba1dc49f144811"
 dependencies = [
  "async-trait",
- "base64 0.13.1",
+ "base64 0.21.0",
  "bitflags",
  "bytes",
  "dashmap",
@@ -2267,16 +2267,16 @@ dependencies = [
  "serde_json",
  "time",
  "tokio",
- "tokio-tungstenite 0.17.2",
+ "tokio-tungstenite 0.18.0",
  "tracing",
- "typemap_rev 0.1.5",
+ "typemap_rev",
  "url",
 ]
 
 [[package]]
 name = "serenity-voice-model"
 version = "0.1.1"
-source = "git+https://github.com/serenity-rs/serenity?branch=next#19f2c7d59e4c7544314b31618ffe345f8bca0d92"
+source = "git+https://github.com/serenity-rs/serenity?branch=next#2a360bdc81f694ffa948ea429eba1dc49f144811"
 dependencies = [
  "bitflags",
  "enum_primitive",
@@ -2403,7 +2403,7 @@ dependencies = [
  "tracing",
  "tracing-futures",
  "twilight-gateway",
- "typemap_rev 0.3.0",
+ "typemap_rev",
  "url",
  "uuid",
  "xsalsa20poly1305",
@@ -2715,9 +2715,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.17"
+version = "0.3.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a561bf4617eebd33bca6434b988f39ed798e527f51a1e797d0ee4f61c0a38376"
+checksum = "cd0cbfecb4d19b5ea75bb31ad904eb5b9fa13f21079c3b92017ebdf4999a5890"
 dependencies = [
  "itoa",
  "serde",
@@ -2733,9 +2733,9 @@ checksum = "2e153e1f1acaef8acc537e68b44906d2db6436e2b35ac2c6b42640fff91f00fd"
 
 [[package]]
 name = "time-macros"
-version = "0.2.6"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d967f99f534ca7e495c575c62638eebc2898a8c84c119b89e250477bc4ba16b2"
+checksum = "fd80a657e71da814b8e5d60d3374fc6d35045062245d80224748ae522dd76f36"
 dependencies = [
  "time-core",
 ]
@@ -2821,7 +2821,6 @@ dependencies = [
  "tokio-rustls",
  "tungstenite 0.17.3",
  "webpki",
- "webpki-roots",
 ]
 
 [[package]]
@@ -3076,12 +3075,6 @@ checksum = "d2e7889d81cb059ca6fdfba45876d7ea3707ea604e23533a0592f7909faffcd2"
 dependencies = [
  "twilight-model",
 ]
-
-[[package]]
-name = "typemap_rev"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed5b74f0a24b5454580a79abb6994393b09adf0ab8070f15827cb666255de155"
 
 [[package]]
 name = "typemap_rev"
