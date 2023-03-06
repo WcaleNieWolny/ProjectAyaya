@@ -13,7 +13,7 @@ lazy_static = "1.4.0"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 flate2 = { version = "1.0.17", features = ["zlib-ng"], default-features = false }
-bytemuck = "1.12.3"
+bytemuck = "1.13.1"
 rand = "0.8.5"
 cfg-if = "1.0.0"
 serenity = { git = "https://github.com/serenity-rs/serenity", features = ["client", "voice", "rustls_backend", "cache"], default-features = false, branch = "next" }
