@@ -474,11 +474,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         cc::Build::new()
             .compiler("/usr/bin/gcc")
-            .flag("-march=native")
+            //.flag("-march=native")
+            .flag("-mno-avx")
+            .flag("-ggdb3")
             .flag("-fopenmp")
             .opt_level_str("fast")
             .includes(ffmpeg_include_paths)
             .file("src/external_player/external_player.c")
+            .file("src/external_player/data_structures.c")
             .compile("external_player");
 
         //println!("cargo:rustc-link-lib=avformat");

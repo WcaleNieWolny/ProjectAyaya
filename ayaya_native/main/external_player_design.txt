@@ -74,3 +74,24 @@ promise_await(p_promise: Promise*): void* {
 	free_cond(cond)
 	return p_promise.output
 }
+
+
+=== FFmpeg thread procedure after initialization ===
+1. Read statuc atomic variable. If it is at shutdown destroy all resources
+2. decode frame from codec
+3. create an empty promise
+4. lock the mutex on a thread object
+5. write promise to thread object
+6. write frame to thread object
+7. signal a cond to the thread_object
+8. Go to step 1
+
+=== Destroy procedure ===
+
+Lock promise_circular_buffer
+Write shutdown status code to an atomic variable
+	The FFmpeg decoder thread reads that atomic variable before locking
+	promise queue; If it is shutdown then it does not send decoding to a thread pool and frees all resources 
+Sleep for 20 ms (allow all thread to notice the shutdown)
+Loop all of the promises and free all of them
+destory circular_buffer and the player

@@ -12,6 +12,11 @@ panic = "unwind"
 inherits = "release"
 codegen-units = 1
 
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = "none"
+
 [profile.test] 
 opt-level = 3
 

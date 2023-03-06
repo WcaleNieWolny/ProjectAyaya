@@ -516,3 +516,91 @@ jvm_impl!(
     init_discord_bot,
     { file_name: JObject }
 );
+
+#[cfg(test)]
+mod tests {
+    use std::os::raw::c_void;
+
+    #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
+    extern "C" {
+        //CircularBuffer* circular_buffer_init(size_t size, size_t item_size);
+        //bool circular_buffer_lock(CircularBuffer* p_buffer);
+        //bool circular_buffer_unlock(CircularBuffer* p_buffer);
+        //void circular_buffer_free(CircularBuffer* p_buffer);
+        //void* circular_buffer_write(CircularBuffer* p_buffer);
+        //void* circular_buffer_read(CircularBuffer* p_buffer);
+        //
+        fn circular_buffer_init(size: usize, item_size: usize) -> *mut c_void;
+        fn circular_buffer_lock(buffer_ptr: *mut c_void) -> bool;
+        fn circular_buffer_unlock(buffer_ptr: *mut c_void) -> bool;
+        fn circular_buffer_free(buffer_ptr: *mut c_void);
+        fn circular_buffer_write(buffer_ptr: *mut c_void) -> *mut c_void;
+        fn circular_buffer_read(buffer_ptr: *mut c_void) -> *mut c_void;
+    }
+
+    #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
+    #[test]
+    fn test_extenral_circular_buffer_read_write() {
+        unsafe {
+            let circular_buffer = circular_buffer_init(5, 1); //Init u8 circular_buffer
+            if circular_buffer.is_null() {
+                panic!("circular_buffer_init failed");
+            }
+
+            if !circular_buffer_lock(circular_buffer) {
+                panic!("circular_buffer_lock failed")
+            };
+
+            for i in 0..3 {
+                let write_ptr = circular_buffer_write(circular_buffer) as *mut u8;
+                if write_ptr.is_null() {
+                    panic!("Writing failed")
+                }
+                write_ptr.write_volatile(i);
+            }
+
+            for i in 0..3 {
+                let read_ptr = circular_buffer_read(circular_buffer) as *const u8;
+                if read_ptr.is_null() {
+                    panic!("Reading failed");
+                }
+
+                assert_eq!(i, read_ptr.read_volatile())
+            }
+
+            if !circular_buffer_unlock(circular_buffer) {
+                panic!("Cannot unlock")
+            }
+
+            //Make sure no segfault will ever happen
+            //This test test the entire API but does not test edge cases
+            circular_buffer_free(circular_buffer);
+        }
+    }
+
+    #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
+    #[test]
+    fn test_extenral_player_for_memleaks() {
+        use std::env;
+        use crate::ServerOptions;
+
+        use crate::player::{external_player::ExternalPlayer, player_context::VideoPlayer};
+
+        let filename = env::var("AYAYA_NATIVE_VIDEO").unwrap();
+        let player = ExternalPlayer::create(filename, ServerOptions {
+            use_server: false,
+            port: 0,
+            bind_ip: "".to_string()
+        }).unwrap();
+
+        let mut boxed_player = Box::new(player);
+
+        for _ in 0..10 {
+           let frame = boxed_player.load_frame().unwrap();
+           drop(frame)
+        }
+
+        boxed_player.destroy().unwrap();
+        drop(boxed_player);
+    }
+}
