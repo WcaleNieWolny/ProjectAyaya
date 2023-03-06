@@ -96,3 +96,101 @@ void* circular_buffer_read(CircularBuffer* p_buffer) {
 
 	return start_ptr;
 }
+
+AsyncPromise* async_promise_new() {
+	AsyncPromise* p_promise = malloc(sizeof(AsyncPromise));
+	memset(p_promise, 0, sizeof(AsyncPromise));
+
+	if (pthread_mutex_init(&p_promise->lock, NULL) != 0) {
+		log_error("Cannot init async_promise lock");
+		free(p_promise);
+		return NULL;
+	}
+
+	if (pthread_cond_init(&p_promise->cond, NULL) != 0) {
+		log_error("Cannot init async_promise cond");
+		pthread_mutex_destroy(&p_promise->lock);
+		free(p_promise);
+		return NULL;
+	}
+
+	return p_promise;
+};
+
+bool async_promise_fufil(AsyncPromise* p_promise, void* value) {
+	if (pthread_mutex_lock(&p_promise->lock) != 0) {
+		log_error("Cannot lock async_promise mutex");
+		return false;
+	}
+
+	p_promise->output = value;
+
+	//No destruction on error to prevent use after free
+	if (pthread_cond_broadcast(&p_promise->cond) != 0) {
+		log_error("Cannot broadcast async_promise cond");
+		if (pthread_mutex_unlock(&p_promise->lock) != 0) {
+			log_error("Cannot unlock pthread mutex, double error. This is unrecoverable");
+		}
+		return false;
+	}
+
+	if (pthread_mutex_unlock(&p_promise->lock) != 0) {
+		log_error("Cannot unlock pthread mutex. This is unrecoverable");
+	}
+
+	return true;
+};
+
+//Here we free not mather what happens
+
+void* async_promise_await(AsyncPromise* p_promise){
+	if (pthread_mutex_lock(&p_promise->lock) != 0) {
+		log_error("Cannot lock async_promise mutex when awating");
+		if (pthread_mutex_unlock(&p_promise->lock) != 0) {
+			log_error("Cannot unlock pthread mutex. This is unrecoverable");
+			return NULL;
+		}
+		if (pthread_mutex_destroy(&p_promise->lock) != 0) {
+			log_error("Cannot destroy mutex");
+		}
+		if (pthread_cond_destroy(&p_promise->cond) != 0) {
+			log_error("Cannot destroy cond");
+		}
+		free(p_promise);
+		return NULL; 
+	};
+
+	if (p_promise->output == NULL) {
+		if (pthread_cond_wait(&p_promise->cond, &p_promise->lock) != 0) {
+			log_error("Cannot wait cond on async_promise");
+			if (pthread_mutex_unlock(&p_promise->lock) != 0) {
+				log_error("Cannot unlock pthread mutex. This is unrecoverable");
+				return NULL;
+			}
+			if (pthread_mutex_destroy(&p_promise->lock) != 0) {
+				log_error("Cannot destroy mutex");
+			}
+			if (pthread_cond_destroy(&p_promise->cond) != 0) {
+				log_error("Cannot destroy cond");
+			}
+			free(p_promise);
+			return NULL; 
+		}
+	}
+
+	if (pthread_mutex_unlock(&p_promise->lock) != 0) {
+		log_error("Cannot unlock pthread mutex. This is unrecoverable!");
+		return NULL;
+	}
+	if (pthread_mutex_destroy(&p_promise->lock) != 0) {
+		log_error("Cannot destroy mutex");
+	}
+	if (pthread_cond_destroy(&p_promise->cond) != 0) {
+		log_error("Cannot destroy cond");
+	}
+
+	void* out = p_promise->output;
+	free(p_promise);
+
+	return out;
+};

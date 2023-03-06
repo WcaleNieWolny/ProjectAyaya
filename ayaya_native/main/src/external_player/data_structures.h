@@ -18,3 +18,13 @@ bool circular_buffer_unlock(CircularBuffer* p_buffer);
 void circular_buffer_free(CircularBuffer* p_buffer);
 void* circular_buffer_write(CircularBuffer* p_buffer);
 void* circular_buffer_read(CircularBuffer* p_buffer);
+
+typedef struct {
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+	void* output;
+} AsyncPromise;
+
+AsyncPromise* async_promise_new();
+bool async_promise_fufil(AsyncPromise* p_promise, void* value);
+void* async_promise_await(AsyncPromise* p_promise);

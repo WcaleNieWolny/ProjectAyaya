@@ -519,7 +519,7 @@ jvm_impl!(
 
 #[cfg(test)]
 mod tests {
-    use std::os::raw::c_void;
+    use std::{os::raw::c_void, thread, time::Duration};
 
     #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
     extern "C" {
@@ -536,6 +536,14 @@ mod tests {
         fn circular_buffer_free(buffer_ptr: *mut c_void);
         fn circular_buffer_write(buffer_ptr: *mut c_void) -> *mut c_void;
         fn circular_buffer_read(buffer_ptr: *mut c_void) -> *mut c_void;
+
+        //AsyncPromise* async_promise_new();
+        //bool async_promise_fufil(AsyncPromise* p_promise, void* value);
+        //void* async_promise_await(AsyncPromise* p_promise);
+        //
+        fn async_promise_new() -> *mut c_void;
+        fn async_promise_fufil(promise_ptr: *mut c_void, value_ptr: *mut c_void) -> bool;
+        fn async_promise_await(promise_ptr: *mut c_void) -> *const c_void;
     }
 
     #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
@@ -561,20 +569,42 @@ mod tests {
 
             for i in 0..3 {
                 let read_ptr = circular_buffer_read(circular_buffer) as *const u8;
-                if read_ptr.is_null() {
-                    panic!("Reading failed");
-                }
-
-                assert_eq!(i, read_ptr.read_volatile())
+                assert!(!read_ptr.is_null());
+                assert_eq!(i, read_ptr.read_volatile());
             }
 
-            if !circular_buffer_unlock(circular_buffer) {
-                panic!("Cannot unlock")
+            for _ in 0..5 {
+                let write_ptr = circular_buffer_write(circular_buffer) as *mut u8;
+                write_ptr.write_volatile(10)
             }
+
+            let write_ptr = circular_buffer_write(circular_buffer) as *mut u8;
+            assert!(write_ptr.is_null()); //Assert that we cannot write to a full buffer
+
+            assert!(circular_buffer_unlock(circular_buffer));
 
             //Make sure no segfault will ever happen
             //This test test the entire API but does not test edge cases
             circular_buffer_free(circular_buffer);
+        }
+    }
+
+    #[test]
+    fn test_external_async_promise() {
+        unsafe {
+            let promise = async_promise_new();
+            let promise_clone = promise as usize;
+            assert!(!promise.is_null());
+
+            thread::spawn(move || {
+                let to_fufil = promise_clone as *mut c_void;
+                async_promise_fufil(to_fufil, 100usize as *mut c_void);
+            });
+
+            thread::sleep(Duration::from_millis(200));
+            let awaited = async_promise_await(promise);
+
+            assert_eq!(awaited as usize, 100usize);
         }
     }
 
