@@ -537,11 +537,12 @@ mod tests {
         fn circular_buffer_write(buffer_ptr: *mut c_void) -> *mut c_void;
         fn circular_buffer_read(buffer_ptr: *mut c_void) -> *mut c_void;
 
-        //AsyncPromise* async_promise_new();
+
+        //bool async_promise_init(AsyncPromise* p_promise) {
         //bool async_promise_fufil(AsyncPromise* p_promise, void* value);
         //void* async_promise_await(AsyncPromise* p_promise);
         //
-        fn async_promise_new() -> *mut c_void;
+        fn async_promise_init(promise_ptr: *mut c_void) -> bool;
         fn async_promise_fufil(promise_ptr: *mut c_void, value_ptr: *mut c_void) -> bool;
         fn async_promise_await(promise_ptr: *mut c_void) -> *const c_void;
     }
@@ -590,9 +591,12 @@ mod tests {
     }
 
     #[test]
-    fn test_external_async_promise() {
+    fn test_external_async_promise_no_work() {
         unsafe {
-            let promise = async_promise_new();
+            let promise = libc::malloc(128);
+            assert!(!promise.is_null());
+            async_promise_init(promise);
+
             let promise_clone = promise as usize;
             assert!(!promise.is_null());
 
@@ -605,6 +609,31 @@ mod tests {
             let awaited = async_promise_await(promise);
 
             assert_eq!(awaited as usize, 100usize);
+            libc::free(promise);
+        }
+    }
+
+    #[test]
+    fn test_external_async_promise_work() {
+        unsafe {
+            //It is wasteful, but I do not care. It is just a stupid test
+            let promise = libc::malloc(128);
+            assert!(!promise.is_null());
+            async_promise_init(promise);
+
+            let promise_clone = promise as usize;
+            assert!(!promise.is_null());
+
+            thread::spawn(move || {
+                thread::sleep(Duration::from_millis(200)); //Simulate work
+                let to_fufil = promise_clone as *mut c_void;
+                async_promise_fufil(to_fufil, 100usize as *mut c_void);
+            });
+
+            let awaited = async_promise_await(promise);
+
+            assert_eq!(awaited as usize, 100usize);
+            libc::free(promise);
         }
     }
 

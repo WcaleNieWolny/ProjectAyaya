@@ -159,7 +159,7 @@ impl VideoPlayer for ExternalPlayer {
                 ptr,
                 width: video_data.width,
                 height: video_data.height,
-                fps: 10,
+                fps: video_data.fps,
                 frame_len: video_data.width * video_data.height,
             })
         }

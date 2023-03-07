@@ -97,24 +97,24 @@ void* circular_buffer_read(CircularBuffer* p_buffer) {
 	return start_ptr;
 }
 
-AsyncPromise* async_promise_new() {
-	AsyncPromise* p_promise = malloc(sizeof(AsyncPromise));
+
+bool async_promise_init(AsyncPromise* p_promise) {
 	memset(p_promise, 0, sizeof(AsyncPromise));
 
 	if (pthread_mutex_init(&p_promise->lock, NULL) != 0) {
 		log_error("Cannot init async_promise lock");
 		free(p_promise);
-		return NULL;
+		return false;
 	}
 
 	if (pthread_cond_init(&p_promise->cond, NULL) != 0) {
 		log_error("Cannot init async_promise cond");
 		pthread_mutex_destroy(&p_promise->lock);
 		free(p_promise);
-		return NULL;
+		return false;
 	}
 
-	return p_promise;
+	return true;
 };
 
 bool async_promise_fufil(AsyncPromise* p_promise, void* value) {
@@ -141,8 +141,7 @@ bool async_promise_fufil(AsyncPromise* p_promise, void* value) {
 	return true;
 };
 
-//Here we free not mather what happens
-
+//Here we never free the promise, that is to the caller 
 void* async_promise_await(AsyncPromise* p_promise){
 	if (pthread_mutex_lock(&p_promise->lock) != 0) {
 		log_error("Cannot lock async_promise mutex when awating");
@@ -156,7 +155,6 @@ void* async_promise_await(AsyncPromise* p_promise){
 		if (pthread_cond_destroy(&p_promise->cond) != 0) {
 			log_error("Cannot destroy cond");
 		}
-		free(p_promise);
 		return NULL; 
 	};
 
@@ -173,7 +171,6 @@ void* async_promise_await(AsyncPromise* p_promise){
 			if (pthread_cond_destroy(&p_promise->cond) != 0) {
 				log_error("Cannot destroy cond");
 			}
-			free(p_promise);
 			return NULL; 
 		}
 	}
@@ -189,8 +186,5 @@ void* async_promise_await(AsyncPromise* p_promise){
 		log_error("Cannot destroy cond");
 	}
 
-	void* out = p_promise->output;
-	free(p_promise);
-
-	return out;
+	return p_promise->output;
 };

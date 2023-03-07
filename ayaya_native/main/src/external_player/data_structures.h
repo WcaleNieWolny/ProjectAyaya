@@ -1,3 +1,4 @@
+#include <libavutil/frame.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -25,6 +26,6 @@ typedef struct {
 	void* output;
 } AsyncPromise;
 
-AsyncPromise* async_promise_new();
+bool async_promise_init(AsyncPromise* p_promise);
 bool async_promise_fufil(AsyncPromise* p_promise, void* value);
 void* async_promise_await(AsyncPromise* p_promise);

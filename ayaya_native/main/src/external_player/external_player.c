@@ -1,5 +1,5 @@
-#include <libavcodec/packet.h>
-#include <libavutil/pixfmt.h>
+#include <math.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libavcodec/packet.h>
+#include <libavutil/pixfmt.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
@@ -15,6 +17,22 @@
 
 #include "rust.h"
 #include "logger.h"
+#include "data_structures.h"
+
+#define WORKER_THREADS 8;
+
+typedef struct {
+	AVFrame* p_frame_input;
+	AsyncPromise* p_promise;
+	pthread_mutex_t lock;
+	pthread_cond_t wait_cond;
+} WorkerThreadTask;
+
+typedef struct ExternalVideoData {
+    size_t width;
+    size_t height;
+    size_t fps;
+} ExternalVideoData;
 
 typedef struct {
 	uint8_t* p_colorTransformTable;
@@ -32,13 +50,9 @@ typedef struct {
 	size_t height;
 	size_t fps;
 	struct RustVec* p_mem_ranges; 
+	atomic_bool shutdown_bool;
+	WorkerThreadTask* p_worker_thread_tasks;
 } ExternalPlayer;
-
-typedef struct ExternalVideoData {
-    size_t width;
-    size_t height;
-    size_t fps;
-} ExternalVideoData;
 
 bool fast_yuv_frame_transform(
 	int8_t* p_output,
@@ -259,10 +273,8 @@ void* external_player_init(
 	player->width = width;
 	player->height = height;
 
-	printf("T: %d %d\n", p_codec_ctx->framerate.num, p_codec_ctx->framerate.den);
-	fflush(stdout);
-	player->fps = (size_t) (p_codec_ctx->framerate.num / p_codec_ctx->framerate.den);
-	
+	player->fps = (size_t) ((double_t) p_format_ctx->streams[video_stream_index]->r_frame_rate.num / (double_t) p_format_ctx->streams[video_stream_index]->r_frame_rate.den);
+
 	//FFmpeg does that
 	player->p_codec_ctx = p_codec_ctx;
 	player->p_codec_parm = p_codec_parm;
@@ -276,6 +288,7 @@ void* external_player_init(
 	player->p_mem_ranges = p_rust_memcpy_range_vec;
 	player->video_stream_index = video_stream_index;
 	player->num_bytes = num_bytes;
+	player->shutdown_bool = false;
 
 	//Mem leak above: We do not clear previously allocated data on error (fixed)
 	//Mem leak in the rust callback (also fixed)
