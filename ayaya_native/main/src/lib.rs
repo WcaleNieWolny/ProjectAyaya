@@ -36,6 +36,7 @@ use map_server::ServerOptions;
 
 use crate::discord_audio::DiscordPlayer;
 use once_cell::sync::Lazy;
+use player::player_context::{self, NativeCommunication};
 use player::{
     discord_audio::DiscordOptions,
     game_player::{GameInputDirection, GamePlayer},
@@ -44,7 +45,6 @@ use player::{
     discord_audio::{self, DiscordClient},
     player_context::VideoPlayer,
 };
-use player::player_context::{self, NativeCommunication};
 use tokio::runtime::{Builder, Runtime};
 
 mod colorlib;
@@ -523,23 +523,27 @@ mod tests {
     #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
     #[test]
     fn test_extenral_player_for_memleaks() {
-        use std::env;
         use crate::ServerOptions;
+        use std::env;
 
         use crate::player::{external_player::ExternalPlayer, player_context::VideoPlayer};
 
         let filename = env::var("AYAYA_NATIVE_VIDEO").unwrap();
-        let player = ExternalPlayer::create(filename, ServerOptions {
-            use_server: false,
-            port: 0,
-            bind_ip: "".to_string()
-        }).unwrap();
+        let player = ExternalPlayer::create(
+            filename,
+            ServerOptions {
+                use_server: false,
+                port: 0,
+                bind_ip: "".to_string(),
+            },
+        )
+        .unwrap();
 
         let mut boxed_player = Box::new(player);
 
         for _ in 0..10 {
-           let frame = boxed_player.load_frame().unwrap();
-           drop(frame)
+            let frame = boxed_player.load_frame().unwrap();
+            drop(frame)
         }
 
         boxed_player.destroy().unwrap();
