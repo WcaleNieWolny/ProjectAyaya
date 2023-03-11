@@ -103,20 +103,20 @@ bool async_promise_init(AsyncPromise* p_promise) {
 
 	if (pthread_mutex_init(&p_promise->lock, NULL) != 0) {
 		log_error("Cannot init async_promise lock");
-		free(p_promise);
 		return false;
 	}
 
 	if (pthread_cond_init(&p_promise->cond, NULL) != 0) {
 		log_error("Cannot init async_promise cond");
 		pthread_mutex_destroy(&p_promise->lock);
-		free(p_promise);
 		return false;
 	}
 
 	return true;
 };
 
+//We never free, as we might me dealing with a stack promise or it might not be the right place to free
+//We do not want a double free or a use after free so we trust that the caller frees the promise
 bool async_promise_fufil(AsyncPromise* p_promise, void* value) {
 	if (pthread_mutex_lock(&p_promise->lock) != 0) {
 		log_error("Cannot lock async_promise mutex");

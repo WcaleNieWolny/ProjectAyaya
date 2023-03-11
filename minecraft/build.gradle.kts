@@ -50,7 +50,7 @@ configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
 val runServer = tasks.runServer
 runServer {
     minecraftVersion("1.18.2")
-    jvmArgs = listOf("-Xmx20480M", "-Djava.library.path=${rootProject.rootDir.path}/ayaya_native/target/release", "-Dme.wcaleniewolny.ayaya.unsafe=true")
+    jvmArgs = listOf("-Xmx20480M", "-Djava.library.path=${rootProject.rootDir.path}/ayaya_native/target/release", "-Dme.wcaleniewolny.ayaya.unsafe=true", "-Dme.wcaleniewolny.ayaya.debug=1")
 }
 
 val shadowJar = tasks.shadowJar

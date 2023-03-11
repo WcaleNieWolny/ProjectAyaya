@@ -473,11 +473,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         cc::Build::new()
-            .compiler("/usr/bin/gcc")
+            //.compiler("/usr/bin/gcc")
+            .compiler("/usr/lib/llvm/15/bin/clang")
             //.flag("-march=native")
             .flag("-mno-avx")
-            .flag("-ggdb3")
-            .flag("-fopenmp")
+            .flag("-ggdb3") //needed for vargrind (i think)
+            //.flag("-fsanitize=memory")
+            //.flag("-fno-omit-frame-pointer")
+            //.flag("-shared-libasan")
+            //.flag("-fopenmp")
             .opt_level_str("fast")
             .includes(ffmpeg_include_paths)
             .file("src/external_player/external_player.c")
@@ -486,6 +490,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         //println!("cargo:rustc-link-lib=avformat");
         println!("cargo:rustc-link-lib=gomp");
+        //println!("cargo:rustc-link-search=/usr/lib/gcc/x86_64-pc-linux-gnu/11.3.0/");
+        //println!("cargo:rustc-link-lib=asan");
     }
 
     Ok(())

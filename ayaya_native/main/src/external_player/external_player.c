@@ -1,3 +1,5 @@
+#include <libavutil/frame.h>
+#include <libavutil/mem.h>
 #include <math.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -6,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+#include <pthread.h>
 
 #include <libavcodec/packet.h>
 #include <libavutil/pixfmt.h>
@@ -13,19 +17,25 @@
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
-#include <strings.h>
 
 #include "rust.h"
 #include "logger.h"
 #include "data_structures.h"
 
-#define WORKER_THREADS 8;
+#define WORKER_THREADS 8 
+#define PIXFMT AV_PIX_FMT_YUV444P
+#define ALIGN 1
 
 typedef struct {
 	AVFrame* p_frame_input;
 	AsyncPromise* p_promise;
 	pthread_mutex_t lock;
 	pthread_cond_t wait_cond;
+	size_t width;
+	size_t height;
+	enum AVPixelFormat pixfmt;
+	uint8_t* p_color_transform_table;
+	struct RustVec* p_ranges;
 } WorkerThreadTask;
 
 typedef struct ExternalVideoData {
@@ -35,24 +45,27 @@ typedef struct ExternalVideoData {
 } ExternalVideoData;
 
 typedef struct {
+	size_t width;
+	size_t height;
+	size_t fps;
+	atomic_bool shutdown_bool;
+	pthread_t master_thread;
+	CircularBuffer* p_frame_buffer;	
+} ExternalPlayer;
+
+typedef struct {
 	uint8_t* p_colorTransformTable;
 	AVPacket* p_av_packet;
 	AVCodec* p_codec;
 	AVFormatContext* p_format_ctx;
 	AVCodecContext *p_codec_ctx;
 	AVCodecParameters* p_codec_parm;
-	AVFrame* p_frame;
-	AVFrame* p_frame_rgb;
 	struct SwsContext* p_sws_ctx;
 	size_t video_stream_index;
-	int num_bytes;
-	size_t width;
-	size_t height;
-	size_t fps;
-	struct RustVec* p_mem_ranges; 
-	atomic_bool shutdown_bool;
+	struct RustVec* p_mem_ranges;
 	WorkerThreadTask* p_worker_thread_tasks;
-} ExternalPlayer;
+	CircularBuffer* p_frame_buffer;	
+} MasterThreadInput;
 
 bool fast_yuv_frame_transform(
 	int8_t* p_output,
@@ -102,6 +115,207 @@ void free_rust_vec(struct RustVec* vec) {
 	(*vec->destructor)(vec);
 }
 
+static inline bool init_worker_task(WorkerThreadTask* p_task, size_t width, size_t height, enum AVPixelFormat pixfmt, uint8_t* p_color_transform_table, struct RustVec* p_ranges) {
+	if (pthread_mutex_init(&p_task->lock, NULL) != 0) {
+		log_error("Cannot init WorkerThreadTask mutex");
+		return false;
+	}
+
+	if (pthread_cond_init(&p_task->wait_cond, NULL) != 0) {
+		log_error("Cannot init WorkerThreadTask cond");
+		pthread_mutex_destroy(&p_task->lock);
+		return false;
+	}	
+
+	p_task->width = width;
+	p_task->height = height;
+	p_task->pixfmt = pixfmt;
+	p_task->p_color_transform_table = p_color_transform_table;
+	p_task->p_ranges = p_ranges;
+
+	return true;
+}
+
+void* master_thread_start(void* arg) {
+	MasterThreadInput* p_input = arg;
+	
+	log_info("Hello from worker!");
+
+	size_t i = 0;
+
+	//Block
+	for (;;) {
+		if (!circular_buffer_lock(p_input->p_frame_buffer)) {
+			log_error("Lock frame buffer failed");
+			return NULL;
+		}
+		AsyncPromise* p_promise = circular_buffer_read(p_input->p_frame_buffer);
+		if (p_promise == NULL) {
+			log_error("Promise read == null");
+			circular_buffer_unlock(p_input->p_frame_buffer);
+			return NULL;
+		};
+
+		if (async_promise_init(p_promise)) {
+			circular_buffer_unlock(p_input->p_frame_buffer);
+			return NULL;
+		}
+
+		AVFrame* p_frame = av_frame_alloc();
+		if (p_frame == NULL) {
+			log_error("Promise read == null");
+			return NULL;
+		}
+
+		int ret;
+		bool readFrame = true;
+
+		while (readFrame) {
+			if ((ret = av_read_frame(p_input->p_format_ctx, p_input->p_av_packet)) < 0){
+				av_free(p_frame);
+				log_error("AV cannot read frame");
+				return NULL;
+			}
+			if (p_input->p_av_packet->stream_index == (int) p_input->video_stream_index) {
+				ret = avcodec_send_packet(p_input->p_codec_ctx, p_input->p_av_packet);
+				if (ret < 0) {
+					log_error("Error while sending a ren_packet to the decoder");
+					return NULL;
+				}
+
+				while (ret >= 0) {
+					ret = avcodec_receive_frame(p_input->p_codec_ctx, p_frame);
+					if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+						if(ret != AVERROR(EAGAIN)){
+							printf("TEST THROW: %s", av_err2str(ret));
+							fflush(stdout);
+							av_packet_unref(p_input->p_av_packet);
+							av_frame_unref(p_frame);
+							return NULL;
+						}
+						break;
+					} else if (ret < 0) {
+						log_error("Error while receiving a frame from the decoder");
+						av_packet_unref(p_input->p_av_packet);
+						av_frame_unref(p_frame);
+						return NULL;
+					}
+					readFrame = false;
+					av_frame_unref(p_frame);
+				}
+			} else {
+				log_error("Packet stream index != video_stream_index (\?\?\?)");
+				av_packet_unref(p_input->p_av_packet);
+				return NULL;
+			}
+			av_packet_unref(p_input->p_av_packet);
+		}
+		
+		i += 1;
+		if (i == WORKER_THREADS) {
+			i = 0;
+		}
+
+		WorkerThreadTask* p_task = (p_input->p_worker_thread_tasks + i);
+
+		if (pthread_mutex_lock(&p_task->lock) != 0) {
+			log_error("Cannot lock slave mutex");
+			return NULL;
+		};
+
+		p_task->p_promise = p_promise;
+		p_task->p_frame_input = p_frame;
+	}
+}
+
+void* slave_thread_start(void* args) {
+	WorkerThreadTask* p_task = args;
+
+	AVFrame* p_frame_yuv = av_frame_alloc();
+	if (p_frame_yuv == NULL) {
+		log_error("YUV frame alloc failed");
+		return NULL;
+	}
+
+	if (av_image_alloc((*p_frame_yuv).data, (*p_frame_yuv).linesize, p_task->width, p_task->height, PIXFMT, ALIGN) < 0) {
+		log_error("Array fill error");
+		av_free(p_frame_yuv);
+		return NULL;
+	};
+
+	struct SwsContext* p_sws_ctx = NULL;
+    p_sws_ctx = sws_getContext(
+		p_task->width,
+		p_task->height,
+		p_task->pixfmt,
+		p_task->width,
+		p_task->height,
+		PIXFMT,
+		SWS_BILINEAR,
+		NULL,
+		NULL,
+		NULL
+	);
+
+	if (p_sws_ctx == NULL) {
+		log_error("Cannot do sws init");
+		return NULL;
+	}
+
+	if (pthread_mutex_lock(&p_task->lock) != 0) {
+		log_error("Cannot lock slave mutex");
+	}
+
+	int len = p_task->width * p_task->height;
+
+	for (;;) {
+		//No error checking, as this should never fail
+		if (pthread_cond_wait(&p_task->wait_cond, &p_task->lock) != 0) {
+			log_error("Cannot wait on slave cond");
+			return NULL;
+		};
+
+
+		int8_t* output;
+		output = (int8_t*)malloc(len * sizeof(int8_t));
+
+		if (output == NULL) {
+			log_error("Cannot malloc output");
+			pthread_mutex_unlock(&p_task->lock);
+			return NULL;
+		}
+
+		sws_scale(
+			p_sws_ctx,
+			(uint8_t const* const*)p_task->p_frame_input->data,
+			p_task->p_frame_input->linesize,
+			0,
+			p_task->height,
+			p_frame_yuv->data,
+			p_frame_yuv->linesize
+		);
+		
+		fast_yuv_frame_transform(
+			output,
+			p_frame_yuv->data[0],
+			p_frame_yuv->data[1],
+			p_frame_yuv->data[2],
+			p_task->p_color_transform_table,
+			(struct MemCopyRange*) p_task->p_ranges->ptr, //Super safe pointer cast
+			p_task->p_ranges->len,
+			p_task->width,
+			p_task->height
+		);	
+		
+		if (!async_promise_fufil(p_task->p_promise, output)) {
+			log_error("Cannot fufil async slave promise");
+			return NULL;
+		}
+
+		av_frame_free(&p_task->p_frame_input);
+	};
+}
+
 void* external_player_init(
 	uint8_t* p_colorTransformTable,
 	char* filename
@@ -111,11 +325,8 @@ void* external_player_init(
 	AVFormatContext* p_format_ctx = NULL;
 	AVCodecContext *p_codec_ctx = NULL;
 	AVCodecParameters* p_codec_parm = NULL;
-	AVFrame* p_frame = NULL;
-	AVFrame* p_frame_rgb = NULL;
 	size_t video_stream_index = SIZE_MAX;
 	int num_bytes;
-	uint8_t* p_rgb_buffer = NULL;
 	struct SwsContext* p_sws_ctx = NULL;
 	p_av_packet = av_packet_alloc();
 
@@ -184,111 +395,112 @@ void* external_player_init(
         return NULL;
     }
 
-    p_frame = av_frame_alloc();
-
-    if(p_frame == NULL){
-        log_error("Could allocate frame");
-		av_packet_free(&p_av_packet);
-		avformat_close_input(&p_format_ctx);
-		avcodec_free_context(&p_codec_ctx);
-        return NULL;
-    }
-
-	p_frame_rgb = av_frame_alloc();
-    if(p_frame_rgb == NULL){
-        log_error("Could allocate RGB frame");
-		av_packet_free(&p_av_packet);
-		avformat_close_input(&p_format_ctx);
-		avcodec_free_context(&p_codec_ctx);
-		av_frame_free(&p_frame);
-        return NULL;
-    }
-
-	int pixfmt = AV_PIX_FMT_YUV444P;
-	int align = 1;
-
     // Determine required ren_rgb_buffer size and allocate ren_rgb_buffer
 	// What the fuck does this code do?
     num_bytes = av_image_get_buffer_size(
-		pixfmt,
+		PIXFMT,
 		p_codec_parm->width,
 		p_codec_parm->height,
-		align
+		ALIGN	
 	);
-
-    p_sws_ctx = sws_getContext(
-		p_codec_parm->width,
-		p_codec_parm->height,
-		p_codec_parm->format,
-		p_codec_parm->width,
-		p_codec_parm->height,
-		pixfmt,
-		SWS_BILINEAR,
-		NULL,
-		NULL,
-		NULL
-	);
-
-    // Assign appropriate parts of ren_rgb_buffer to image planes in ren_pFrameRGB
-    // Note that ren_pFrameRGB is an AVFrame, but AVFrame is a superset
-    // of AVPicture
-	//
-	// Again: What the fuck does this code do?
-    if (av_image_alloc((*p_frame_rgb).data, (*p_frame_rgb).linesize, p_codec_parm->width, p_codec_parm->height, pixfmt, align) < 0) {
-		log_error("Array fill error");
-		av_packet_free(&p_av_packet);
-		avformat_close_input(&p_format_ctx);
-		avcodec_free_context(&p_codec_ctx);
-		av_frame_free(&p_frame);
-		av_frame_free(&p_frame_rgb);
-		sws_freeContext(p_sws_ctx);
-		return NULL;
-	};
-
-	log_info("OK!");
 
 	size_t width = (size_t) p_codec_parm->width; 
 	size_t height = (size_t) p_codec_parm->height;
 
+	CircularBuffer* p_frame_buffer = malloc(sizeof(CircularBuffer));
+
+	if (p_frame_buffer == NULL) {
+		log_error("Cannot init WorkerThreadTask");
+		av_packet_free(&p_av_packet);
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
+		sws_freeContext(p_sws_ctx);
+		return NULL;
+	}
+
+	circular_buffer_init(64, sizeof(AsyncPromise*));
+
+	log_info("OK!");
+
 	struct RustVec* p_rust_memcpy_range_vec = malloc(sizeof(struct RustVec));
-	memset(p_rust_memcpy_range_vec, 0, sizeof(struct RustVec));
-
-	generate_memcpy_ranges(p_rust_memcpy_range_vec, width, height);
-
 	if (p_rust_memcpy_range_vec->ptr == NULL) {
 		log_error("Rust generate_memcpy_ranges callback failed");
 		av_packet_free(&p_av_packet);
 		avformat_close_input(&p_format_ctx);
 		avcodec_free_context(&p_codec_ctx);
-		av_frame_free(&p_frame);
-		av_frame_free(&p_frame_rgb);
 		sws_freeContext(p_sws_ctx);
+		circular_buffer_free(p_frame_buffer);	
 		return NULL;
 	};
 
+	memset(p_rust_memcpy_range_vec, 0, sizeof(struct RustVec));
+	generate_memcpy_ranges(p_rust_memcpy_range_vec, width, height);
+
+	WorkerThreadTask* worker_tasks = calloc(WORKER_THREADS, sizeof(WorkerThreadTask));
+
+	if (worker_tasks == NULL) {
+		log_error("Cannot init worker tasks");
+		av_packet_free(&p_av_packet);
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
+		sws_freeContext(p_sws_ctx);
+		circular_buffer_free(p_frame_buffer);	
+		return NULL;
+	}
+
+	for (size_t i = 0; i < WORKER_THREADS; i++) {
+		if (!init_worker_task(worker_tasks + i, width, height, p_codec_parm->format, p_colorTransformTable, p_rust_memcpy_range_vec)) {
+			log_error("Cannot init WorkerThreadTask");
+			av_packet_free(&p_av_packet);
+			avformat_close_input(&p_format_ctx);
+			avcodec_free_context(&p_codec_ctx);
+			sws_freeContext(p_sws_ctx);
+			return NULL;
+		}
+	}
+
 	ExternalPlayer* player = (ExternalPlayer*) malloc(sizeof(ExternalPlayer));
+	MasterThreadInput* master_thread_input = malloc(sizeof(MasterThreadInput));
+
+	if (player == NULL || master_thread_input == NULL) {
+		log_error("Player or master_input malloc returned null");
+		av_packet_free(&p_av_packet);
+		avformat_close_input(&p_format_ctx);
+		avcodec_free_context(&p_codec_ctx);
+		sws_freeContext(p_sws_ctx);
+		free_rust_vec(p_rust_memcpy_range_vec);
+		free(worker_tasks);
+		circular_buffer_free(p_frame_buffer);	
+		return NULL;
+	}
 
 	//We init that
-	player->p_colorTransformTable = p_colorTransformTable;
+	master_thread_input->p_colorTransformTable = p_colorTransformTable;
 	player->width = width;
 	player->height = height;
-
 	player->fps = (size_t) ((double_t) p_format_ctx->streams[video_stream_index]->r_frame_rate.num / (double_t) p_format_ctx->streams[video_stream_index]->r_frame_rate.den);
+	player->p_frame_buffer = p_frame_buffer;
 
 	//FFmpeg does that
-	player->p_codec_ctx = p_codec_ctx;
-	player->p_codec_parm = p_codec_parm;
-	player->p_codec = p_codec;
-	player->p_frame = p_frame;
-	player->p_sws_ctx = p_sws_ctx;
-	player->p_frame_rgb = p_frame_rgb;
-	player->p_av_packet = p_av_packet;
-	player->p_format_ctx = p_format_ctx;
-	
-	player->p_mem_ranges = p_rust_memcpy_range_vec;
-	player->video_stream_index = video_stream_index;
-	player->num_bytes = num_bytes;
+	master_thread_input->p_codec_ctx = p_codec_ctx;
+	master_thread_input->p_codec_parm = p_codec_parm;
+	master_thread_input->p_codec = p_codec;
+	master_thread_input->p_sws_ctx = p_sws_ctx;
+	master_thread_input->p_av_packet = p_av_packet;
+	master_thread_input->p_format_ctx = p_format_ctx;
+	master_thread_input->p_mem_ranges = p_rust_memcpy_range_vec;
+	master_thread_input->video_stream_index = video_stream_index;
+	master_thread_input->p_worker_thread_tasks = worker_tasks;
+	master_thread_input->p_frame_buffer = p_frame_buffer;
+
 	player->shutdown_bool = false;
+
+	int pthread_ret = pthread_create(
+		&player->master_thread,
+		NULL,
+		master_thread_start,
+		master_thread_input //For now arg = null
+	);
 
 	//Mem leak above: We do not clear previously allocated data on error (fixed)
 	//Mem leak in the rust callback (also fixed)
@@ -302,91 +514,10 @@ ExternalVideoData external_player_video_data(void* self) {
 }
 
 int8_t* external_player_load_frame(void* self) {
-	ExternalPlayer* p_player = (ExternalPlayer*) self;
-
-    int ret;
-    bool readFrame = true;
-
-    int len = p_player->width * p_player->height;
-
-    int8_t* output;
-    output = (int8_t*)malloc(len * sizeof(int8_t));
-
-    while (readFrame) {
-        if ((ret = av_read_frame(p_player->p_format_ctx, p_player->p_av_packet)) < 0){
-            log_error("AV cannot read frame");
-            return NULL;
-        }
-        if (p_player->p_av_packet->stream_index == (int) p_player->video_stream_index) {
-            ret = avcodec_send_packet(p_player->p_codec_ctx, p_player->p_av_packet);
-            if (ret < 0) {
-                log_error("Error while sending a ren_packet to the decoder");
-				return NULL;
-            }
-
-            while (ret >= 0) {
-                ret = avcodec_receive_frame(p_player->p_codec_ctx, p_player->p_frame);
-                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                    if(ret != AVERROR(EAGAIN)){
-                        printf("TEST THROW: %s", av_err2str(ret));
-                        fflush(stdout);
-						av_packet_unref(p_player->p_av_packet);
-						av_frame_unref(p_player->p_frame);
-						return NULL;
-                    }
-                    break;
-                } else if (ret < 0) {
-                    log_error("Error while receiving a frame from the decoder");
-					av_packet_unref(p_player->p_av_packet);
-					av_frame_unref(p_player->p_frame);
-					return NULL;
-                }
-                sws_scale(
-					p_player->p_sws_ctx,
-					(uint8_t const* const*)p_player->p_frame->data,
-					p_player->p_frame->linesize,
-					0,
-					p_player->p_codec_ctx->height,
-					p_player->p_frame_rgb->data,
-					p_player->p_frame_rgb->linesize
-                );
-                readFrame = false;
-				av_frame_unref(p_player->p_frame);
-            }
-        } else {
-			log_error("Packet stream index != video_stream_index (\?\?\?)");
-			av_packet_unref(p_player->p_av_packet);
-			return NULL;
-		}
-		av_packet_unref(p_player->p_av_packet);
-    }
-
-	fast_yuv_frame_transform(
-		output,
-		p_player->p_frame_rgb->data[0],
-		p_player->p_frame_rgb->data[1],
-		p_player->p_frame_rgb->data[2],
-		p_player->p_colorTransformTable,
-		(struct MemCopyRange*) p_player->p_mem_ranges->ptr, //Super safe pointer cast
-		p_player->p_mem_ranges->len,
-		p_player->width,
-		p_player->height
-	);	
-
-	return output;
+	return NULL;
 }
 
+//TODO: FIX MEM LEAK
 void external_player_free(void* self) {
-	ExternalPlayer* p_player = (ExternalPlayer*) self;
-
-	av_freep(&p_player->p_frame_rgb->data[0]);
-	av_freep(&p_player->p_frame->data[0]);
-	avformat_close_input(&p_player->p_format_ctx);
-	avcodec_free_context(&p_player->p_codec_ctx);
-	av_frame_free(&p_player->p_frame_rgb);
-	av_frame_free(&p_player->p_frame);
-	av_packet_free(&p_player->p_av_packet);
-	sws_freeContext(p_player->p_sws_ctx);
-	free_rust_vec(p_player->p_mem_ranges);
-	free(p_player);
+	return;
 }
