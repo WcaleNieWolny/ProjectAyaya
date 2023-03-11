@@ -28,7 +28,7 @@ libc = { version = "0.2.0", optional = true }
 ffmpeg = ["dep:ffmpeg-next"]
 skip_buildrs = []
 external_player = ["dep:libc"]
-default = ["ffmpeg", "external_player"] #TODO: REMOVE external_player as default
+default = ["ffmpeg"]
 
 [build-dependencies]
 image = "0.24.5"

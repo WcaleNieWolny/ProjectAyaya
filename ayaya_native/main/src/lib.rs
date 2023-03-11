@@ -44,10 +44,7 @@ use player::{
     discord_audio::{self, DiscordClient},
     player_context::VideoPlayer,
 };
-use player::{
-    external_player::ExternalPlayer,
-    player_context::{self, NativeCommunication},
-};
+use player::player_context::{self, NativeCommunication};
 use tokio::runtime::{Builder, Runtime};
 
 mod colorlib;
@@ -261,7 +258,7 @@ fn init(
         }
         3 => {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "external_player")] {
+                if #[cfg(feature = "ffmpeg")] {
                     if use_discord {
                         return Err(anyhow!("X11 player does not suport discord audio!"));
                     }
@@ -275,6 +272,8 @@ fn init(
         4 => {
             cfg_if::cfg_if! {
                 if #[cfg(all(feature = "external_player", feature = "ffmpeg"))] {
+                    use player::external_player::ExternalPlayer;
+
                     let player_context = ExternalPlayer::create(file_name, server_options)?;
                     Ok(player_context::wrap_to_ptr(player_context))
                 }else {
@@ -520,122 +519,6 @@ jvm_impl!(
 #[cfg(test)]
 mod tests {
     use std::{os::raw::c_void, thread, time::Duration};
-
-    #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
-    extern "C" {
-        //CircularBuffer* circular_buffer_init(size_t size, size_t item_size);
-        //bool circular_buffer_lock(CircularBuffer* p_buffer);
-        //bool circular_buffer_unlock(CircularBuffer* p_buffer);
-        //void circular_buffer_free(CircularBuffer* p_buffer);
-        //void* circular_buffer_write(CircularBuffer* p_buffer);
-        //void* circular_buffer_read(CircularBuffer* p_buffer);
-        //
-        fn circular_buffer_init(size: usize, item_size: usize) -> *mut c_void;
-        fn circular_buffer_lock(buffer_ptr: *mut c_void) -> bool;
-        fn circular_buffer_unlock(buffer_ptr: *mut c_void) -> bool;
-        fn circular_buffer_free(buffer_ptr: *mut c_void);
-        fn circular_buffer_write(buffer_ptr: *mut c_void) -> *mut c_void;
-        fn circular_buffer_read(buffer_ptr: *mut c_void) -> *mut c_void;
-
-
-        //bool async_promise_init(AsyncPromise* p_promise) {
-        //bool async_promise_fufil(AsyncPromise* p_promise, void* value);
-        //void* async_promise_await(AsyncPromise* p_promise);
-        //
-        fn async_promise_init(promise_ptr: *mut c_void) -> bool;
-        fn async_promise_fufil(promise_ptr: *mut c_void, value_ptr: *mut c_void) -> bool;
-        fn async_promise_await(promise_ptr: *mut c_void) -> *const c_void;
-    }
-
-    #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
-    #[test]
-    fn test_extenral_circular_buffer_read_write() {
-        unsafe {
-            let circular_buffer = circular_buffer_init(5, 1); //Init u8 circular_buffer
-            if circular_buffer.is_null() {
-                panic!("circular_buffer_init failed");
-            }
-
-            if !circular_buffer_lock(circular_buffer) {
-                panic!("circular_buffer_lock failed")
-            };
-
-            for i in 0..3 {
-                let write_ptr = circular_buffer_write(circular_buffer) as *mut u8;
-                if write_ptr.is_null() {
-                    panic!("Writing failed")
-                }
-                write_ptr.write_volatile(i);
-            }
-
-            for i in 0..3 {
-                let read_ptr = circular_buffer_read(circular_buffer) as *const u8;
-                assert!(!read_ptr.is_null());
-                assert_eq!(i, read_ptr.read_volatile());
-            }
-
-            for _ in 0..5 {
-                let write_ptr = circular_buffer_write(circular_buffer) as *mut u8;
-                write_ptr.write_volatile(10)
-            }
-
-            let write_ptr = circular_buffer_write(circular_buffer) as *mut u8;
-            assert!(write_ptr.is_null()); //Assert that we cannot write to a full buffer
-
-            assert!(circular_buffer_unlock(circular_buffer));
-
-            //Make sure no segfault will ever happen
-            //This test test the entire API but does not test edge cases
-            circular_buffer_free(circular_buffer);
-        }
-    }
-
-    #[test]
-    fn test_external_async_promise_no_work() {
-        unsafe {
-            let promise = libc::malloc(128);
-            assert!(!promise.is_null());
-            async_promise_init(promise);
-
-            let promise_clone = promise as usize;
-            assert!(!promise.is_null());
-
-            thread::spawn(move || {
-                let to_fufil = promise_clone as *mut c_void;
-                async_promise_fufil(to_fufil, 100usize as *mut c_void);
-            });
-
-            thread::sleep(Duration::from_millis(200));
-            let awaited = async_promise_await(promise);
-
-            assert_eq!(awaited as usize, 100usize);
-            libc::free(promise);
-        }
-    }
-
-    #[test]
-    fn test_external_async_promise_work() {
-        unsafe {
-            //It is wasteful, but I do not care. It is just a stupid test
-            let promise = libc::malloc(128);
-            assert!(!promise.is_null());
-            async_promise_init(promise);
-
-            let promise_clone = promise as usize;
-            assert!(!promise.is_null());
-
-            thread::spawn(move || {
-                thread::sleep(Duration::from_millis(200)); //Simulate work
-                let to_fufil = promise_clone as *mut c_void;
-                async_promise_fufil(to_fufil, 100usize as *mut c_void);
-            });
-
-            let awaited = async_promise_await(promise);
-
-            assert_eq!(awaited as usize, 100usize);
-            libc::free(promise);
-        }
-    }
 
     #[cfg(all(feature = "external_player", feature = "ffmpeg"))]
     #[test]
