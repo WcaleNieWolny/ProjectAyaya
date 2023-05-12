@@ -1075,7 +1075,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2",
+ "socket2 0.4.9",
  "tokio",
  "tower-service",
  "tracing",
@@ -2435,9 +2435,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "socket2"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2538b18701741680e0322a2302176d3253a35388e2e62f172f64f4f16605f877"
+dependencies = [
+ "libc",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "songbird"
 version = "0.3.2"
-source = "git+https://github.com/serenity-rs/songbird?branch=next#da3706c3380dfa28da458dab9af8a2f525201b90"
+source = "git+https://github.com/serenity-rs/songbird?branch=next#20da9e1cac0cca9c7f6ca1169a582064290dee8f"
 dependencies = [
  "async-trait",
  "audiopus",
@@ -2460,7 +2470,7 @@ dependencies = [
  "serde_json",
  "serenity",
  "serenity-voice-model",
- "socket2",
+ "socket2 0.5.3",
  "streamcatcher",
  "symphonia",
  "symphonia-core",
@@ -2838,7 +2848,7 @@ dependencies = [
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2",
+ "socket2 0.4.9",
  "tokio-macros",
  "windows-sys 0.45.0",
 ]
