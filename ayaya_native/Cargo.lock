@@ -115,6 +115,7 @@ dependencies = [
  "pathfinder_geometry",
  "pkg-config",
  "rand",
+ "rayon",
  "serenity",
  "songbird",
  "symphonia",

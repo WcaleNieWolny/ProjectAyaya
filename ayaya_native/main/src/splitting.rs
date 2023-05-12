@@ -1,3 +1,5 @@
+use std::ptr::copy_nonoverlapping;
+
 #[derive(Debug, Clone)]
 pub struct SplittedFrame {
     pub width: usize,
@@ -6,7 +8,7 @@ pub struct SplittedFrame {
 }
 
 #[repr(C)]
-#[cfg(feature = "external_player")]
+//#[cfg(feature = "external_player")]
 pub struct ExternalSplitFrameMemCopyRange {
     src_offset: usize,
     dst_offset: usize,
@@ -129,7 +131,7 @@ impl SplittedFrame {
         Ok(final_data)
     }
 
-    #[cfg(feature = "external_player")]
+    //#[cfg(feature = "external_player")]
     pub fn prepare_external_ranges(
         frames: &Vec<SplittedFrame>,
         width: usize,
@@ -166,5 +168,117 @@ impl SplittedFrame {
         }
 
         Ok(ranges_table)
+    }
+
+    fn unsafe_split_frames(
+        data: &[i8],
+        mem_cpy_ranges: &Vec<ExternalSplitFrameMemCopyRange>,  
+        width: usize,
+        height: usize,  
+    ) -> anyhow::Result<Vec<i8>> {
+        //Unsafe = FUN :)
+        unsafe {
+            let mut restult_vec = Vec::<i8>::with_capacity(width * height);
+            let result_slice = restult_vec.spare_capacity_mut();
+            let res_ptr = result_slice.as_mut_ptr() as *mut i8;
+            let data_ptr = data.as_ptr();
+
+            for range in mem_cpy_ranges {
+                copy_nonoverlapping(data_ptr.add(range.src_offset), res_ptr.add(range.dst_offset), range.len)
+            }
+
+            restult_vec.set_len(width * height);
+            Ok(restult_vec)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test::Bencher;
+    use rand::Rng;
+
+    #[test]
+    fn test_fast_split() {
+        let width = 3840usize;
+        let height = 2160usize;
+        let values: Vec<i8> = rand::thread_rng()
+            .sample_iter(rand::distributions::Standard)
+            .take(width * height * 3)
+            .collect();
+
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height).unwrap();
+
+        let mem_cpy_ranges = SplittedFrame::prepare_external_ranges(&splitted_frames, width, height, all_frames_x, all_frames_y).unwrap();
+
+        let normal = SplittedFrame::split_frames(
+            values.as_slice(),
+            &splitted_frames,
+            width,
+            all_frames_x,
+            all_frames_y,
+        ).unwrap();
+
+        let fast = SplittedFrame::unsafe_split_frames(
+            values.as_slice(),
+            &mem_cpy_ranges,
+            width,
+            height,
+        ).unwrap();
+
+        //Remove padding
+        let normalized_normal = normal[..width*height].to_vec();
+
+        assert!(do_vecs_match(&fast, &normalized_normal))
+    }
+
+    #[bench]
+    fn bench_frame_split(b: &mut Bencher) {
+        let width = 3840usize;
+        let height = 2160usize;
+        let values: Vec<i8> = vec![89i8; width * height];
+
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height).unwrap();
+
+
+        b.iter(|| {
+            SplittedFrame::split_frames(
+                values.as_slice(),
+                &splitted_frames,
+                width,
+                all_frames_x,
+                all_frames_y,
+            )
+        })
+    }
+
+    #[bench]
+    fn bench_unsafe_split(b: &mut Bencher) {
+        let width = 3840usize;
+        let height = 2160usize;
+        let values: Vec<i8> = vec![89i8; width * height];
+
+        let (splitted_frames, all_frames_x, all_frames_y) =
+            SplittedFrame::initialize_frames(width, height).unwrap();
+
+
+        let mem_cpy_ranges = SplittedFrame::prepare_external_ranges(&splitted_frames, width, height, all_frames_x, all_frames_y).unwrap(); 
+
+        b.iter(|| {
+            SplittedFrame::unsafe_split_frames(
+                values.as_slice(),
+                &mem_cpy_ranges,
+                width,
+                height,
+            )
+        })
+    }
+
+    fn do_vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
+        let matching = a.iter().zip(b.iter()).filter(|&(a, b)| a == b).count();
+        matching == a.len() && matching == b.len()
     }
 }

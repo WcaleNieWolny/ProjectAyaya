@@ -89,92 +89,25 @@ pub fn fast_frame_to_mc(
     height: usize,
     add_width: usize
 ) -> Vec<i8> {
-    let mut buf = Vec::<i8>::with_capacity(width * height);
-    let buf_ptr = buf.as_mut_ptr() as usize;
+    let buf = Vec::with_capacity(width * height);
+    let buf_ptr = unsafe {
+        buf.as_ptr()
+    };
 
     data
-        .par_chunks(add_width)
+        .iter()
+        .array_chunks::<add_width>()
         .enumerate()
         .for_each(|(i, arr)| {
             arr
                 .array_chunks::<3>()
-                .take(width)
                 .enumerate()
-                .for_each(|(c_id, [r, g, b])| {
-                    let color = Color::new(*r, *g, *b);
+                .for_each(|(a, [r, g, b])| {
+                    let color = Color::new(**r, **g, **b);
                     let value = get_cached_index(&color);
                     unsafe {
-                        let write_ptr = (buf_ptr + (i * width) + c_id) as *mut i8;
-                        write_ptr.write_volatile(value);
-                    };
+                    
+                    }
                 })
         });
-
-    unsafe {
-        buf.set_len(width * height)
-    }
-    return buf;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::Rng;
-    use test::Bencher;
-    use crate::SplittedFrame;
-
-    #[test]
-    fn test_fast_split() {
-        let width = 3840usize;
-        let height = 2160usize;
-        let linesize = width * 3;
-
-        let (splitted_frames, all_frames_x, all_frames_y) =
-            SplittedFrame::initialize_frames(width, height).unwrap();
-
-        let values: Vec<u8> = rand::thread_rng()
-            .sample_iter(rand::distributions::Standard)
-            .take(width * height * 3)
-            .collect();
-
-        let fast_conversion = fast_frame_to_mc(&values, width, height, width * 3);
-        let normal_conversion = transform_frame_to_mc(&values, width, height, width * 3);
-
-        assert!(do_vecs_match(&fast_conversion, &normal_conversion))
-    }
-
-    #[bench]
-    fn bench_color_conversion(b: &mut Bencher) {
-        let width = 3840usize;
-        let height = 2160usize;
-        let linesize = width * 3;
-
-        let (splitted_frames, all_frames_x, all_frames_y) =
-            SplittedFrame::initialize_frames(width, height).unwrap();
-        let values: Vec<u8> = vec![89u8; width * height * 3];
-
-        b.iter(|| {
-            transform_frame_to_mc(&values, width, height, width * 3)
-        });
-    }
-
-    #[bench]
-    fn bench_fast_color_conversion(b: &mut Bencher) {
-        let width = 3840usize;
-        let height = 2160usize;
-        let linesize = width * 3;
-
-        let (splitted_frames, all_frames_x, all_frames_y) =
-            SplittedFrame::initialize_frames(width, height).unwrap();
-        let values: Vec<u8> = vec![89u8; width * height * 3];
-
-        b.iter(|| {
-            fast_frame_to_mc(&values, width, height, width * 3)
-        });
-    }
-
-    fn do_vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
-        let matching = a.iter().zip(b.iter()).filter(|&(a, b)| a == b).count();
-        matching == a.len() && matching == b.len()
-    }
 }
