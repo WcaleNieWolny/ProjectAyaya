@@ -1,6 +1,5 @@
 use std::{
     fmt::Debug,
-    ops::Deref,
     sync::{Arc, Mutex},
 };
 
@@ -21,7 +20,7 @@ macro_rules! get_context {
     (
         $PTR: ident
     ) => {{
-        let arc_ptr = $PTR as *const () as *const Arc<Mutex<dyn VideoPlayer>>;
+        let arc_ptr = $PTR as *const () as *const Arc<Mutex<Box<dyn VideoPlayer>>>;
         Arc::clone(unsafe { &*arc_ptr })
     }};
 }
@@ -67,11 +66,8 @@ impl Debug for FrameWithIdentifier {
 
 //Thanks to https://github.com/alexschrod for helping me with getting this Arc pointer to work
 //He made this code much better!
-pub fn wrap_to_ptr<T>(to_wrap: T) -> i64
-where
-    T: VideoPlayer,
-{
-    let arc = Arc::new(Mutex::new(to_wrap)) as Arc<Mutex<dyn VideoPlayer>>;
+pub fn wrap_to_ptr(to_wrap: Box<dyn VideoPlayer>) -> i64 {
+    let arc = Arc::new(Mutex::new(to_wrap)) as Arc<Mutex<Box<dyn VideoPlayer>>>;
     Box::into_raw(Box::new(arc)) as *const () as i64
 }
 

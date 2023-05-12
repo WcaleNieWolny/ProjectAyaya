@@ -1,4 +1,6 @@
+#[cfg(feature = "discord")]
 pub mod discord_audio;
+
 pub mod game_player;
 pub(crate) mod player_context;
 

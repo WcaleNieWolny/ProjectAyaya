@@ -9,8 +9,6 @@ extern crate test;
 #[cfg(feature = "ffmpeg")]
 extern crate ffmpeg_next as ffmpeg;
 
-use std::num::NonZeroU64;
-
 use anyhow::anyhow;
 
 #[cfg(feature = "ffmpeg")]
@@ -34,17 +32,10 @@ use jni::JNIEnv;
 
 use map_server::ServerOptions;
 
-use crate::discord_audio::DiscordPlayer;
 use once_cell::sync::Lazy;
+use player::player_context::VideoPlayer;
 use player::player_context::{self, NativeCommunication};
-use player::{
-    discord_audio::DiscordOptions,
-    game_player::{GameInputDirection, GamePlayer},
-};
-use player::{
-    discord_audio::{self, DiscordClient},
-    player_context::VideoPlayer,
-};
+use player::{game_player::GameInputDirection, game_player::GamePlayer};
 use tokio::runtime::{Builder, Runtime};
 
 mod colorlib;
@@ -121,17 +112,27 @@ fn verify_capabilities(
         ));
     }
 
-    if use_discord && DiscordClient::is_used()? {
-        let discord_in_use = env
-            .call_static_method(
-                "me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse",
-                "valueOf",
-                "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;",
-                &[(&env.new_string("DISCORD_IN_USE")?).into()],
-            )?
-            .l()?;
-        return Ok(discord_in_use.into_raw());
-    }
+    if use_discord {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "discord")]
+            {
+                use discord_audio::DiscordClient;
+                if DiscordClient::is_used()? {
+                    let discord_in_use = env
+                        .call_static_method(
+                            "me/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse",
+                            "valueOf",
+                            "(Ljava/lang/String;)Lme/wcaleniewolny/ayaya/library/VideoRequestCapablyResponse;",
+                            &[(&env.new_string("DISCORD_IN_USE")?).into()],
+                        )?
+                        .l()?;
+                    return Ok(discord_in_use.into_raw());
+                }
+            } else {
+                return Err(anyhow!("Discord feature not compiled!"))
+            }
+        }
+    };
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "ffmpeg")] {
@@ -215,20 +216,12 @@ fn init(
     let render_type = env.call_method(render_type, "ordinal", "()I", &[])?;
     let render_type = render_type.i()?;
 
-    return match render_type {
+    let boxed_player: Box<dyn VideoPlayer> = match render_type {
         0 => {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")]
                 {
-                    let player_context = SingleVideoPlayer::create(file_name.clone(), server_options)?;
-
-                    if use_discord {
-                        let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(player_context), false)?;
-                        Ok(player_context::wrap_to_ptr(player_context))
-                    }else {
-                        Ok(player_context::wrap_to_ptr(player_context))
-                    }
-
+                    Box::new(SingleVideoPlayer::create(file_name.clone(), server_options)?)
                 }else{
                     return Err(anyhow!("FFmpeg feature not compiled!"))
                 }
@@ -237,33 +230,20 @@ fn init(
         1 => {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")]{
-                    let player_context = MultiVideoPlayer::create(file_name.clone(), server_options)?;
-                    if use_discord {
-                        let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(player_context), false)?;
-                        Ok(player_context::wrap_to_ptr(player_context))
-                    }else {
-                        Ok(player_context::wrap_to_ptr(player_context))
-                    }
+                    Box::new(MultiVideoPlayer::create(file_name.clone(), server_options)?)
                 }else {
                     return Err(anyhow!("FFmpeg feature not compiled!"))
                 }
             }
         }
-        2 => {
-            if use_discord {
-                return Err(anyhow!("Game player does not suport discord audio!"));
-            }
-            let player_context = GamePlayer::create(file_name, server_options)?;
-            Ok(player_context::wrap_to_ptr(player_context))
-        }
+        2 => Box::new(GamePlayer::create(file_name, server_options)?),
         3 => {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "ffmpeg")] {
                     if use_discord {
                         return Err(anyhow!("X11 player does not suport discord audio!"));
                     }
-                    let player_context = X11Player::create(file_name, server_options)?;
-                    Ok(player_context::wrap_to_ptr(player_context))
+                    Box::new(X11Player::create(file_name, server_options)?)
                 }else {
                     return Err(anyhow!("FFmpeg feature not compiled!"))
                 }
@@ -274,15 +254,31 @@ fn init(
                 if #[cfg(all(feature = "external_player", feature = "ffmpeg"))] {
                     use player::external_player::ExternalPlayer;
 
-                    let player_context = ExternalPlayer::create(file_name, server_options)?;
-                    Ok(player_context::wrap_to_ptr(player_context))
+                    Box::new(ExternalPlayer::create(file_name, server_options)?);
                 }else {
                     return Err(anyhow!("external_player feature not compiled!"))
                 }
             }
         }
-        _ => Err(anyhow::Error::msg(format!("Invalid id ({render_type})"))),
+        _ => return Err(anyhow::Error::msg(format!("Invalid id ({render_type})"))),
     };
+
+    let ptr = if use_discord {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "discord")]
+            {
+                use crate::discord_audio::DiscordPlayer;
+                let player_context = DiscordPlayer::create_with_discord(file_name, Box::new(boxed_player), use_server)?;
+                player_context::wrap_to_ptr(Box::new(player_context))
+            } else {
+                return Err(anyhow!("Discord flag disabled at compile time"))
+            }
+        }
+    } else {
+        player_context::wrap_to_ptr(boxed_player)
+    };
+
+    return Ok(ptr);
 }
 
 //According to kotlin "@return Byte array of transformed frame (color index)"
@@ -344,63 +340,72 @@ fn recive_jvm_msg(
     Ok(())
 }
 
+#[allow(unused)]
 fn init_discord_bot(env: &mut JNIEnv, discord_options: JObject) -> anyhow::Result<()> {
-    let discord_options = {
-        let use_discord = env
-            .call_method(&discord_options, "getUseDiscord", "()Z", &[])?
-            .z()?;
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "discord")]
+        {
+            use std::num::NonZeroU64;
+            let discord_options = {
+                let use_discord = env
+                    .call_method(&discord_options, "getUseDiscord", "()Z", &[])?
+                    .z()?;
 
-        let discord_token = env
-            .call_method(
-                &discord_options,
-                "getDiscordToken",
-                "()Ljava/lang/String;",
-                &[],
-            )?
-            .l()?;
-        let discord_token: String = env.get_string(&discord_token.into())?.into();
+                let discord_token = env
+                    .call_method(
+                        &discord_options,
+                        "getDiscordToken",
+                        "()Ljava/lang/String;",
+                        &[],
+                    )?
+                    .l()?;
+                let discord_token: String = env.get_string(&discord_token.into())?.into();
 
-        let guild_id = env
-            .call_method(&discord_options, "getGuildId", "()Ljava/lang/String;", &[])?
-            .l()?;
-        let guild_id: String = env.get_string(&guild_id.into())?.into();
+                let guild_id = env
+                    .call_method(&discord_options, "getGuildId", "()Ljava/lang/String;", &[])?
+                    .l()?;
+                let guild_id: String = env.get_string(&guild_id.into())?.into();
 
-        let channel_id = env
-            .call_method(
-                &discord_options,
-                "getChannelId",
-                "()Ljava/lang/String;",
-                &[],
-            )?
-            .l()?;
-        let channel_id: String = env.get_string(&channel_id.into())?.into();
+                let channel_id = env
+                    .call_method(
+                        &discord_options,
+                        "getChannelId",
+                        "()Ljava/lang/String;",
+                        &[],
+                    )?
+                    .l()?;
+                let channel_id: String = env.get_string(&channel_id.into())?.into();
 
-        let guild_id: u64 = guild_id.parse()?;
-        let channel_id: u64 = channel_id.parse()?;
+                let guild_id: u64 = guild_id.parse()?;
+                let channel_id: u64 = channel_id.parse()?;
 
-        let guild_id = match NonZeroU64::new(guild_id) {
-            Some(val) => val,
-            None => return Err(anyhow!("Guild ID is zero")),
-        };
+                let guild_id = match NonZeroU64::new(guild_id) {
+                    Some(val) => val,
+                    None => return Err(anyhow!("Guild ID is zero")),
+                };
 
-        let channel_id = match NonZeroU64::new(channel_id) {
-            Some(val) => val,
-            None => return Err(anyhow!("Channel ID is zero")),
-        };
+                let channel_id = match NonZeroU64::new(channel_id) {
+                    Some(val) => val,
+                    None => return Err(anyhow!("Channel ID is zero")),
+                };
 
-        DiscordOptions {
-            use_discord,
-            discord_token,
-            guild_id,
-            channel_id,
+                DiscordOptions {
+                    use_discord,
+                    discord_token,
+                    guild_id,
+                    channel_id,
+                }
+            };
+
+            if discord_options.use_discord {
+                discord_audio::init(&discord_options)?;
+            }
+
+            Ok(())
+        } else {
+            Err(anyhow!("Discord module not compiled"))
         }
-    };
-
-    if discord_options.use_discord {
-        discord_audio::init(&discord_options)?;
     }
-
-    Ok(())
 }
 
 //Destroy function must be called to drop video_player struct
