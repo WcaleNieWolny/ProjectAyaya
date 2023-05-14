@@ -9,7 +9,7 @@ edition = "2021"
 jni = "0.20.0"
 anyhow = "1.0"
 winapi = { version = "0.3", features = ["winbase"] }
-libloading = "0.7.4"
+libloading = "0.8.0"
 reqwest = { version = "0.11", features = ["blocking"] }
 zip = "0.6.4"
 
