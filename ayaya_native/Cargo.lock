@@ -121,7 +121,7 @@ dependencies = [
  "flate2",
  "font-kit",
  "image",
- "jni 0.21.1",
+ "jni",
  "lazy_static",
  "libc",
  "once_cell",
@@ -1233,20 +1233,6 @@ name = "itoa"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "453ad9f582a441959e5f0d088b02ce04cfe8d51a8eaf077f12ac6d3e94164ca6"
-
-[[package]]
-name = "jni"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "039022cdf4d7b1cf548d31f60ae783138e5fd42013f6271049d7df7afadef96c"
-dependencies = [
- "cesu8",
- "combine",
- "jni-sys",
- "log",
- "thiserror",
- "walkdir",
-]
 
 [[package]]
 name = "jni"
@@ -3484,7 +3470,7 @@ name = "windows_bootstrap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "jni 0.20.0",
+ "jni",
  "libloading",
  "reqwest",
  "winapi",
