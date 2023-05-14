@@ -1,0 +1,5 @@
+packet encode pipeline:
+ - timeout
+ - spliter (ignore)
+ - encrypt (MessageToMessageEncoder<ByteBuf> (same as prepender]))
+ - prepender (MessageToByteEncoder<ByteBuf>) NOTE: encodes bytebuf

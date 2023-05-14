@@ -170,7 +170,7 @@ impl SplittedFrame {
         Ok(ranges_table)
     }
 
-    fn unsafe_split_frames(
+    pub fn unsafe_split_frames(
         data: &[i8],
         mem_cpy_ranges: &Vec<ExternalSplitFrameMemCopyRange>,  
         width: usize,

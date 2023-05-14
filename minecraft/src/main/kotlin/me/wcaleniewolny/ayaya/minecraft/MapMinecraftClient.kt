@@ -13,6 +13,9 @@ import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.logging.Level
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
 
 class MapMinecraftClient : JavaPlugin() {
 
@@ -25,6 +28,25 @@ class MapMinecraftClient : JavaPlugin() {
         if (!loadNativeLib()) {
             return
         }
+
+        val charset = Charsets.UTF_8
+        val key = "hello from aes!!"
+        val iv = "shitty iv do not"
+        val plaintext = "hello world from javaaaaaaaaaaa ".toByteArray(charset)
+        val plaintextSecond = " goodbye world! ".toByteArray(charset)
+        val keySpec = SecretKeySpec(key.toByteArray(charset), "AES")
+        val ivSpec = IvParameterSpec(iv.toByteArray(charset))
+        val cipherE = Cipher.getInstance("AES/CFB8/NoPadding")
+        val cipherD = Cipher.getInstance("AES/CFB8/NoPadding")
+        cipherE.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
+        cipherD.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+        val outputJava = cipherE.update(plaintext)
+        val outputRust = NativeRenderControler.loadFrame(1000)
+        val outputJavaSec = cipherE.update(plaintext)
+
+        println(String(cipherD.update(outputJava)))
+        println(String(cipherD.update(outputRust)))
+        println(String(cipherD.update(outputJavaSec)))
 
         if (config.getBoolean("useDiscordBot")) {
             NativeRenderControler.initDiscordBot(

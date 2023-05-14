@@ -3,8 +3,10 @@ package me.wcaleniewolny.ayaya.minecraft.render
 import me.wcaleniewolny.ayaya.library.MapServerOptions
 import me.wcaleniewolny.ayaya.library.NativeRenderControler
 import me.wcaleniewolny.ayaya.minecraft.command.VideoPlayType
+import me.wcaleniewolny.ayaya.minecraft.display.DisplayService
 import me.wcaleniewolny.ayaya.minecraft.display.broadcaster.impl.MinecraftNativeBroadcaster
 import me.wcaleniewolny.ayaya.minecraft.display.impl.DisplayServiceImpl
+import me.wcaleniewolny.ayaya.minecraft.display.impl.NettyRawDisplayServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.JavaRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.NativeRenderServiceImpl
 import me.wcaleniewolny.ayaya.minecraft.render.impl.RenderThreadGameImpl
@@ -29,8 +31,9 @@ object RenderServiceFactory {
         renderCallback: ((ptr: Long, screenName: String) -> Unit)? = null,
         useDiscord: Boolean = false
     ): RenderService {
+        val nativeFilename = if (videoPlayType != VideoPlayType.BLAZING) filename else "${startID}$$$${filename}"
         val ptr = NativeRenderControler.init(
-            filename,
+            nativeFilename,
             videoPlayType.toNativeRenderType(),
             MapServerOptions(
                 useServer,
@@ -47,14 +50,20 @@ object RenderServiceFactory {
 
         val fps = videoData.fps
 
+        val displayService = if (videoPlayType != VideoPlayType.BLAZING) {
+            DisplayServiceImpl(
+                MinecraftNativeBroadcaster(startID),
+                width,
+                height
+            )
+        } else {
+            NettyRawDisplayServiceImpl(width, height)
+        }
+
         val thread =
             if (videoPlayType != VideoPlayType.GAME && videoPlayType != VideoPlayType.X11) {
                 RenderThreadVideoImpl(
-                    DisplayServiceImpl(
-                        MinecraftNativeBroadcaster(startID),
-                        width,
-                        height
-                    ),
+                    displayService,
                     renderCallback,
                     fps,
                     screenName,
@@ -62,11 +71,7 @@ object RenderServiceFactory {
                 )
             } else {
                 RenderThreadGameImpl(
-                    DisplayServiceImpl(
-                        MinecraftNativeBroadcaster(startID),
-                        width,
-                        height
-                    ),
+                    displayService,
                     startID,
                     renderCallback,
                     fps,

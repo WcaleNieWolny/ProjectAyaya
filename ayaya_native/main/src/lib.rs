@@ -3,6 +3,10 @@
 #![feature(iter_array_chunks)]
 #![feature(test)]
 
+use aes::cipher::{AsyncStreamCipher, KeyIvInit};
+type Aes128Cfb8Enc = cfb8::Encryptor<aes::Aes128>;
+type Aes128Cfb8Dec = cfb8::Decryptor<aes::Aes128>;
+
 extern crate core;
 extern crate test;
 
@@ -33,7 +37,7 @@ use jni::JNIEnv;
 use map_server::ServerOptions;
 
 use once_cell::sync::Lazy;
-use player::player_context::VideoPlayer;
+use player::{player_context::VideoPlayer, blazing_linux_player::LinuxBlazingPlayer};
 use player::player_context::{self, NativeCommunication};
 use player::{game_player::GameInputDirection, game_player::GamePlayer};
 use tokio::runtime::{Builder, Runtime};
@@ -254,9 +258,20 @@ fn init(
                 if #[cfg(all(feature = "external_player", feature = "ffmpeg"))] {
                     use player::external_player::ExternalPlayer;
 
-                    Box::new(ExternalPlayer::create(file_name, server_options)?);
+                    Box::new(ExternalPlayer::create(file_name, server_options)?)
                 }else {
                     return Err(anyhow!("external_player feature not compiled!"))
+                }
+            }
+        },
+        5 => {
+            cfg_if::cfg_if! {
+                if #[cfg(all(target_os = "linux", feature = "ffmpeg"))] {
+                    use player::blazing_linux_player::LinuxBlazingPlayer;
+
+                    Box::new(LinuxBlazingPlayer::create(file_name, server_options)?)
+                }else {
+                    return Err(anyhow!("You are not on linux OR you do not have ffmpeg feature enabled"))
                 }
             }
         }
@@ -283,6 +298,24 @@ fn init(
 
 //According to kotlin "@return Byte array of transformed frame (color index)"
 fn load_frame(env: &mut JNIEnv, ptr: jlong) -> anyhow::Result<jbyteArray> {
+    //proof of concept
+    if ptr == 1000 {
+        let key = *b"hello from aes!!";
+        let iv = *b"shitty iv do not";
+        let plaintext = b"hello world! this is my plaintex".to_vec();
+        let mut padded = vec![0u8; 16];
+        padded.extend_from_slice(&plaintext);
+        let mut plaintext = padded;
+        Aes128Cfb8Enc::new(&key.into(), &iv.into()).encrypt(&mut plaintext);
+        let output = env.new_byte_array(plaintext.len() as jsize)?; //Can't fail to create array unless system is out of memory
+        let slice = unsafe {
+            std::slice::from_raw_parts(plaintext.as_mut_ptr() as *mut i8, plaintext.len())
+        };
+
+        env.set_byte_array_region(&output, 0, slice)?;
+        return Ok(output.into_raw())
+    }
+
     let data = player_context::load_frame(ptr)?;
     let data_vec = data.data();
 

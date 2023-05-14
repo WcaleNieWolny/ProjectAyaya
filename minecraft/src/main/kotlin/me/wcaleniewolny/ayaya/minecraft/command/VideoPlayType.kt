@@ -8,7 +8,8 @@ enum class VideoPlayType {
     MAP_SERVER,
     GAME,
     X11,
-    EXTERNAL;
+    EXTERNAL,
+    BLAZING;
 
     fun toNativeRenderType(): NativeRenderType {
         return when (this) {
@@ -18,6 +19,7 @@ enum class VideoPlayType {
             GAME -> NativeRenderType.GAME
             X11 -> NativeRenderType.X11
             EXTERNAL -> NativeRenderType.EXTERNAL
+            BLAZING -> NativeRenderType.BLAZING
         }
     }
 }
