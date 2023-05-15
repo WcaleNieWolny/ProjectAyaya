@@ -16,13 +16,15 @@ use crate::{ffmpeg_set_multithreading, SplittedFrame, TOKIO_RUNTIME};
 
 use super::player_context;
 
+static MAP_PACKET_ID: u8 = 0x27u8;
+
 fn write_var_int(mut value: i32) -> (usize, [u8; 5]) {
     let mut output = [0u8; 5];
     let mut i = 0usize;
 
     loop {
         if (value & !0x7F) == 0 {
-            output[i] = (value as u8).to_be();
+            output[i] = (value as u8);
             i += 1;
             return (i, output);
         }
@@ -140,7 +142,7 @@ impl VideoPlayer for LinuxBlazingPlayer {
                                     rows: frame.height as u8,
                                     x: 0, //For now 0
                                     z: 0, //for not 0
-                                    data: transformed_frame[prev_frame_i..(prev_frame_i + frame.frame_length)].to_vec(),
+                                    data: transformed_frame[prev_frame_i..][..frame.frame_length].to_vec(),
                                 };
                                 prev_frame_i += frame.frame_length;
                                 packet
@@ -188,6 +190,19 @@ impl VideoPlayer for LinuxBlazingPlayer {
     }
 }
 
+fn splitted_video_iter(splitted_frames: &Vec<SplittedFrame>, data: &[u8]) {
+    let data_ptr = data.as_ptr();
+
+    let mut prev_frame_i = 0usize;
+    splitted_frames
+        .iter()
+        .map(|e| {
+            let slice = unsafe { std::slice::from_raw_parts(data_ptr.add(prev_frame_i), e.frame_length) };
+            prev_frame_i += e.frame_length;
+            (e, slice)
+        });
+}
+
 impl MinecraftMapPacket {
     fn serialize_to_mc(&self) -> anyhow::Result<Vec<u8>> {
         //27 for the packet wrapping
@@ -200,10 +215,11 @@ impl MinecraftMapPacket {
 
         //We DO need to say how long is the packet!
         output.extend_from_slice(&packet_len_varint[..packet_len_varint_len]);
-        output.extend_from_slice(&[0x29u8.to_be()]); //Packet id
+        output.extend_from_slice(&[MAP_PACKET_ID]); //Packet id
         output.extend_from_slice(&map_id[..map_id_len]);
         //scale = 0, locked = true, Has Icons = false, columns, rows, x, z
-        output.extend_from_slice(&[(0i8 as u8).to_be(), 0x01u8.to_be(), 0x00u8.to_be(), self.columns.to_be(), self.rows.to_be(), self.x.to_be(), self.z.to_be()]);
+
+        output.extend_from_slice(&[0x00i8 as u8, 0x01u8, 0x00u8, self.columns, self.rows, self.x, self.z]);
         output.extend_from_slice(&data_varint[..data_varint_len]);
 
         let data_slice = unsafe {
@@ -236,8 +252,8 @@ mod tests {
         let third_vec = third.1[..3].to_vec();
         assert!(do_vecs_match(&third_vec, &vec![0xff, 0xff, 0x7f]));
 
-        let (map_data_packet_id_len, map_data_packet_id) = write_var_int(0x29);
-        assert!(do_vecs_match(&map_data_packet_id[..map_data_packet_id_len].to_vec(), &vec![0x29]));
+        let (map_data_packet_id_len, map_data_packet_id) = write_var_int(MAP_PACKET_ID as i32);
+        assert!(do_vecs_match(&map_data_packet_id[..map_data_packet_id_len].to_vec(), &vec![MAP_PACKET_ID]));
     }
 
     fn do_vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
