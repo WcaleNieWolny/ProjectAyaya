@@ -47,6 +47,13 @@ struct MinecraftMapPacket {
     data: Vec<i8>
 }
 
+struct CompressionRange {
+    start: usize,
+    end: usize,
+    width: usize,
+    height: usize,
+}
+
 pub struct LinuxBlazingPlayer {
     width: i32,
     height: i32,
@@ -93,6 +100,8 @@ impl VideoPlayer for LinuxBlazingPlayer {
             let (frame_tx, frame_rx) = sync_channel::<Vec<i8>>(90);
 
             let mem_cpy_ranges = SplittedFrame::prepare_external_ranges(&splitted_frames, width as usize, height as usize, all_frames_x, all_frames_y)?;
+            let compression_ranges = prepare_compression_ranges(&splitted_frames);
+            let mut prev_data: Option<Vec<u8>> = None;
 
             TOKIO_RUNTIME.spawn_blocking(move || {
                 let mut scaler = Context::get(
@@ -153,6 +162,11 @@ impl VideoPlayer for LinuxBlazingPlayer {
                                 Ok(())
                             }).expect("Cannot perform final packet encoding");
 
+                      
+                        if let Some(old_data) = prev_data {
+                            compress_final_data(&compression_ranges, &final_frame, &old_data)
+                        }
+                        prev_data = Some(final_frame.clone());
                         frame_tx.send(bytemuck::cast_vec(final_frame)).expect("Cannot send final frame!");
                     }
                 };
@@ -190,17 +204,69 @@ impl VideoPlayer for LinuxBlazingPlayer {
     }
 }
 
-fn splitted_video_iter(splitted_frames: &Vec<SplittedFrame>, data: &[u8]) {
-    let data_ptr = data.as_ptr();
-
-    let mut prev_frame_i = 0usize;
+fn prepare_compression_ranges(splitted_frames: &Vec<SplittedFrame>) -> Vec<CompressionRange> {
     splitted_frames
         .iter()
-        .map(|e| {
-            let slice = unsafe { std::slice::from_raw_parts(data_ptr.add(prev_frame_i), e.frame_length) };
-            prev_frame_i += e.frame_length;
-            (e, slice)
-        });
+        .fold((0usize, Vec::<CompressionRange>::new()), |mut acc, element| {
+            acc.1.push(CompressionRange {
+                start: acc.0,
+                end: acc.0 + element.frame_length,
+                width: element.width,
+                height: element.height,
+            });
+            acc.0 += element.frame_length;
+            acc
+        }).1
+}
+
+fn compress_final_data(compression_ranges: &Vec<CompressionRange>, new_data: &[u8], old_data: &[u8]) {
+    let final_data = compression_ranges
+        .iter()
+        .map(|e| (&new_data[e.start..e.end], &old_data[e.start..e.end], e.width, e.height))
+        .filter_map(|(new, old, height, width)| {
+            let (mut x_start, mut x_end, mut y_start, mut y_end) = (usize::MAX, usize::MAX, usize::MAX, usize::MAX);
+            let mut data_changed = 0usize;
+            new
+                .chunks(width)
+                .zip(old.chunks(width))
+                .enumerate()
+                .for_each(|(y, (new, old))| {
+                    new
+                        .iter()
+                        .zip(old.iter())
+                        .enumerate()
+                        .filter(|(_, (new, old))| **new != **old)
+                        .for_each(|(x, (_, _))| {
+                            data_changed += 1;
+                            if x_start == usize::MAX {
+                                x_start = x;
+                            }
+                            if y_start == usize::MAX {
+                                y_start = y;
+                            }
+
+                            if y > y_end || y_end == usize::MAX {
+                                y_end = y
+                            }
+
+                            if x > x_end || x_end == usize::MAX {
+                                x_end = x
+                            }
+                        });
+                });
+
+            if y_start != usize::MAX {
+                Some((x_start, y_start, x_end - x_start + 1, y_end - y_start + 1, data_changed))
+            } else {
+                None
+            }
+        })
+        .map(|(_, _, width, height, changes)| (width * height, changes))
+        .fold((0usize, 0usize), |(acc1, acc2), (compress, all)| (acc1 + compress, acc2 + all));
+
+    let (final_data, all) = final_data;
+    println!("Compressed frame to {final_data}/{} (max possible: {})", new_data.len(), all);
+        
 }
 
 impl MinecraftMapPacket {
