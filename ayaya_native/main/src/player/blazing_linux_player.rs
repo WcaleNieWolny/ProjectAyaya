@@ -1,3 +1,4 @@
+use std::ops::{Range, RangeInclusive};
 use std::sync::mpsc::{channel, Receiver, Sender, sync_channel};
 
 use anyhow::anyhow;
@@ -220,53 +221,65 @@ fn prepare_compression_ranges(splitted_frames: &Vec<SplittedFrame>) -> Vec<Compr
 }
 
 fn compress_final_data(compression_ranges: &Vec<CompressionRange>, new_data: &[u8], old_data: &[u8]) {
-    let final_data = compression_ranges
+    compression_ranges
         .iter()
         .map(|e| (&new_data[e.start..e.end], &old_data[e.start..e.end], e.width, e.height))
-        .filter_map(|(new, old, height, width)| {
-            let (mut x_start, mut x_end, mut y_start, mut y_end) = (usize::MAX, usize::MAX, usize::MAX, usize::MAX);
-            let mut data_changed = 0usize;
-            new
-                .chunks(width)
+        .for_each(|(new, old, width, height)| {
+            let mut vertical_ranges = new.chunks(width)
                 .zip(old.chunks(width))
                 .enumerate()
-                .for_each(|(y, (new, old))| {
-                    new
-                        .iter()
-                        .zip(old.iter())
+                .map(|(y, (new_row, old_row))| {
+                    let mut changes = Vec::<RangeInclusive<usize>>::new();
+                    let (mut x_start, mut x_end) = (None::<usize>, None::<usize>);
+
+                    new_row.iter()
+                        .zip(old_row.iter())
                         .enumerate()
-                        .filter(|(_, (new, old))| **new != **old)
-                        .for_each(|(x, (_, _))| {
-                            data_changed += 1;
-                            if x_start == usize::MAX {
-                                x_start = x;
-                            }
-                            if y_start == usize::MAX {
-                                y_start = y;
-                            }
-
-                            if y > y_end || y_end == usize::MAX {
-                                y_end = y
-                            }
-
-                            if x > x_end || x_end == usize::MAX {
-                                x_end = x
+                        .for_each(|(x, (new_pixel, old_pixel))| {
+                            if *old_pixel != *new_pixel {
+                                if x_start.is_some() {
+                                    changes.push(x_start.unwrap()..=x_end.unwrap());
+                                    x_end = None;
+                                    x_start = None;
+                                } else {
+                                    x_start = Some(x);
+                                    x_end = Some(x);
+                                }
+                            } else {
+                                *x_end.as_mut().unwrap() += 1;
                             }
                         });
+                    changes
                 });
 
-            if y_start != usize::MAX {
-                Some((x_start, y_start, x_end - x_start + 1, y_end - y_start + 1, data_changed))
-            } else {
-                None
-            }
-        })
-        .map(|(_, _, width, height, changes)| (width * height, changes))
-        .fold((0usize, 0usize), |(acc1, acc2), (compress, all)| (acc1 + compress, acc2 + all));
+            let mut element = vertical_ranges.next().unwrap();
+            'merge_loop: loop {
+                 //we can unwrap here, see code below
+                let next_element = match vertical_ranges.next() {
+                    Some(val) => val,
+                    None => break 'merge_loop,
+                };
 
-    let (final_data, all) = final_data;
-    println!("Compressed frame to {final_data}/{} (max possible: {})", new_data.len(), all);
-        
+                let min_size = element.len().min(next_element.len());
+
+                let new_windows = Vec::<Range<usize>>::new();
+
+                element
+                    .iter()
+                    .zip(next_element.iter())
+                    .take(min_size)
+                    .for_each(|(this, next)| {
+                        if (this.contains(next.start()) || next.contains(this.start())) && (this.contains(next.end()) || next.contains(this.end())) {
+                            let start = next.start().min(this.start());
+                            let end = next.end().min(this.end());
+
+                            let len = end - start + 1;
+                        }
+                    });
+
+                element = next_element
+            }
+        });
 }
 
 impl MinecraftMapPacket {
