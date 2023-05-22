@@ -2343,7 +2343,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.11.5"
-source = "git+https://github.com/serenity-rs/serenity?branch=next#382a17e5b8159db913b63fde5b30fcd399c4fe9a"
+source = "git+https://github.com/serenity-rs/serenity?branch=next#a4cd9f451cf3cbf758e71aa9bcdc26edd4d739eb"
 dependencies = [
  "async-trait",
  "base64 0.21.0",
@@ -2370,7 +2370,7 @@ dependencies = [
 [[package]]
 name = "serenity-voice-model"
 version = "0.1.1"
-source = "git+https://github.com/serenity-rs/serenity?branch=next#382a17e5b8159db913b63fde5b30fcd399c4fe9a"
+source = "git+https://github.com/serenity-rs/serenity?branch=next#a4cd9f451cf3cbf758e71aa9bcdc26edd4d739eb"
 dependencies = [
  "bitflags",
  "enum_primitive",
