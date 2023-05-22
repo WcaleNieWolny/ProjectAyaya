@@ -1,4 +1,6 @@
+use std::cell::Cell;
 use std::ops::{Range, RangeInclusive};
+use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender, sync_channel};
 
 use anyhow::anyhow;
@@ -221,11 +223,11 @@ fn prepare_compression_ranges(splitted_frames: &Vec<SplittedFrame>) -> Vec<Compr
 }
 
 fn compress_final_data(compression_ranges: &Vec<CompressionRange>, new_data: &[u8], old_data: &[u8]) {
-    compression_ranges
+    let a = compression_ranges
         .iter()
         .map(|e| (&new_data[e.start..e.end], &old_data[e.start..e.end], e.width, e.height))
-        .for_each(|(new, old, width, height)| {
-            let mut vertical_ranges = new.chunks(width)
+        .map(|(new, old, width, height)| {
+            let mut vertical_ranges: Vec<Vec<RangeInclusive<usize>>> = new.chunks(width)
                 .zip(old.chunks(width))
                 .enumerate()
                 .map(|(y, (new_row, old_row))| {
@@ -241,45 +243,85 @@ fn compress_final_data(compression_ranges: &Vec<CompressionRange>, new_data: &[u
                                     changes.push(x_start.unwrap()..=x_end.unwrap());
                                     x_end = None;
                                     x_start = None;
-                                } else {
-                                    x_start = Some(x);
-                                    x_end = Some(x);
                                 }
                             } else {
+                                if x_start.is_none() {
+                                    x_start = Some(x);
+                                    x_end = Some(x);
+                                    return;
+                                }
                                 *x_end.as_mut().unwrap() += 1;
                             }
                         });
                     changes
-                });
+                })
+                .collect();
 
-            let mut element = vertical_ranges.next().unwrap();
-            'merge_loop: loop {
-                 //we can unwrap here, see code below
-                let next_element = match vertical_ranges.next() {
-                    Some(val) => val,
-                    None => break 'merge_loop,
-                };
+            let mut final_changes = Vec::<(RangeInclusive<usize>, RangeInclusive<usize>)>::new();
+            let mut i = 0usize;
 
-                let min_size = element.len().min(next_element.len());
+            let vertical_ranges_ptr = vertical_ranges.as_mut_ptr();
 
-                let new_windows = Vec::<Range<usize>>::new();
+            unsafe {
+                let mut element = &mut *vertical_ranges_ptr.add(i);
 
-                element
-                    .iter()
-                    .zip(next_element.iter())
-                    .take(min_size)
-                    .for_each(|(this, next)| {
-                        if (this.contains(next.start()) || next.contains(this.start())) && (this.contains(next.end()) || next.contains(this.end())) {
-                            let start = next.start().min(this.start());
-                            let end = next.end().min(this.end());
+                'all_loop: loop {
+                    i += 1;
+                    if i == height {
+                        break 'all_loop;
+                    }
 
-                            let len = end - start + 1;
+                    let next_element = &mut *vertical_ranges_ptr.add(i);
+
+                    'line_loop: for first_range in element {
+                        let mut copy_i = i;
+                        let mut copy_next_element = &mut *vertical_ranges_ptr.add(i);
+                        let (mut start_x, mut end_x, start_y, mut end_y) = (*first_range.start(), *first_range.end(), i, i);
+
+                        //Performance of this propably SUCKS!
+                        loop {
+                            let matching_ranges: Vec<(usize, RangeInclusive<usize>)> = copy_next_element.iter()
+                                .enumerate()
+                                .filter(|(_, next)| (first_range.contains(next.start()) || next.contains(first_range.start())) && (first_range.contains(next.end()) || next.contains(first_range.end())))
+                                .map(|(id, e)| (id, e.clone()))
+                                .collect();
+                            if matching_ranges.is_empty() {
+                                //Here we continue line loop!
+                                final_changes.push((start_x..=end_x, start_y..=end_y));
+                                continue 'line_loop;
+                            }
+                            
+                            let (_, first) = matching_ranges.first().unwrap();
+                            let (_, last) = matching_ranges.last().unwrap();
+
+                            start_x = start_x.min(*first.start());
+                            end_x = end_x.max(*last.end());
+                            end_y += 1;
+                            copy_i += 1;
+
+                            if copy_i == height {
+                                //Here we continue line loop!
+                                final_changes.push((start_x..=end_x, start_y..=end_y));
+                                continue 'line_loop;
+                            }
+
+                            for (i, _) in matching_ranges.iter().rev() {
+                                copy_next_element.remove(*i); 
+                            }
+                            copy_next_element = &mut vertical_ranges[copy_i];
                         }
-                    });
-
-                element = next_element
+                    }
+                    element = next_element;
+                }
             }
-        });
+            final_changes
+        })
+        .map(|val| {
+            val.iter().fold(0usize, |acc, x| acc + (x.0.end() - x.0.start() + 1) * (x.1.end() - x.1.start() + 1))
+        })
+        .fold(0usize, |acc, x| acc + x);
+
+        println!("{a}/{}", new_data.len());
 }
 
 impl MinecraftMapPacket {

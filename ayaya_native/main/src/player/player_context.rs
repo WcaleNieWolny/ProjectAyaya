@@ -93,7 +93,7 @@ pub fn pass_jvm_msg(ptr: i64, msg: NativeCommunication) -> anyhow::Result<()> {
 }
 
 pub fn destroy(ptr: i64) -> anyhow::Result<()> {
-    let player_context = unsafe { Box::from_raw(ptr as *mut Arc<Mutex<dyn VideoPlayer>>) };
+    let player_context = unsafe { Box::from_raw(ptr as *mut Arc<Mutex<Box<dyn VideoPlayer>>>) };
     let player_context = lock_mutex!(player_context);
     player_context.destroy()
 }
