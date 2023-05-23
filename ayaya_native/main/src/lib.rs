@@ -1,6 +1,7 @@
 #![feature(linked_list_cursors)]
 #![feature(array_chunks)]
 #![feature(iter_array_chunks)]
+#![feature(portable_simd)]
 #![feature(test)]
 
 use aes::cipher::{AsyncStreamCipher, KeyIvInit};

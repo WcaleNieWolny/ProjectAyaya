@@ -1,6 +1,7 @@
 use std::cell::Cell;
 use std::ops::{Range, RangeInclusive};
 use std::rc::Rc;
+use std::simd::u8x64;
 use std::sync::mpsc::{channel, Receiver, Sender, sync_channel};
 
 use anyhow::anyhow;
@@ -167,7 +168,7 @@ impl VideoPlayer for LinuxBlazingPlayer {
 
                       
                         if let Some(old_data) = prev_data {
-                            compress_final_data(&compression_ranges, &final_frame, &old_data)
+                            compress_final_data(&compression_ranges, &final_frame, &old_data, width as usize * height as usize)
                         }
                         prev_data = Some(final_frame.clone());
                         frame_tx.send(bytemuck::cast_vec(final_frame)).expect("Cannot send final frame!");
@@ -222,106 +223,97 @@ fn prepare_compression_ranges(splitted_frames: &Vec<SplittedFrame>) -> Vec<Compr
         }).1
 }
 
-fn compress_final_data(compression_ranges: &Vec<CompressionRange>, new_data: &[u8], old_data: &[u8]) {
+#[derive(Clone)]
+struct CompressedDataRange {
+    x_start: usize,
+    x_end: usize,
+    y_start: usize,
+    y_end: usize
+}
+
+impl CompressedDataRange {
+    fn len(&self) -> usize {
+        return (self.y_end - self.y_start + 1) * (self.x_end - self.x_start + 1)
+    }
+}
+
+fn compress_final_data(compression_ranges: &Vec<CompressionRange>, new_data: &[u8], old_data: &[u8], max: usize) {
     let a = compression_ranges
         .iter()
         .map(|e| (&new_data[e.start..e.end], &old_data[e.start..e.end], e.width, e.height))
         .map(|(new, old, width, height)| {
-            let mut vertical_ranges: Vec<Vec<RangeInclusive<usize>>> = new.chunks(width)
-                .zip(old.chunks(width))
-                .enumerate()
-                .map(|(y, (new_row, old_row))| {
-                    let mut changes = Vec::<RangeInclusive<usize>>::new();
-                    let (mut x_start, mut x_end) = (None::<usize>, None::<usize>);
+            //let second = u8x64::from_slice(&old[(y * 128) + (x_part * 64)..][..64]);
 
-                    new_row.iter()
-                        .zip(old_row.iter())
-                        .enumerate()
-                        .for_each(|(x, (new_pixel, old_pixel))| {
-                            if *old_pixel != *new_pixel {
-                                if x_start.is_some() {
-                                    changes.push(x_start.unwrap()..=x_end.unwrap());
-                                    x_end = None;
-                                    x_start = None;
-                                }
-                            } else {
-                                if x_start.is_none() {
-                                    x_start = Some(x);
-                                    x_end = Some(x);
-                                    return;
-                                }
-                                *x_end.as_mut().unwrap() += 1;
-                            }
-                        });
-                    changes
-                })
-                .collect();
+            //let res = first ^ second;
+            //let res_arr = res.as_array();
+            
+            let mut changes_vec = vec![0u8; width * height];
 
-            let mut final_changes = Vec::<(RangeInclusive<usize>, RangeInclusive<usize>)>::new();
-            let mut i = 0usize;
-
-            let vertical_ranges_ptr = vertical_ranges.as_mut_ptr();
-
-            unsafe {
-                let mut element = &mut *vertical_ranges_ptr.add(i);
-
-                'all_loop: loop {
-                    i += 1;
-                    if i == height {
-                        break 'all_loop;
+            for y in 0..height {
+                for x in 0..width {
+                    changes_vec[y * width + x] = if new[y * width + x] == old[y * width + x] {
+                        0
+                    } else {
+                        1
+                    };
+                };
+            };
+            (changes_vec, width, height)
+        })
+        .map(|(mut changes, width, height)| {
+            let mut final_changes = Vec::<CompressedDataRange>::new();
+            for y in 0..height {
+                for x in 0..width {
+                    if changes[y * width + x] == 0 {
+                        let (mut start_x, mut end_x, mut start_y, mut end_y) = (x, x, y, y);
+                        mutate_change_square(&mut changes, &mut start_x, &mut end_x, &mut start_y, &mut end_y, x, y, width, height);
+                        final_changes.push(CompressedDataRange {
+                            x_start: start_x ,
+                            x_end: end_x,
+                            y_start: start_y,
+                            y_end: end_y,
+                        })
                     }
-
-                    let next_element = &mut *vertical_ranges_ptr.add(i);
-
-                    'line_loop: for first_range in element {
-                        let mut copy_i = i;
-                        let mut copy_next_element = &mut *vertical_ranges_ptr.add(i);
-                        let (mut start_x, mut end_x, start_y, mut end_y) = (*first_range.start(), *first_range.end(), i, i);
-
-                        //Performance of this propably SUCKS!
-                        loop {
-                            let matching_ranges: Vec<(usize, RangeInclusive<usize>)> = copy_next_element.iter()
-                                .enumerate()
-                                .filter(|(_, next)| (first_range.contains(next.start()) || next.contains(first_range.start())) && (first_range.contains(next.end()) || next.contains(first_range.end())))
-                                .map(|(id, e)| (id, e.clone()))
-                                .collect();
-                            if matching_ranges.is_empty() {
-                                //Here we continue line loop!
-                                final_changes.push((start_x..=end_x, start_y..=end_y));
-                                continue 'line_loop;
-                            }
-                            
-                            let (_, first) = matching_ranges.first().unwrap();
-                            let (_, last) = matching_ranges.last().unwrap();
-
-                            start_x = start_x.min(*first.start());
-                            end_x = end_x.max(*last.end());
-                            end_y += 1;
-                            copy_i += 1;
-
-                            if copy_i == height {
-                                //Here we continue line loop!
-                                final_changes.push((start_x..=end_x, start_y..=end_y));
-                                continue 'line_loop;
-                            }
-
-                            for (i, _) in matching_ranges.iter().rev() {
-                                copy_next_element.remove(*i); 
-                            }
-                            copy_next_element = &mut vertical_ranges[copy_i];
-                        }
-                    }
-                    element = next_element;
                 }
             }
             final_changes
         })
-        .map(|val| {
-            val.iter().fold(0usize, |acc, x| acc + (x.0.end() - x.0.start() + 1) * (x.1.end() - x.1.start() + 1))
+        .map(|e| {
+            e.iter()
+                .fold(0usize, |acc, x| acc + x.len())
         })
-        .fold(0usize, |acc, x| acc + x);
+        .fold(0usize, |acc, x| x + acc);
 
-        println!("{a}/{}", new_data.len());
+        let absolute_max = old_data.iter()
+            .take(max)
+            .zip(new_data.iter().take(max))
+            .filter(|(&a, &b)| a == b)
+            .count();
+
+        println!("{a}/{max}, absolute_max: {absolute_max}");
+}
+
+fn mutate_change_square(changes: &mut Vec<u8>, start_x: &mut usize, end_x: &mut usize, start_y: &mut usize, end_y: &mut usize, x: usize, y: usize, width: usize, height: usize) {
+    //this pixel
+     *start_x = x.min(*start_x);
+     *end_x = x.max(*end_x);
+     *start_y = y.min(*start_y);
+     *end_y = y.max(*end_y);
+
+     changes[y * width + x] = 1;
+
+    //detect left
+    if x != 0 && changes[y * width + (x - 1)] == 0 {
+        mutate_change_square(changes, start_x, end_x, start_y, end_y, x - 1, y, width, height)
+    }
+    //detect right 
+    if x + 1 != width && changes[y * width + (x + 1)] == 0 {
+        mutate_change_square(changes, start_x, end_x, start_y, end_y, x + 1, y, width, height);
+    }
+    //detect down
+    if y + 1 != height && changes[(y + 1) * width + x] == 0 {
+        mutate_change_square(changes, start_x, end_x, start_y, end_y, x, y + 1, width, height);
+    }
 }
 
 impl MinecraftMapPacket {
@@ -380,5 +372,16 @@ mod tests {
     fn do_vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
         let matching = a.iter().zip(b.iter()).filter(|&(a, b)| a == b).count();
         matching == a.len() && matching == b.len()
+    }
+
+    #[test]
+    fn test_compression() {
+        let frame = vec![12u8; 128 * 128];
+        let mut sec_frame = frame.clone();
+        sec_frame[5000..][..2224].clone_from_slice(&vec![99u8; 2224]);
+
+        let compression_range = vec![ CompressionRange { start: 0, end: frame.len(), width: 128, height: 128 }];
+
+        compress_final_data(&compression_range, &sec_frame, &frame, 128 * 128);
     }
 }
